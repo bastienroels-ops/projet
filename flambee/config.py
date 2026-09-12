@@ -32,6 +32,11 @@ for _d in (WORK_DIR, OUTPUT_DIR, MUSIC_DIR):
 FFMPEG_BIN = os.environ.get("FLAMBEE_FFMPEG", "ffmpeg")
 FFPROBE_BIN = os.environ.get("FLAMBEE_FFPROBE", "ffprobe")
 
+# Priorité de l'encodage (0 = normale, 10 = efface devant le reste). Sur une
+# machine distante, un ffmpeg qui monopolise les cœurs finit par étrangler le
+# tunnel réseau, et la page devient injoignable en plein rendu.
+FFMPEG_NICE = int(os.environ.get("FLAMBEE_NICE", "0"))
+
 
 # --- Cookies yt-dlp -------------------------------------------------------
 # YouTube/TikTok demandent parfois une connexion (« Sign in to confirm you're

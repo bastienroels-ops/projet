@@ -105,14 +105,34 @@ def wait_for_server(port: int, timeout: float = 60.0) -> bool:
     return False
 
 
+def data_dir() -> Path:
+    """Dossier des rendus et fichiers de travail, hors du dossier cloné.
+
+    Relancer la cellule efface le clone : y laisser les vidéos produites
+    reviendrait à les perdre au premier redémarrage.
+    """
+    base = Path("/content") if Path("/content").is_dir() else ROOT
+    folder = base / "flambee-data"
+    (folder / "output").mkdir(parents=True, exist_ok=True)
+    (folder / "work").mkdir(parents=True, exist_ok=True)
+    (folder / "music").mkdir(parents=True, exist_ok=True)
+    return folder
+
+
 def start_server(
     port: int,
     password: str,
     username: str,
     anthropic_key: str = "",
 ) -> subprocess.Popen:
+    data = data_dir()
     environment = {
         **os.environ,
+        "FLAMBEE_OUTPUT_DIR": str(data / "output"),
+        "FLAMBEE_WORK_DIR": str(data / "work"),
+        # Encodage en priorité basse : sinon ffmpeg monopolise les deux cœurs
+        # de la machine et le tunnel finit par tomber en plein rendu.
+        "FLAMBEE_NICE": os.environ.get("FLAMBEE_NICE", "10"),
         "FLAMBEE_PASSWORD": password,
         "FLAMBEE_USERNAME": username,
         "FLAMBEE_HOST": "127.0.0.1",
@@ -241,18 +261,39 @@ def start_all(
         return server, None, None, password
 
 
-def keep_alive(server: subprocess.Popen, tunnel: subprocess.Popen | None) -> None:
-    """Maintient la cellule active tant que le serveur tourne."""
+def keep_alive(
+    server: subprocess.Popen,
+    tunnel: subprocess.Popen | None,
+    *,
+    port: int = 8000,
+    username: str = "flambee",
+    password: str = "",
+) -> None:
+    """Maintient la cellule active et remet le tunnel debout s'il tombe.
+
+    Un encodage long sature la machine : le tunnel peut perdre sa liaison avec
+    Cloudflare (erreurs 530/1033 dans le navigateur). Le rendu, lui, continue
+    côté serveur — il suffit de rouvrir un tunnel et de reprendre.
+    """
+    binary = ROOT / "colab" / "cloudflared"
     try:
         while True:
-            time.sleep(30)
+            time.sleep(20)
             if server.poll() is not None:
                 log("❌ Le serveur s'est arrêté. Relance la cellule.")
                 return
             if tunnel is not None and tunnel.poll() is not None:
-                log("⚠️  Le tunnel s'est interrompu. Relance la cellule pour "
-                    "obtenir une nouvelle adresse.")
-                tunnel = None
+                log("⚠️  Tunnel interrompu (l'encodage a saturé la machine). "
+                    "Réouverture…")
+                try:
+                    tunnel, url = start_tunnel(binary, port)
+                    log(banner(url, username, password))
+                    log("  ⚠️  L'adresse a changé : utilise la nouvelle "
+                        "ci-dessus. Ton travail en cours est intact.\n")
+                except RuntimeError as exc:
+                    log(f"⚠️  Réouverture impossible ({exc}). "
+                        "Utilise le lien de secours Colab.")
+                    tunnel = None
     except KeyboardInterrupt:
         for process in (tunnel, server):
             if process is not None and process.poll() is None:
@@ -314,7 +355,8 @@ def main() -> int:
 
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
-    keep_alive(server, tunnel)
+    keep_alive(server, tunnel, port=args.port, username=args.username,
+               password=password)
     return 0
 
 

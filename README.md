@@ -65,6 +65,12 @@ Le carnet :
 Limites à garder en tête :
 
 - l'onglet Colab doit rester ouvert, c'est lui qui fait tourner le serveur ;
+- **une erreur 530 ou 1033 dans Safari vient du tunnel, pas du rendu** :
+  l'encodage sature la machine et la liaison Cloudflare lâche. Le carnet
+  rouvre alors un tunnel et affiche la nouvelle adresse ; la page prévient et
+  reprend d'elle-même dès que le serveur répond. Les vidéos produites sont
+  écrites dans `/content/flambee-data`, hors du dossier cloné, et survivent
+  donc à une relance de la cellule ;
 - Google reprend la machine après quelques heures : **télécharger la vidéo
   avant la fin de la session** ;
 - depuis une IP Google, les plateformes bloquent presque toujours yt-dlp :
@@ -206,6 +212,7 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | `FLAMBEE_PASSWORD` | — | protège l'accès (obligatoire dès que l'app sort de la machine) |
 | `FLAMBEE_USERNAME` | `flambee` | identifiant associé au mot de passe |
 | `FLAMBEE_MAX_UPLOAD_MB` | `600` | taille maximale d'une vidéo importée |
+| `FLAMBEE_NICE` | `0` | priorité de l'encodage (`10` sur une machine distante, pour ne pas étrangler le réseau) |
 | `FLAMBEE_OUTPUT_DIR` | `./output` | dossier des rendus |
 | `FLAMBEE_WORK_DIR` | `./work` | fichiers de travail |
 | `FLAMBEE_MIN_DURATION` | `45` | seuil d'avertissement sur les sources |

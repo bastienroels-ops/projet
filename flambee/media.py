@@ -45,6 +45,12 @@ def ensure_tools() -> list[str]:
     return missing
 
 
+def _lower_priority() -> None:
+    """Abaisse la priorité du processus enfant (voir config.FFMPEG_NICE)."""
+    if config.FFMPEG_NICE:
+        os.nice(config.FFMPEG_NICE)
+
+
 def run(
     args: list[str],
     *,
@@ -59,7 +65,8 @@ def run(
     """
     log.debug("run: %s", " ".join(args))
     proc = subprocess.run(
-        args, capture_output=True, text=True, timeout=timeout, check=False
+        args, capture_output=True, text=True, timeout=timeout, check=False,
+        preexec_fn=_lower_priority if config.FFMPEG_NICE else None,
     )
     if capture_stderr and proc.returncode != 0 and (proc.stderr or "").strip():
         return proc
@@ -349,7 +356,8 @@ def ffmpeg_progress(
     ]
     log.debug("ffmpeg: %s", " ".join(command))
     proc = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1,
+        preexec_fn=_lower_priority if config.FFMPEG_NICE else None,
     )
 
     deadline = time.monotonic() + timeout if timeout else None

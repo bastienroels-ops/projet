@@ -252,15 +252,22 @@ function updateScriptMeta(project) {
 }
 
 /* --------------------------------------------------------- Polling ----- */
+/* Le serveur peut devenir injoignable un moment (tunnel qui tombe pendant un
+   encodage, Wi-Fi qui saute) alors que le rendu, lui, continue. On ne coupe
+   donc pas le suivi à la première erreur : on prévient, et on réessaie. */
 function startPolling() {
   stopPolling();
   const startedAt = Date.now();
+  let echecs = 0;
+
   state.poll = setInterval(async () => {
     if (!state.project) return;
     try {
       const project = await api(`/api/projects/${state.project.id}`);
       const wasRunning = state.project.job.state === "running";
+      if (echecs) { echecs = 0; alertBox(""); }
       applyProject(project);
+
       // Une tâche qui n'a pas encore démarré ne doit pas interrompre le suivi.
       if (project.job.state !== "running" && Date.now() - startedAt > 2500) {
         stopPolling();
@@ -272,8 +279,21 @@ function startPolling() {
           showStep(5);
         }
       }
-    } catch (err) { console.error(err); }
-  }, 1200);
+    } catch (err) {
+      echecs += 1;
+      console.error(err);
+      if (echecs === 3) {
+        alertBox("Connexion au serveur perdue — le rendu continue de son côté. "
+          + "Nouvelle tentative en cours…\nSi ça dure, retourne sur l'onglet "
+          + "Colab : une nouvelle adresse y est peut-être affichée.");
+      }
+      if (echecs > 60) {          // ~2 min sans réponse : on cesse d'insister
+        stopPolling();
+        alertBox("Serveur injoignable. Reviens sur l'onglet Colab pour "
+          + "récupérer la nouvelle adresse, puis recharge cette page.");
+      }
+    }
+  }, 2000);
 }
 
 function stopPolling() {

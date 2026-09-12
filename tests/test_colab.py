@@ -136,3 +136,60 @@ def test_cle_api_transmise_au_serveur(monkeypatch):
 
     launch.start_server(8000, "mdp", "flambee", "   ")
     assert "ANTHROPIC_API_KEY" not in captured["env"]
+
+
+def test_les_rendus_vivent_hors_du_dossier_clone(monkeypatch):
+    """Relancer la cellule efface le clone : les vidéos doivent être ailleurs."""
+    captured: dict = {}
+
+    class FauxProcessus:
+        def __init__(self, commande, **kwargs):
+            captured["env"] = kwargs.get("env", {})
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(launch.subprocess, "Popen", FauxProcessus)
+    launch.start_server(8000, "mdp", "flambee")
+
+    sortie = Path(captured["env"]["FLAMBEE_OUTPUT_DIR"])
+    travail = Path(captured["env"]["FLAMBEE_WORK_DIR"])
+    assert "flambee-data" in sortie.parts and sortie.exists()
+    assert "flambee-data" in travail.parts
+    # L'encodage tourne en priorité basse pour ne pas étrangler le tunnel.
+    assert int(captured["env"]["FLAMBEE_NICE"]) > 0
+
+
+def test_le_tunnel_est_rouvert_sil_tombe(monkeypatch, capsys):
+    """Un encodage peut faire tomber le tunnel ; le rendu, lui, continue."""
+    appels: list[int] = []
+
+    class Serveur:
+        def __init__(self):
+            self.restant = 2
+
+        def poll(self):
+            self.restant -= 1
+            return None if self.restant > 0 else 0   # s'arrête au 2e tour
+
+    class TunnelMort:
+        def poll(self):
+            return 1
+
+    class TunnelNeuf:
+        def poll(self):
+            return None
+
+    def faux_tunnel(binaire, port, **_):
+        appels.append(port)
+        return TunnelNeuf(), "https://nouvelle-adresse.trycloudflare.com"
+
+    monkeypatch.setattr(launch.time, "sleep", lambda _: None)
+    monkeypatch.setattr(launch, "start_tunnel", faux_tunnel)
+
+    launch.keep_alive(Serveur(), TunnelMort(), port=8000, password="mdp")
+
+    assert appels == [8000], "le tunnel n'a pas été rouvert"
+    sortie = capsys.readouterr().out
+    assert "https://nouvelle-adresse.trycloudflare.com" in sortie
+    assert "adresse a changé" in sortie
