@@ -40,7 +40,39 @@ uvicorn flambee.app:app --host 127.0.0.1 --port 8000
 Puis ouvre <http://127.0.0.1:8000>. Le bandeau du haut indique si `ffmpeg`, `yt-dlp`
 et la clé API sont détectés.
 
-## Sans ordinateur : héberger Flambée
+## Sans ordinateur : Flambée sur Google Colab
+
+Le carnet [`colab/Flambee.ipynb`](colab/Flambee.ipynb) installe et démarre tout
+sur une machine Google gratuite, et affiche une adresse HTTPS à ouvrir dans
+Safari. Une seule cellule à lancer.
+
+```
+https://colab.research.google.com/github/bastienroels-ops/projet/blob/claude/fastapi-viral-video-montage-e9x7i8/colab/Flambee.ipynb
+```
+
+Si ce lien direct ne s'ouvre pas (le nom de branche contient une barre
+oblique) : ouvrir [colab.research.google.com](https://colab.research.google.com)
+→ *Ouvrir un notebook* → onglet **GitHub** → coller `bastienroels-ops/projet`
+→ choisir `colab/Flambee.ipynb`.
+
+Le carnet :
+
+- récupère le code, installe les dépendances, démarre le serveur ;
+- ouvre un tunnel HTTPS Cloudflare (gratuit, sans compte) et affiche l'adresse,
+  l'identifiant et un mot de passe engendré ;
+- affiche aussi le lien de secours propre à Colab, qui ne dépend d'aucun tunnel.
+
+Limites à garder en tête :
+
+- l'onglet Colab doit rester ouvert, c'est lui qui fait tourner le serveur ;
+- Google reprend la machine après quelques heures : **télécharger la vidéo
+  avant la fin de la session** ;
+- depuis une IP Google, les plateformes bloquent presque toujours yt-dlp :
+  passer par l'import de fichiers (voir ci-dessous) ;
+- l'encodage est plus lent que sur une machine dédiée : utiliser l'aperçu 540p
+  pour itérer.
+
+## Sans ordinateur : héberger Flambée soi-même
 
 Flambée a besoin de Python, ffmpeg et yt-dlp : elle ne tourne pas sur iOS. Si tu
 n'as pas de machine, elle peut vivre sur un petit serveur que tu pilotes depuis
@@ -143,6 +175,7 @@ flambee/
   analyzer.py     détection des plans + score d'accroche
   downloader.py   étape 1 — wrapper yt-dlp
   auth.py         mot de passe optionnel (HTTP Basic)
+colab/            carnet Colab + lanceur (serveur derrière un tunnel HTTPS)
   trimmer.py      étape 2 — hooks + planification/découpe des extraits
   scriptgen.py    étape 4 — API Claude (+ mode manuel)
   voice.py        étape 5 — edge-tts et minutage mot à mot
