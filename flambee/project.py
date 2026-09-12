@@ -50,6 +50,7 @@ class Project:
     voice_path: str = ""
     voice_duration: float = 0.0
     voice_signature: str = ""
+    voice_lead_in: float = 0.0
     voice_words: list[dict] = field(default_factory=list)
     subtitle_path: str = ""
     output_path: str = ""
@@ -111,6 +112,7 @@ class Project:
             "voice_path": self.voice_path,
             "voice_duration": self.voice_duration,
             "voice_signature": self.voice_signature,
+            "voice_lead_in": self.voice_lead_in,
             "voice_words": self.voice_words,
             "subtitle_path": self.subtitle_path,
             "output_path": self.output_path,
@@ -133,6 +135,7 @@ class Project:
             voice_path=data.get("voice_path", ""),
             voice_duration=data.get("voice_duration", 0.0),
             voice_signature=data.get("voice_signature", ""),
+            voice_lead_in=data.get("voice_lead_in", 0.0),
             voice_words=data.get("voice_words", []),
             subtitle_path=data.get("subtitle_path", ""),
             output_path=data.get("output_path", ""),

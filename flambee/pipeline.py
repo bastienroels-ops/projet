@@ -249,6 +249,7 @@ def run_render(project: Project, *, fast: bool = False) -> None:
                 track.words,
                 project.dir / "subtitles.ass",
                 style=config.subtitle_style(settings.subtitle_preset),
+                offset=track.lead_in,
                 max_duration=target_duration,
             ))
         else:
@@ -396,6 +397,7 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
             duration=project.voice_duration,
             words=[voice.Word(**word) for word in project.voice_words],
             voice=project.settings.voice,
+            lead_in=project.voice_lead_in,
         )
 
     if cached_only:
@@ -411,6 +413,7 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
     )
     project.voice_signature = signature
     project.voice_words = [word.to_dict() for word in track.words]
+    project.voice_lead_in = track.lead_in
     return track
 
 

@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from . import config
-from .media import MediaError, probe
+from .media import MediaError, probe, run
 
 log = logging.getLogger(__name__)
 
@@ -41,12 +41,14 @@ class VoiceTrack:
     duration: float
     words: list[Word]
     voice: str
+    lead_in: float = 0.0     # silence avant le premier mot, en secondes
 
     def to_dict(self) -> dict:
         return {
             "path": self.path,
             "duration": self.duration,
             "voice": self.voice,
+            "lead_in": self.lead_in,
             "words": [w.to_dict() for w in self.words],
         }
 
@@ -63,6 +65,33 @@ def clean_script(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n", text)
     return text.strip()
+
+
+def measure_lead_in(path: Path, *, limit: float = 2.0) -> float:
+    """Mesure le silence qui précède le premier mot dans le fichier audio.
+
+    edge-tts place son premier `WordBoundary` à 0,000 s alors que l'audio
+    commence par un court silence : sans correction, tous les sous-titres
+    passent en avance de cette durée.
+    """
+    from . import config
+
+    try:
+        proc = run([
+            config.FFMPEG_BIN, "-hide_banner", "-nostdin", "-i", str(path),
+            "-af", "silencedetect=noise=-40dB:d=0.05", "-vn", "-f", "null", "-",
+        ], timeout=120, capture_stderr=True)
+    except MediaError as exc:
+        log.debug("Mesure du silence initial impossible : %s", exc)
+        return 0.0
+
+    sortie = proc.stderr or ""
+    # Un silence initial se reconnaît à son `silence_start` proche de zéro.
+    debut = re.search(r"silence_start:\s*(-?[0-9.]+)", sortie)
+    fin = re.search(r"silence_end:\s*([0-9.]+)", sortie)
+    if not debut or not fin or float(debut.group(1)) > 0.05:
+        return 0.0
+    return max(0.0, min(limit, float(fin.group(1))))
 
 
 async def list_voices(language: str = "fr") -> list[dict[str, str]]:
@@ -132,7 +161,12 @@ async def synthesize_async(
     if not words:
         words = _estimate_words(cleaned, duration)
 
-    return VoiceTrack(path=str(out_path), duration=duration, words=words, voice=voice)
+    lead_in = measure_lead_in(out_path)
+    if lead_in:
+        log.info("Silence initial de %.3f s : sous-titres recalés d'autant.", lead_in)
+
+    return VoiceTrack(path=str(out_path), duration=duration, words=words,
+                      voice=voice, lead_in=lead_in)
 
 
 def synthesize(text: str, out_path: Path, **kwargs) -> VoiceTrack:

@@ -244,3 +244,58 @@ def test_ass_declare_les_dix_champs_de_dialogue():
         payload = line.split(",", 9)[9]          # le champ Text
         assert not payload.lstrip("{").startswith(",")
         assert payload.startswith("{")           # commence par les balises de style
+
+
+# --- Synchronisation des sous-titres --------------------------------------
+def test_silence_initial_mesure(tmp_path):
+    """edge-tts démarre son minutage au premier mot, pas au début du fichier."""
+    from flambee.voice import measure_lead_in
+
+    avec_silence = tmp_path / "avec.m4a"
+    # `-t` doit précéder son `-i` : placé après, il borne l'entrée suivante et
+    # anullsrc, infini, fait alors tourner ffmpeg sans fin.
+    media.ffmpeg([
+        "-f", "lavfi", "-t", "0.5", "-i", "anullsrc=r=48000:cl=mono",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=1.5",
+        "-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[a]", "-map", "[a]",
+        "-c:a", "aac", str(avec_silence),
+    ])
+    assert measure_lead_in(avec_silence) == pytest.approx(0.5, abs=0.1)
+
+    sans_silence = tmp_path / "sans.m4a"
+    media.ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:duration=1.5",
+                  "-c:a", "aac", str(sans_silence)])
+    assert measure_lead_in(sans_silence) == pytest.approx(0.0, abs=0.05)
+
+
+def test_recalage_decale_tous_les_sous_titres():
+    """Le décalage s'applique à l'ensemble des évènements, pas au premier seul."""
+    words = _estimate_words("un deux trois quatre cinq six sept huit", 8)
+    sans = subtitles.build_ass(words)
+    avec = subtitles.build_ass(words, offset=0.25)
+
+    def debuts(contenu):
+        return [ligne.split(",")[1] for ligne in contenu.splitlines()
+                if ligne.startswith("Dialogue")]
+
+    a, b = debuts(sans), debuts(avec)
+    assert len(a) == len(b) and a[0] < b[0] and a[-1] < b[-1]
+    assert b[0] == "0:00:00.25"
+
+
+def test_la_voix_en_cache_conserve_le_recalage(tmp_path, monkeypatch):
+    """Un rendu final qui suit un aperçu doit rester aussi bien synchronisé."""
+    from flambee import pipeline
+    from flambee.project import Project
+
+    projet = Project()
+    monkeypatch.setattr(type(projet), "dir", property(lambda self: tmp_path))
+    projet.script = "Bonjour tout le monde."
+    projet.voice_signature = pipeline._voice_signature(projet)
+    projet.voice_words = [{"text": "Bonjour", "start": 0.0, "end": 0.5}]
+    projet.voice_duration = 1.0
+    projet.voice_lead_in = 0.21
+    (tmp_path / "voice.mp3").write_bytes(b"factice")
+
+    piste = pipeline._voice_track(projet)
+    assert piste.lead_in == 0.21

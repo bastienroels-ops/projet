@@ -147,6 +147,10 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 - Les **sous-titres** utilisent les évènements `WordBoundary` d'edge-tts : pas de
   transcription, un calage au mot exact, rendu façon TikTok (ligne complète, mot
   actif surligné, léger « pop » en début de ligne). Trois styles au choix.
+  edge-tts place son premier mot à 0,000 s alors que l'audio commence par un
+  court silence : celui-ci est mesuré (`voice.measure_lead_in`) et les
+  sous-titres sont décalés d'autant, sans quoi tout le texte passe en avance
+  d'environ deux dixièmes de seconde.
 - L'**accroche recommandée** est celle qui combine le plus de mouvement,
   d'énergie sonore et de vues sur ses 3 premières secondes.
 - Le **son** est traité comme sur une vraie vidéo virale : voix normalisée en
