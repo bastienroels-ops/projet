@@ -182,8 +182,11 @@ def test_message_derreur_yt_dlp_donne_une_piste():
 def test_presets_de_sous_titres(client):
     body = client.get("/api/presets").json()
     ids = {p["id"] for p in body["subtitles"]}
-    assert {"punch", "classique", "neon"} <= ids
+    assert {"punch", "impact", "neon", "studio", "signature", "minimal"} <= ids
     assert body["default"] in ids
+    # Chaque style s'accompagne d'un nom et d'une description pour l'interface.
+    for preset in body["subtitles"]:
+        assert preset["label"] and preset["description"]
 
 
 def test_preset_inconnu_retombe_sur_le_defaut(client):

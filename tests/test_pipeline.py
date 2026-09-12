@@ -242,8 +242,9 @@ def test_ass_declare_les_dix_champs_de_dialogue():
     assert dialogues
     for line in dialogues:
         payload = line.split(",", 9)[9]          # le champ Text
-        assert not payload.lstrip("{").startswith(",")
-        assert payload.startswith("{")           # commence par les balises de style
+        assert payload and not payload.startswith(",")
+    # Le premier évènement porte les balises de style (fondu, animation).
+    assert dialogues[0].split(",", 9)[9].startswith("{")
 
 
 # --- Synchronisation des sous-titres --------------------------------------

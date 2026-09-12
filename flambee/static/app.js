@@ -4,6 +4,7 @@ const state = {
   project: null,
   step: 1,
   poll: null,
+  presets: [],
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -144,6 +145,8 @@ function renderSettings(settings) {
   $("#mask_height_ratio").value = Math.round(settings.mask_height_ratio * 100);
   $("#mask_height_ratio_v").textContent = `${Math.round(settings.mask_height_ratio * 100)}%`;
   $("#mask-options").classList.toggle("hidden", !settings.mask_source_subtitles);
+  $$('input[type="range"]').forEach(paintRange);
+  describePreset();
 }
 
 function renderRecap(project) {
@@ -342,9 +345,25 @@ async function loadVoices() {
 
 async function loadPresets() {
   const { subtitles, default: def } = await api("/api/presets");
+  state.presets = subtitles;
   $("#subtitle_preset").innerHTML = subtitles
     .map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join("");
   $("#subtitle_preset").value = def;
+  describePreset();
+}
+
+/* Chaque style de sous-titres s'explique en une ligne, sous le menu. */
+function describePreset() {
+  const choisi = state.presets.find((p) => p.id === $("#subtitle_preset").value);
+  $("#preset-description").textContent = choisi ? choisi.description : "";
+}
+
+/* La piste du curseur se remplit jusqu'à la valeur choisie. */
+function paintRange(input) {
+  const min = +input.min || 0;
+  const max = +input.max || 100;
+  const part = ((+input.value - min) / (max - min)) * 100;
+  input.style.backgroundSize = `${part}% 100%`;
 }
 
 async function loadMusic() {
@@ -449,10 +468,13 @@ function bind() {
 
   $("#music_volume").addEventListener("input", (e) => {
     $("#music_volume_v").textContent = `${e.target.value}%`;
+    paintRange(e.target);
   });
   $("#mask_height_ratio").addEventListener("input", (e) => {
     $("#mask_height_ratio_v").textContent = `${e.target.value}%`;
+    paintRange(e.target);
   });
+  $("#subtitle_preset").addEventListener("change", describePreset);
   $("#mask_source_subtitles").addEventListener("change", (e) => {
     $("#mask-options").classList.toggle("hidden", !e.target.checked);
   });

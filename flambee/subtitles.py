@@ -25,7 +25,7 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Flambee,{font},{size},{primary},{highlight},{outline_color},&H64000000,-1,0,0,0,100,100,0,0,1,{outline},{shadow},2,60,60,{margin_v},1
+Style: Flambee,{font},{size},{primary},{highlight},{outline_color},{back},{bold},0,0,0,100,100,{spacing},0,{border_style},{outline},{shadow},2,60,60,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -141,11 +141,15 @@ def build_ass(
         height=fmt.height,
         font=style.font,
         size=style.font_size,
+        bold=style.bold,
         primary=style.primary_color,
         highlight=style.highlight_color,
         outline_color=style.outline_color,
+        back=style.back_color,
+        border_style=style.border_style,
         outline=style.outline,
         shadow=style.shadow,
+        spacing=style.spacing,
         margin_v=style.margin_v,
     )
 
@@ -167,10 +171,13 @@ def build_ass(
         if line_end <= line_start:
             continue
 
+        glow = f"\\blur{style.glow}" if style.glow else ""
+
         if not style.animate:
-            events.append(
-                _dialogue(line_start, line_end, r"{\fad(80,80)}" + _escape(line.text))
-            )
+            events.append(_dialogue(
+                line_start, line_end,
+                "{\\fad(120,120)" + glow + "}" + _escape(_case(line.text, style)),
+            ))
             continue
 
         for position, word in enumerate(line.words):
@@ -187,22 +194,33 @@ def build_ass(
 
             pieces = []
             for other, item in enumerate(line.words):
-                token = _escape(item.text)
+                token = _escape(_case(item.text, style))
                 if other == position:
-                    pieces.append(f"{{\\1c{highlight}}}{token}{{\\1c{normal}}}")
+                    grossi = style.highlight_scale
+                    échelle = (f"\\fscx{grossi}\\fscy{grossi}" if grossi != 100 else "")
+                    pieces.append(
+                        f"{{\\1c{highlight}{échelle}}}{token}"
+                        f"{{\\1c{normal}\\fscx100\\fscy100}}"
+                    )
                 else:
                     pieces.append(token)
             text = " ".join(pieces)
 
-            # Pop uniquement sur le premier mot : l'effet reste lisible.
+            # Pop uniquement sur le premier mot de la ligne : l'effet reste lisible.
             prefix = (
-                r"{\fad(60,0)\t(0,110,\fscx108\fscy108)\t(110,200,\fscx100\fscy100)}"
+                "{\\fad(60,0)" + glow
+                + "\\t(0,110,\\fscx106\\fscy106)\\t(110,200,\\fscx100\\fscy100)}"
                 if position == 0
-                else r"{\fscx100\fscy100}"
+                else "{" + glow + "}" if glow else ""
             )
             events.append(_dialogue(start, end, prefix + text))
 
     return header + "\n".join(events) + "\n"
+
+
+def _case(text: str, style: config.SubtitleStyle) -> str:
+    """Applique la casse du style (certains rendus vivent en capitales)."""
+    return text.upper() if style.uppercase else text
 
 
 def _dialogue(start: float, end: float, text: str) -> str:

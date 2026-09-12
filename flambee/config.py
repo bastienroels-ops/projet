@@ -113,40 +113,82 @@ DEFAULT_VOICE = "fr-FR-DeniseNeural"
 
 
 # --- Style des sous-titres ------------------------------------------------
+FONTS_DIR = ASSETS_DIR / "fonts"
+
+
 @dataclass
 class SubtitleStyle:
-    font: str = "Arial Black"
+    """Un style de sous-titres complet, traduit en en-tête ASS."""
+
+    label: str = "Punch"
+    description: str = ""
+    font: str = "Archivo Black"
     font_size: int = 84
+    bold: int = 0                          # 0 : la police est déjà grasse
     primary_color: str = "&H00FFFFFF"      # blanc (ABGR)
-    highlight_color: str = "&H0000E5FF"    # jaune/orange sur le mot actif
+    highlight_color: str = "&H0000D7FF"    # ambre sur le mot prononcé
     outline_color: str = "&H00000000"      # contour noir
+    back_color: str = "&H64000000"         # fond (utile si border_style=3)
+    border_style: int = 1                  # 1 = contour, 3 = bandeau plein
     outline: int = 6
     shadow: int = 2
-    margin_v: int = 420                    # remonte le texte au-dessus du bas
+    spacing: int = 0                       # interlettrage
+    margin_v: int = 420                    # hauteur au-dessus du bas de l'image
     max_chars_per_line: int = 22
     max_words_per_line: int = 4
-    animate: bool = True                   # effet "pop" sur chaque groupe
+    animate: bool = True                   # effet « pop » sur chaque ligne
+    uppercase: bool = False
+    glow: int = 0                          # flou du contour (effet néon)
+    highlight_scale: int = 100             # grossissement du mot actif, en %
 
 
-SUBTITLE_STYLE = SubtitleStyle()
-
-# Trois rendus prêts à l'emploi, choisis à l'étape 3.
+# Six rendus prêts à l'emploi, du plus viral au plus sobre.
 SUBTITLE_PRESETS: dict[str, SubtitleStyle] = {
-    # Le style « TikTok » : gros, mot actif en jaune, petit pop à chaque ligne.
-    "punch": SubtitleStyle(),
-    # Sobre : une ligne blanche, sans surlignage ni animation.
-    "classique": SubtitleStyle(
-        font="Arial", font_size=68, highlight_color="&H00FFFFFF",
-        outline=4, margin_v=340, max_chars_per_line=28,
-        max_words_per_line=6, animate=False,
+    "punch": SubtitleStyle(
+        label="Punch",
+        description="Le classique des vidéos virales : gros, blanc, mot actif ambre.",
+        font_size=92, outline=7, highlight_scale=104,
     ),
-    # Saturé : très gros, contour épais, mot actif cyan.
+    "impact": SubtitleStyle(
+        label="Impact",
+        description="Capitales condensées et serrées, pour un ton affirmé.",
+        font="Anton", font_size=104, uppercase=True, outline=7, shadow=0,
+        highlight_color="&H004080FF", max_chars_per_line=18,
+        max_words_per_line=3, highlight_scale=106, margin_v=440,
+    ),
     "neon": SubtitleStyle(
-        font_size=96, highlight_color="&H00F0FF00", outline=8, shadow=0,
-        margin_v=520, max_chars_per_line=16, max_words_per_line=3,
+        label="Néon",
+        description="Halo lumineux sur le mot prononcé, ambiance nocturne.",
+        font="Archivo Black", font_size=88, outline=5, shadow=0, glow=6,
+        highlight_color="&H00F5FF00", outline_color="&H00902000",
+        max_chars_per_line=18, max_words_per_line=3, margin_v=470,
+    ),
+    "studio": SubtitleStyle(
+        label="Studio",
+        description="Texte posé sur un bandeau sombre : lisible sur toute image.",
+        font="Archivo Black", font_size=70, border_style=3, outline=18, shadow=0,
+        back_color="&HB4000000", outline_color="&HB4000000",
+        highlight_color="&H0000D7FF", max_chars_per_line=26,
+        max_words_per_line=5, margin_v=360,
+    ),
+    "signature": SubtitleStyle(
+        label="Signature",
+        description="Serif haut de gamme, or discret, rythme posé.",
+        font="Playfair Display", font_size=88, bold=0, outline=4, shadow=5,
+        primary_color="&H00F2F6FA", highlight_color="&H0078C0F0",
+        spacing=2, max_chars_per_line=24, max_words_per_line=4,
+        margin_v=360, highlight_scale=100,
+    ),
+    "minimal": SubtitleStyle(
+        label="Minimal",
+        description="Capitales fines et espacées, sans animation.",
+        font="Bebas Neue", font_size=76, outline=3, shadow=1, spacing=4,
+        uppercase=True, animate=False, highlight_color="&H00FFFFFF",
+        max_chars_per_line=30, max_words_per_line=6, margin_v=300,
     ),
 }
 DEFAULT_SUBTITLE_PRESET = "punch"
+SUBTITLE_STYLE = SUBTITLE_PRESETS[DEFAULT_SUBTITLE_PRESET]
 
 
 def subtitle_style(preset: str | None) -> SubtitleStyle:

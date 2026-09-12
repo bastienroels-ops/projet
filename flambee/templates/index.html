@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0f1115">
+  <meta name="theme-color" content="#08090c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Flambée">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Flambée — montage vidéo viral</title>
+  <meta name="description" content="Transforme plusieurs vidéos sources en une vidéo verticale prête à publier.">
+  <title>Flambée — l'atelier des vidéos qui prennent</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
 </head>
@@ -19,11 +20,11 @@
 
 <main>
   <nav class="steps" id="steps">
-    <button class="step" data-step="1"><b>1</b> Sources</button>
-    <button class="step" data-step="2"><b>2</b> Accroche</button>
-    <button class="step" data-step="3"><b>3</b> Style</button>
-    <button class="step" data-step="4"><b>4</b> Script</button>
-    <button class="step" data-step="5"><b>5</b> Rendu</button>
+    <button class="step" data-step="1"><b>1</b><span>Sources</span></button>
+    <button class="step" data-step="2"><b>2</b><span>Accroche</span></button>
+    <button class="step" data-step="3"><b>3</b><span>Style</span></button>
+    <button class="step" data-step="4"><b>4</b><span>Script</span></button>
+    <button class="step" data-step="5"><b>5</b><span>Rendu</span></button>
   </nav>
 
   <div id="job" class="job hidden">
@@ -37,9 +38,13 @@
 
   <!-- Étape 1 ---------------------------------------------------------- -->
   <section class="panel" data-panel="1">
-    <h2>Coller les liens sources</h2>
-    <p class="hint">De {{ min_sources }} à {{ max_sources }} liens TikTok ou YouTube Shorts sur une même thématique, un par ligne.</p>
-    <textarea id="urls" rows="6" spellcheck="false"
+    <p class="eyebrow">Étape 1 — La matière</p>
+    <h2>Tout commence par <em>trois bonnes vidéos</em>.</h2>
+    <p class="hint">De {{ min_sources }} à {{ max_sources }} liens TikTok ou YouTube Shorts
+      sur une même thématique, un par ligne. Flambée en tire un montage vertical,
+      une voix et des sous-titres.</p>
+
+    <textarea id="urls" rows="5" spellcheck="false"
       placeholder="https://www.tiktok.com/@compte/video/123...&#10;https://www.youtube.com/shorts/abc..."></textarea>
     <div class="row">
       <button class="primary" id="btn-download">Télécharger les vidéos</button>
@@ -48,8 +53,8 @@
 
     <div class="separator"><span>ou</span></div>
 
-    <p class="hint">Importe des vidéos déjà enregistrées sur l'appareil (pellicule,
-      Fichiers). Indispensable si la plateforme refuse le téléchargement.</p>
+    <p class="hint">Importe des vidéos déjà enregistrées sur l'appareil. Indispensable
+      si la plateforme refuse le téléchargement.</p>
     <div class="row">
       <label class="button ghost file-button">
         Choisir des vidéos
@@ -58,92 +63,112 @@
       <button class="primary hidden" id="btn-upload">Importer</button>
     </div>
     <p class="hint" id="upload-list"></p>
+
     <div id="sources-list" class="sources"></div>
-    <p class="legal">Usage strictement personnel. Le téléchargement de vidéos TikTok/YouTube contrevient aux CGU de ces plateformes : ne republie pas les sources telles quelles, ne partage pas l'outil.</p>
+    <p class="legal">Usage strictement personnel. Le téléchargement de vidéos
+      TikTok/YouTube contrevient aux CGU de ces plateformes : ne republie pas les
+      sources telles quelles, ne partage pas l'outil.</p>
   </section>
 
   <!-- Étape 2 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="2">
-    <h2>Choisir l'accroche</h2>
-    <p class="hint">Les 3 premières secondes de chaque vidéo, classées par impact (mouvement, énergie sonore, vues). Clique sur celle qui ouvrira ton montage.</p>
+    <p class="eyebrow">Étape 2 — La première seconde</p>
+    <h2>C'est l'accroche qui <em>décide de tout</em>.</h2>
+    <p class="hint">Les trois premières secondes de chaque vidéo, classées par impact :
+      mouvement, énergie sonore, popularité. Choisis celle qui ouvrira ton montage.</p>
     <div id="hooks" class="hooks"></div>
     <div class="row"><button class="primary" id="btn-hook-next" disabled>Valider l'accroche</button></div>
   </section>
 
   <!-- Étape 3 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="3">
-    <h2>Personnaliser le style</h2>
+    <p class="eyebrow">Étape 3 — La signature</p>
+    <h2>Ta voix, <em>ton style</em>.</h2>
+    <p class="hint">Ces réglages donnent son caractère à la vidéo. Ils se modifient
+      à tout moment, avant chaque rendu.</p>
+
     <div class="grid">
-      <label>Voix off
-        <select id="voice"></select>
-      </label>
-      <label>Débit
+      <label><span>Voix off</span><select id="voice"></select></label>
+      <label><span>Débit</span>
         <select id="voice_rate">
-          <option value="-10%">Posé (-10%)</option>
+          <option value="-10%">Posé</option>
           <option value="+0%" selected>Normal</option>
-          <option value="+10%">Rapide (+10%)</option>
-          <option value="+20%">Très rapide (+20%)</option>
+          <option value="+10%">Rapide</option>
+          <option value="+20%">Très rapide</option>
         </select>
       </label>
-      <label>Musique de fond
+      <label><span>Musique de fond</span>
         <select id="music"><option value="">Aucune</option></select>
       </label>
-      <label>Style des sous-titres
-        <select id="subtitle_preset"></select>
-      </label>
-      <label>Volume musique <span class="value" id="music_volume_v">12%</span>
+      <label><span>Style des sous-titres</span><select id="subtitle_preset"></select></label>
+    </div>
+    <p class="hint" id="preset-description"></p>
+
+    <div class="grid">
+      <label><span>Volume musique <b class="value" id="music_volume_v">12%</b></span>
         <input type="range" id="music_volume" min="0" max="40" value="12">
       </label>
     </div>
+
     <div class="checks">
       <label><input type="checkbox" id="subtitles" checked> Sous-titres animés</label>
-      <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
-      <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
       <label><input type="checkbox" id="motion" checked> Léger travelling sur chaque plan</label>
       <label><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
+      <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
+      <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
     </div>
+
     <div class="grid" id="mask-options">
-      <label>Type de masque
+      <label><span>Type de masque</span>
         <select id="mask_mode"><option value="blur">Flou</option><option value="black">Bandeau noir</option></select>
       </label>
-      <label>Hauteur masquée <span class="value" id="mask_height_ratio_v">22%</span>
+      <label><span>Hauteur masquée <b class="value" id="mask_height_ratio_v">22%</b></span>
         <input type="range" id="mask_height_ratio" min="8" max="45" value="22">
       </label>
     </div>
+
     <div class="row"><button class="primary" id="btn-style-next">Continuer</button></div>
   </section>
 
   <!-- Étape 4 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="4">
-    <h2>Générer le script</h2>
+    <p class="eyebrow">Étape 4 — Les mots</p>
+    <h2>Un hook fort, <em>une chute nette</em>.</h2>
+    <p class="hint">Donne le sujet : le script vise une accroche dans les trois
+      premières secondes, un développement, une chute.</p>
+
     <div class="grid">
-      <label>Sujet
+      <label><span>Sujet</span>
         <input type="text" id="topic" placeholder="ex. 3 erreurs qui ruinent ton sommeil">
       </label>
-      <label>Durée visée
+      <label><span>Durée visée</span>
         <select id="duration">
-          <option value="30">30 s</option>
-          <option value="45" selected>45 s</option>
-          <option value="60">60 s</option>
+          <option value="30">30 secondes</option>
+          <option value="45" selected>45 secondes</option>
+          <option value="60">60 secondes</option>
         </select>
       </label>
     </div>
-    <label class="block">Consignes
+
+    <label class="block"><span>Consignes</span>
       <textarea id="instructions" rows="2" placeholder="ton, angle, public visé, appel à l'action…"></textarea>
     </label>
+
     <div class="row">
       <button class="primary" id="btn-generate">Générer avec Claude</button>
       <button class="ghost" id="btn-copy-prompt">Copier le prompt (mode manuel)</button>
     </div>
     <p class="hint hidden" id="manual-hint">Pas de clé API : touche
-      <b>Copier le prompt</b>, colle-le dans une conversation Claude, puis
-      rapporte le script ci-dessous.</p>
+      <b>Écrire le script avec Claude</b>, colle le prompt dans une conversation
+      Claude, puis rapporte le script ci-dessous.</p>
+
     <div id="prompt-box" class="prompt-box hidden">
       <p class="hint" id="prompt-status"></p>
       <textarea id="prompt-text" rows="6" readonly spellcheck="false"></textarea>
       <button class="ghost small" id="btn-prompt-hide">Masquer</button>
     </div>
-    <label class="block">Script (éditable)
+
+    <label class="block"><span>Script — éditable</span>
       <textarea id="script" rows="9" placeholder="Colle ou modifie ici le script lu par la voix off."></textarea>
     </label>
     <p class="hint" id="script-meta"></p>
@@ -152,20 +177,25 @@
 
   <!-- Étape 5 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="5">
-    <h2>Assemblage final</h2>
+    <p class="eyebrow">Étape 5 — L'assemblage</p>
+    <h2>Le moment où <em>tout se rejoint</em>.</h2>
+    <p class="hint">Un aperçu en 540p pour juger le montage en quelques secondes,
+      puis le rendu définitif en 1080 × 1920.</p>
+
     <div id="recap" class="recap"></div>
     <div class="row">
       <button class="primary" id="btn-render">Lancer le rendu</button>
-      <button class="ghost" id="btn-preview">Aperçu rapide (540p)</button>
-      <button class="ghost" id="btn-cleanup">Nettoyer les fichiers temporaires</button>
+      <button class="ghost" id="btn-preview">Aperçu rapide</button>
+      <button class="ghost" id="btn-cleanup">Nettoyer</button>
     </div>
+
     <div id="result" class="result hidden">
       <video id="result-video" controls playsinline></video>
       <div class="result-side">
         <p id="result-info"></p>
         <p class="hint" id="result-badge"></p>
         <a id="result-download" class="primary button" download>Télécharger le .mp4</a>
-        <p class="hint">Fichier enregistré dans <code>{{ output_dir }}</code></p>
+        <p class="hint">Enregistré dans <code>{{ output_dir }}</code></p>
       </div>
     </div>
   </section>

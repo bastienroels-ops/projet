@@ -153,9 +153,13 @@ def build_graph(
 
     # --- Sous-titres ------------------------------------------------------
     if subtitle_path and settings.subtitles:
+        # `fontsdir` est indispensable : sans lui, ffmpeg cherche les polices
+        # dans le système et retombe sur une police quelconque là où les
+        # nôtres ne sont pas installées (Colab, serveur, machine neuve).
+        fonts = _escape_filter_path(config.FONTS_DIR)
         filters.append(
             f"[{video_out}]subtitles=filename='{_escape_filter_path(subtitle_path)}'"
-            f":alpha=1[vout]"
+            f":fontsdir='{fonts}':alpha=1[vout]"
         )
         video_out = "vout"
 

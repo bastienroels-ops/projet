@@ -428,8 +428,8 @@ async def cancel_job(project_id: str):
 async def presets():
     return {
         "subtitles": [
-            {"id": name, "label": name.capitalize(),
-             "font_size": style.font_size, "animate": style.animate}
+            {"id": name, "label": style.label, "description": style.description,
+             "font": style.font, "animate": style.animate}
             for name, style in config.SUBTITLE_PRESETS.items()
         ],
         "default": config.DEFAULT_SUBTITLE_PRESET,

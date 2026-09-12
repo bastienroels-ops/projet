@@ -131,7 +131,7 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 |---|---|
 | **1. Sources** | 2 à 5 liens collés → téléchargement `yt-dlp` dans `work/<projet>/sources`. Durée, résolution et nombre de vues sont affichés ; une vidéo de moins de 45 s déclenche un avertissement. **Ou** import direct de vidéos depuis l'appareil, quand la plateforme refuse le téléchargement. |
 | **2. Accroche** | Les 3 premières secondes de chaque source sont extraites (ffmpeg) et jouées côte à côte. Un clic choisit celle qui ouvrira le montage. |
-| **3. Style** | Voix `edge-tts` (+ débit), sous-titres animés on/off, musique de fond et son volume, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, fond d'ambiance des vidéos d'origine. |
+| **3. Style** | Voix `edge-tts` (+ débit), **six styles de sous-titres**, musique de fond et son volume, travelling, coupes calées sur les plans, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, fond d'ambiance des vidéos d'origine. |
 | **4. Script** | Sujet + consignes → appel à l'API Claude, **ou** bouton « Copier le prompt » pour le coller dans une conversation Claude et rapporter le texte. Le script reste éditable, avec un compteur de mots et la durée estimée. |
 | **5. Rendu** | Voix off → sous-titres `.ass` calés au mot → découpe, recadrage 9:16, montage, mixage et encodage **en une seule passe ffmpeg** → `.mp4` dans `output/`. Aperçu 540p en quelques secondes, barre de progression réelle, bouton d'annulation. |
 
@@ -156,6 +156,30 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 - Le **son** est traité comme sur une vraie vidéo virale : voix normalisée en
   EBU R128 (−14 LUFS), musique qui s'efface automatiquement sous la voix
   (`sidechaincompress`), limiteur en sortie.
+
+## Les six styles de sous-titres
+
+| Style | Police | Caractère |
+|---|---|---|
+| **Punch** | Archivo Black | Le classique viral : gros, blanc, mot actif ambre. |
+| **Impact** | Anton | Capitales condensées, ton affirmé. |
+| **Néon** | Archivo Black | Halo lumineux sur le mot prononcé. |
+| **Studio** | Archivo Black | Bandeau sombre : lisible sur n'importe quelle image. |
+| **Signature** | Playfair Display | Serif haut de gamme, or discret. |
+| **Minimal** | Bebas Neue | Capitales espacées, sans animation. |
+
+Les quatre polices (SIL OFL) sont **embarquées dans `assets/fonts/`** et passées
+à ffmpeg via `fontsdir`. Sans elles, ffmpeg retombe sur une police système et
+les sous-titres perdent tout leur caractère — c'est ce qui se produit sur une
+machine neuve ou sur Colab.
+
+## L'interface
+
+Sombre, chaude, sans dépendance externe : les polices de l'interface (Inter,
+Instrument Serif) sont servies depuis `flambee/static/fonts/` en woff2, donc
+aucun appel réseau et aucun clignotement au chargement. Le tout tient dans un
+seul fichier CSS piloté par variables — un thème se change en éditant les
+tokens en haut de `style.css`.
 
 ## Optimisations
 
