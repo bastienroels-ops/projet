@@ -88,8 +88,19 @@ def validate_urls(urls: list[str]) -> None:
         )
 
 
+def _cookie_options() -> dict:
+    """Cookies du navigateur ou fichier, si l'utilisateur en a configuré."""
+    options: dict = {}
+    if config.COOKIES_FROM_BROWSER:
+        options["cookiesfrombrowser"] = (config.COOKIES_FROM_BROWSER,)
+    if config.COOKIES_FILE and Path(config.COOKIES_FILE).exists():
+        options["cookiefile"] = config.COOKIES_FILE
+    return options
+
+
 def _ydl_options(dest_dir: Path, index: int) -> dict:
     return {
+        **_cookie_options(),
         "outtmpl": str(dest_dir / f"source_{index:02d}.%(ext)s"),
         "format": _YDL_FORMAT,
         "merge_output_format": "mp4",
@@ -179,10 +190,29 @@ def _check_source(source: Source) -> list[str]:
     return warnings
 
 
+_ERROR_HINTS = (
+    ("not a bot", "YouTube demande une connexion. Configure "
+                  "FLAMBEE_COOKIES_FROM_BROWSER=chrome (ou safari, firefox…) "
+                  "avant de relancer Flambée."),
+    ("login required", "Vidéo réservée aux comptes connectés : utilise "
+                       "FLAMBEE_COOKIES_FROM_BROWSER."),
+    ("private", "Vidéo privée : elle ne peut pas être téléchargée."),
+    ("unavailable", "Vidéo indisponible (supprimée ou bloquée dans ta région)."),
+    ("unsupported url", "Lien non reconnu par yt-dlp."),
+    ("http error 403", "Accès refusé par la plateforme. Mets yt-dlp à jour : "
+                       "`pip install -U yt-dlp`."),
+)
+
+
 def _clean_ydl_error(message: str) -> str:
     message = re.sub(r"\x1b\[[0-9;]*m", "", message)
     message = message.replace("ERROR: ", "").strip()
-    return message.splitlines()[0] if message else "Téléchargement impossible."
+    first = message.splitlines()[0] if message else "Téléchargement impossible."
+    lowered = first.lower()
+    for needle, hint in _ERROR_HINTS:
+        if needle in lowered:
+            return f"{first.split(' See ')[0].strip()} → {hint}"
+    return first
 
 
 def download_all(

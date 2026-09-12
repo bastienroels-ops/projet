@@ -132,7 +132,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .recap dd { margin: 0; color: var(--text); }
 
 .result { display: flex; gap: 18px; margin-top: 20px; flex-wrap: wrap; }
-.result video { width: 260px; border-radius: 12px; background: #000; }
+.result video { width: 260px; aspect-ratio: 9/16; border-radius: 12px; background: #000; }
 .result-side { flex: 1 1 220px; }
 code { background: var(--panel-2); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
 

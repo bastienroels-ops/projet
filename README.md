@@ -102,6 +102,8 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | `FLAMBEE_HOOK_DURATION` | `3` | durée de l'accroche |
 | `FLAMBEE_ANTHROPIC_MODEL` | `claude-sonnet-5` | modèle utilisé pour le script |
 | `ANTHROPIC_API_KEY` | — | active la génération en un clic |
+| `FLAMBEE_COOKIES_FROM_BROWSER` | — | `chrome`, `safari`, `firefox`… pour les vidéos qui exigent une connexion |
+| `FLAMBEE_COOKIES_FILE` | — | fichier `cookies.txt` (format Netscape), alternative à l'option ci-dessus |
 
 ## Tests
 
@@ -117,6 +119,10 @@ aucun appel réseau.
 
 - **« Outil manquant : ffmpeg »** → installe ffmpeg, ou pointe `FLAMBEE_FFMPEG`
   vers le binaire.
+- **« Sign in to confirm you're not a bot »** → YouTube demande une session :
+  lance Flambée avec `FLAMBEE_COOKIES_FROM_BROWSER=chrome ./run.sh` (le navigateur
+  où tu es connecté), ou exporte un `cookies.txt` et pointe `FLAMBEE_COOKIES_FILE`
+  dessus.
 - **Téléchargement qui échoue** → `pip install -U yt-dlp` (les extracteurs
   changent souvent) ; certaines vidéos privées ou régionalisées restent inaccessibles.
 - **Sous-titres dans une autre police** → `Arial Black` doit être installée ;

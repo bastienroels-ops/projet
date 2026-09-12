@@ -33,6 +33,15 @@ FFMPEG_BIN = os.environ.get("FLAMBEE_FFMPEG", "ffmpeg")
 FFPROBE_BIN = os.environ.get("FLAMBEE_FFPROBE", "ffprobe")
 
 
+# --- Cookies yt-dlp -------------------------------------------------------
+# YouTube/TikTok demandent parfois une connexion (« Sign in to confirm you're
+# not a bot »). Deux solutions, au choix :
+#   FLAMBEE_COOKIES_FROM_BROWSER=chrome|safari|firefox|brave|edge
+#   FLAMBEE_COOKIES_FILE=/chemin/vers/cookies.txt   (export Netscape)
+COOKIES_FROM_BROWSER = os.environ.get("FLAMBEE_COOKIES_FROM_BROWSER", "").strip()
+COOKIES_FILE = os.environ.get("FLAMBEE_COOKIES_FILE", "").strip()
+
+
 # --- Contraintes sources --------------------------------------------------
 MIN_SOURCES = 2
 MAX_SOURCES = 5

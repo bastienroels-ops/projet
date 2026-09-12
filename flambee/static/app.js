@@ -89,9 +89,9 @@ function renderHooks(project) {
     const el = document.createElement("div");
     el.className = "hook" + (project.hook_index === s.index ? " selected" : "");
     el.innerHTML = `
-      <video src="${s.hook_url}" muted loop playsinline preload="metadata"></video>
+      <video src="${s.hook_url}#t=0.1" muted loop playsinline preload="metadata"></video>
       <div class="label"><b>${escapeHtml(s.title || "Source " + s.index)}</b>
-        ${s.view_count ? s.view_count.toLocaleString("fr-FR") + " vues" : "Source " + s.index}</div>`;
+        ${s.view_count ? s.view_count.toLocaleString("fr-FR") + " vues" : fmtDuration(s.duration)}</div>`;
     const video = el.querySelector("video");
     el.addEventListener("mouseenter", () => video.play().catch(() => {}));
     el.addEventListener("mouseleave", () => { video.pause(); video.currentTime = 0; });
