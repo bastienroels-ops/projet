@@ -250,3 +250,106 @@ def test_telechargement_annule_avant_de_commencer(monkeypatch, tmp_path):
     sources = dl.download_all(["https://a.test/1", "https://a.test/2"], tmp_path,
                               cancel=token)
     assert all(s.error for s in sources)
+
+
+# --- Import de fichiers ---------------------------------------------------
+def _tiny_video(path: Path, seconds: int = 3) -> bytes:
+    from flambee import media
+
+    media.ffmpeg([
+        "-f", "lavfi", "-i", f"testsrc=size=320x568:rate=15:duration={seconds}",
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(path),
+    ])
+    return path.read_bytes()
+
+
+@pytest.fixture()
+def sync_spawn(monkeypatch):
+    monkeypatch.setattr(app_module, "_spawn", lambda target, *args: target(*args))
+
+
+def test_import_de_fichiers(client, sync_spawn, tmp_path):
+    """Une vidéo envoyée depuis l'appareil suit le même chemin qu'un téléchargement."""
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    payload = _tiny_video(tmp_path / "clip.mp4")
+    project_id = _create(client)
+
+    body = client.post(
+        f"/api/projects/{project_id}/uploads",
+        files=[("files", ("ma video.mp4", payload, "video/mp4")),
+               ("files", ("autre.mov", payload, "video/quicktime"))],
+    ).json()
+
+    assert len(body["sources"]) == 2
+    assert body["sources"][0]["title"] == "ma video"
+    assert body["sources"][0]["duration"] > 0
+    assert body["sources"][0]["hook_url"]          # accroche extraite
+    assert body["step"] >= 2
+
+
+def test_import_refuse_les_formats_inconnus(client, tmp_path):
+    project_id = _create(client)
+    response = client.post(
+        f"/api/projects/{project_id}/uploads",
+        files=[("files", ("script.txt", b"pas une video", "text/plain"))],
+    )
+    assert response.status_code == 400
+    assert "Format non reconnu" in response.json()["detail"]
+
+
+def test_import_refuse_les_fichiers_trop_gros(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(app_module.config, "MAX_UPLOAD_BYTES", 1024)
+    project_id = _create(client)
+    response = client.post(
+        f"/api/projects/{project_id}/uploads",
+        files=[("files", ("gros.mp4", b"x" * 5000, "video/mp4"))],
+    )
+    assert response.status_code == 413
+
+
+def test_import_refuse_un_fichier_illisible(client, sync_spawn):
+    project_id = _create(client)
+    body = client.post(
+        f"/api/projects/{project_id}/uploads",
+        files=[("files", ("faux.mp4", b"ceci n'est pas une video", "video/mp4"))],
+    ).json()
+    assert body["job"]["state"] == "error"
+    assert body["sources"][0]["error"]
+
+
+# --- Mot de passe ---------------------------------------------------------
+def test_acces_protege_par_mot_de_passe(monkeypatch):
+    import base64 as _b64
+
+    from fastapi import FastAPI
+
+    from flambee.auth import install_auth
+
+    monkeypatch.setattr(app_module.config, "PASSWORD", "secret")
+    monkeypatch.setattr(app_module.config, "USERNAME", "flambee")
+
+    protected = FastAPI()
+    install_auth(protected)
+
+    @protected.get("/ping")
+    async def ping():
+        return {"ok": True}
+
+    with TestClient(protected) as guarded:
+        assert guarded.get("/ping").status_code == 401
+        assert "Basic" in guarded.get("/ping").headers["www-authenticate"]
+
+        def header(user, password):
+            token = _b64.b64encode(f"{user}:{password}".encode()).decode()
+            return {"Authorization": f"Basic {token}"}
+
+        assert guarded.get("/ping", headers=header("flambee", "faux")).status_code == 401
+        assert guarded.get("/ping", headers=header("autre", "secret")).status_code == 401
+        assert guarded.get("/ping", headers={"Authorization": "Bearer x"}).status_code == 401
+        assert guarded.get("/ping", headers=header("flambee", "secret")).status_code == 200
+
+
+def test_sans_mot_de_passe_aucun_controle(client):
+    """Comportement local par défaut : pas d'authentification."""
+    assert client.get("/api/health").status_code == 200

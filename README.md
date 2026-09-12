@@ -40,6 +40,29 @@ uvicorn flambee.app:app --host 127.0.0.1 --port 8000
 Puis ouvre <http://127.0.0.1:8000>. Le bandeau du haut indique si `ffmpeg`, `yt-dlp`
 et la clé API sont détectés.
 
+## Sans ordinateur : héberger Flambée
+
+Flambée a besoin de Python, ffmpeg et yt-dlp : elle ne tourne pas sur iOS. Si tu
+n'as pas de machine, elle peut vivre sur un petit serveur que tu pilotes depuis
+Safari. Deux choses sont alors indispensables — et fournies :
+
+- **un mot de passe** : sans lui, n'importe qui pourrait lancer des rendus.
+  ```bash
+  FLAMBEE_PASSWORD="ton-mot-de-passe" FLAMBEE_HOST=0.0.0.0 ./run.sh
+  ```
+  Le navigateur demande l'identifiant (`flambee` par défaut, modifiable avec
+  `FLAMBEE_USERNAME`) et le retient ensuite.
+
+- **l'import de fichiers** : depuis une adresse IP de datacenter, YouTube et
+  TikTok bloquent très souvent yt-dlp (« Sign in to confirm you're not a bot »),
+  y compris avec des cookies. À l'étape 1, *Choisir des vidéos* envoie donc des
+  vidéos déjà présentes sur le téléphone (pellicule ou Fichiers) : le reste du
+  pipeline est identique. Plafond réglable avec `FLAMBEE_MAX_UPLOAD_MB`
+  (600 Mo par défaut).
+
+Un serveur derrière une adresse publique doit aussi être servi en HTTPS (un
+reverse proxy type Caddy suffit) : sinon le mot de passe circule en clair.
+
 ## Piloter Flambée depuis un iPhone
 
 L'outil a besoin de Python, ffmpeg et yt-dlp : il tourne **sur le Mac**, pas sur
@@ -68,7 +91,7 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 
 | Étape | Ce qui se passe |
 |---|---|
-| **1. Sources** | 2 à 5 liens collés → téléchargement `yt-dlp` dans `work/<projet>/sources`. Durée, résolution et nombre de vues sont affichés ; une vidéo de moins de 45 s déclenche un avertissement. |
+| **1. Sources** | 2 à 5 liens collés → téléchargement `yt-dlp` dans `work/<projet>/sources`. Durée, résolution et nombre de vues sont affichés ; une vidéo de moins de 45 s déclenche un avertissement. **Ou** import direct de vidéos depuis l'appareil, quand la plateforme refuse le téléchargement. |
 | **2. Accroche** | Les 3 premières secondes de chaque source sont extraites (ffmpeg) et jouées côte à côte. Un clic choisit celle qui ouvrira le montage. |
 | **3. Style** | Voix `edge-tts` (+ débit), sous-titres animés on/off, musique de fond et son volume, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, fond d'ambiance des vidéos d'origine. |
 | **4. Script** | Sujet + consignes → appel à l'API Claude, **ou** bouton « Copier le prompt » pour le coller dans une conversation Claude et rapporter le texte. Le script reste éditable, avec un compteur de mots et la durée estimée. |
@@ -119,6 +142,7 @@ flambee/
   media.py        helpers ffmpeg (encodeur, progression, filtres 9:16, masque)
   analyzer.py     détection des plans + score d'accroche
   downloader.py   étape 1 — wrapper yt-dlp
+  auth.py         mot de passe optionnel (HTTP Basic)
   trimmer.py      étape 2 — hooks + planification/découpe des extraits
   scriptgen.py    étape 4 — API Claude (+ mode manuel)
   voice.py        étape 5 — edge-tts et minutage mot à mot
@@ -146,6 +170,9 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 |---|---|---|
 | `FLAMBEE_PORT` | `8000` | port du serveur local |
 | `FLAMBEE_HOST` | `127.0.0.1` | `0.0.0.0` pour ouvrir l'accès au réseau local (téléphone) |
+| `FLAMBEE_PASSWORD` | — | protège l'accès (obligatoire dès que l'app sort de la machine) |
+| `FLAMBEE_USERNAME` | `flambee` | identifiant associé au mot de passe |
+| `FLAMBEE_MAX_UPLOAD_MB` | `600` | taille maximale d'une vidéo importée |
 | `FLAMBEE_OUTPUT_DIR` | `./output` | dossier des rendus |
 | `FLAMBEE_WORK_DIR` | `./work` | fichiers de travail |
 | `FLAMBEE_MIN_DURATION` | `45` | seuil d'avertissement sur les sources |

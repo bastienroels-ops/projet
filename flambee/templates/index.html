@@ -45,6 +45,19 @@
       <button class="primary" id="btn-download">Télécharger les vidéos</button>
       <button class="ghost" id="btn-new">Nouveau projet</button>
     </div>
+
+    <div class="separator"><span>ou</span></div>
+
+    <p class="hint">Importe des vidéos déjà enregistrées sur l'appareil (pellicule,
+      Fichiers). Indispensable si la plateforme refuse le téléchargement.</p>
+    <div class="row">
+      <label class="button ghost file-button">
+        Choisir des vidéos
+        <input type="file" id="uploads" accept="video/*" multiple hidden>
+      </label>
+      <button class="primary hidden" id="btn-upload">Importer</button>
+    </div>
+    <p class="hint" id="upload-list"></p>
     <div id="sources-list" class="sources"></div>
     <p class="legal">Usage strictement personnel. Le téléchargement de vidéos TikTok/YouTube contrevient aux CGU de ces plateformes : ne republie pas les sources telles quelles, ne partage pas l'outil.</p>
   </section>

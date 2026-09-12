@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import analyzer, assembler, config, downloader, subtitles, trimmer, voice
-from .media import Cancelled, MediaError, detect_encoder, ensure_tools
+from .media import Cancelled, MediaError, detect_encoder, ensure_tools, probe
 from .project import Project
 
 log = logging.getLogger(__name__)
@@ -114,6 +114,83 @@ def run_download(project: Project, urls: list[str]) -> None:
     except Exception as exc:
         log.error("Téléchargement KO : %s", traceback.format_exc())
         project.set_job("download", "error", message="Téléchargement interrompu.",
+                        error=str(exc))
+    finally:
+        _clear_cancel(project.id)
+
+
+def run_import(
+    project: Project,
+    paths: list[Path],
+    titles: list[str] | None = None,
+) -> None:
+    """Intègre des vidéos importées depuis l'appareil (pellicule, Fichiers…).
+
+    Même traitement que des vidéos téléchargées : contrôle du fichier, accroche
+    de 3 s, détection des plans et score d'accroche.
+    """
+    token = cancel_token(project.id)
+    project.ensure_dirs()
+    project.set_job("import", "running", progress=0.05,
+                    message=f"Analyse de {len(paths)} fichier(s)…")
+
+    try:
+        sources: list[downloader.Source] = []
+        for position, path in enumerate(paths, start=1):
+            _raise_if_cancelled(token)
+            index = position
+            title = (titles[position - 1] if titles and len(titles) >= position
+                     else path.stem)
+            source = downloader.Source(index=index, url=f"fichier://{path.name}",
+                                       path=str(path), title=title)
+            try:
+                info = probe(path)
+            except MediaError as exc:
+                source.error = f"Fichier illisible : {exc}"
+                sources.append(source)
+                continue
+
+            if info.duration <= 0 or info.width <= 0:
+                source.error = "Ce fichier ne contient pas de vidéo exploitable."
+                sources.append(source)
+                continue
+
+            source.duration = info.duration
+            source.width = info.width
+            source.height = info.height
+            source.has_audio = info.has_audio
+            source.warnings = downloader._check_source(source)
+            sources.append(source)
+
+        project.sources = sources
+        project.urls = [s.url for s in sources]
+        if not project.ready_sources:
+            errors = " ".join(s.error for s in sources if s.error)
+            raise MediaError(f"Aucune vidéo exploitable. {errors}".strip())
+
+        project.set_job("import", "running", progress=0.5,
+                        message="Extraction des accroches et analyse des plans…")
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            hooks = pool.submit(trimmer.extract_hooks, project.sources,
+                                project.hooks_dir)
+            analyses = pool.submit(analyzer.analyze_all, project.sources)
+            hooks.result()
+            project.analyses = {
+                index: analysis.to_dict()
+                for index, analysis in analyses.result().items()
+            }
+
+        _raise_if_cancelled(token)
+        _apply_scores(project)
+        project.step = max(project.step, 2)
+        project.set_job("import", "done", progress=1.0,
+                        message=f"{len(project.ready_sources)} vidéo(s) prête(s).")
+    except Cancelled:
+        project.set_job("import", "error", message="Import annulé.",
+                        error="Annulé par l'utilisateur.")
+    except Exception as exc:
+        log.error("Import KO : %s", traceback.format_exc())
+        project.set_job("import", "error", message="Import interrompu.",
                         error=str(exc))
     finally:
         _clear_cancel(project.id)

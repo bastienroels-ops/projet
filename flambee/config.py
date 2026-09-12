@@ -42,6 +42,18 @@ COOKIES_FROM_BROWSER = os.environ.get("FLAMBEE_COOKIES_FROM_BROWSER", "").strip(
 COOKIES_FILE = os.environ.get("FLAMBEE_COOKIES_FILE", "").strip()
 
 
+# --- Import de fichiers ---------------------------------------------------
+UPLOAD_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi", ".3gp"}
+MAX_UPLOAD_BYTES = int(os.environ.get("FLAMBEE_MAX_UPLOAD_MB", "600")) * 1024 * 1024
+
+
+# --- Accès ----------------------------------------------------------------
+# Vide = aucune authentification (usage local). Dès que l'app est exposée
+# au-delà de la machine, définir FLAMBEE_PASSWORD.
+PASSWORD = os.environ.get("FLAMBEE_PASSWORD", "").strip()
+USERNAME = os.environ.get("FLAMBEE_USERNAME", "flambee").strip() or "flambee"
+
+
 # --- Contraintes sources --------------------------------------------------
 MIN_SOURCES = 2
 MAX_SOURCES = 5

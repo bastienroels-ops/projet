@@ -175,3 +175,12 @@ button.small { padding: 5px 12px; font-size: 13px; }
   border-radius: 10px; background: var(--panel-2);
 }
 .prompt-box textarea { font-size: 13px; margin-bottom: 8px; }
+
+.separator {
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 0 4px; color: #6b7484; font-size: 12px;
+}
+.separator::before, .separator::after {
+  content: ""; flex: 1; height: 1px; background: var(--line);
+}
+.file-button { cursor: pointer; }

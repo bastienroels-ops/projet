@@ -9,13 +9,14 @@ import shutil
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from . import __version__, config, downloader, media, pipeline, scriptgen, voice
+from .auth import install_auth
 from .project import Project, store
 
 logging.basicConfig(
@@ -26,6 +27,7 @@ log = logging.getLogger("flambee")
 BASE = Path(__file__).resolve().parent
 
 app = FastAPI(title="Flambée", version=__version__, docs_url="/api/docs")
+install_auth(app)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -87,6 +89,16 @@ def _spawn(target, *args) -> None:
     threading.Thread(target=target, args=args, daemon=True).start()
 
 
+def _start_job(project: Project, name: str, message: str) -> None:
+    """Marque la tâche comme démarrée avant de lancer le thread.
+
+    Sans ça, la réponse renvoyée au navigateur peut encore annoncer « idle » :
+    le premier sondage conclurait qu'il n'y a rien à suivre et arrêterait le
+    suivi avant même que la tâche ne commence.
+    """
+    project.set_job(name, "running", progress=0.01, message=message)
+
+
 def _spawn_render(project: Project, *, fast: bool) -> None:
     threading.Thread(
         target=pipeline.run_render, args=(project,), kwargs={"fast": fast},
@@ -141,6 +153,8 @@ async def health():
     encoder = media.detect_encoder() if "ffmpeg" not in missing else None
     return {
         "version": __version__,
+        "auth": bool(config.PASSWORD),
+        "max_upload_mb": config.MAX_UPLOAD_BYTES // (1024 * 1024),
         "encoder": encoder.name if encoder else "",
         "hardware_encoder": bool(encoder and encoder.hardware),
         "ffmpeg": "ffmpeg" not in missing,
@@ -221,9 +235,72 @@ async def add_sources(project_id: str, body: SourcesIn):
         )
 
     project.hook_index = None
-    project.save()
+    _start_job(project, "download", f"Téléchargement de {len(urls)} vidéo(s)…")
     _spawn(pipeline.run_download, project, urls)
     return _project_payload(project)
+
+
+@app.post("/api/projects/{project_id}/uploads")
+async def upload_sources(project_id: str, files: list[UploadFile] = File(...)):
+    """Importe des vidéos depuis l'appareil (pellicule iPhone, Fichiers…).
+
+    C'est l'alternative au téléchargement quand les plateformes le refusent,
+    et la seule voie possible quand l'app tourne sur un serveur distant.
+    """
+    project = _get(project_id)
+    _require_idle(project)
+
+    if not files:
+        raise HTTPException(status_code=400, detail="Aucun fichier reçu.")
+    if len(files) > config.MAX_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {config.MAX_SOURCES} vidéos ({len(files)} reçues).",
+        )
+
+    project.ensure_dirs()
+    saved: list[Path] = []
+    titles: list[str] = []
+    for position, upload in enumerate(files, start=1):
+        suffix = Path(upload.filename or "").suffix.lower()
+        if suffix not in config.UPLOAD_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Format non reconnu : {upload.filename}. Formats acceptés : "
+                       + ", ".join(sorted(config.UPLOAD_EXTENSIONS)),
+            )
+        destination = project.sources_dir / f"import_{position:02d}{suffix}"
+        try:
+            written = await _stream_to_disk(upload, destination)
+        except ValueError as exc:
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        if written == 0:
+            raise HTTPException(status_code=400,
+                                detail=f"Fichier vide : {upload.filename}")
+        saved.append(destination)
+        titles.append(Path(upload.filename or destination.name).stem)
+
+    project.hook_index = None
+    _start_job(project, "import", f"Analyse de {len(saved)} fichier(s)…")
+    _spawn(pipeline.run_import, project, saved, titles)
+    return _project_payload(project)
+
+
+async def _stream_to_disk(upload: UploadFile, destination: Path) -> int:
+    """Écrit un fichier reçu par morceaux, sans le charger en mémoire."""
+    written = 0
+    with destination.open("wb") as handle:
+        while chunk := await upload.read(1024 * 1024):
+            written += len(chunk)
+            if written > config.MAX_UPLOAD_BYTES:
+                handle.close()
+                destination.unlink(missing_ok=True)
+                raise ValueError(
+                    f"{upload.filename} dépasse "
+                    f"{config.MAX_UPLOAD_BYTES // (1024 * 1024)} Mo."
+                )
+            handle.write(chunk)
+    return written
 
 
 # --- Étape 2 : hook -------------------------------------------------------
@@ -333,7 +410,9 @@ async def render(project_id: str, body: RenderIn | None = None):
         project.hook_index = (
             project.recommended_hook or project.ready_sources[0].index
         )
-    _spawn_render(project, fast=bool(body and body.fast))
+    fast = bool(body and body.fast)
+    _start_job(project, "render", "Aperçu en préparation…" if fast else "Préparation…")
+    _spawn_render(project, fast=fast)
     return _project_payload(project)
 
 

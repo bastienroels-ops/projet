@@ -254,15 +254,18 @@ function updateScriptMeta(project) {
 /* --------------------------------------------------------- Polling ----- */
 function startPolling() {
   stopPolling();
+  const startedAt = Date.now();
   state.poll = setInterval(async () => {
     if (!state.project) return;
     try {
       const project = await api(`/api/projects/${state.project.id}`);
       const wasRunning = state.project.job.state === "running";
       applyProject(project);
-      if (project.job.state !== "running") {
+      // Une tâche qui n'a pas encore démarré ne doit pas interrompre le suivi.
+      if (project.job.state !== "running" && Date.now() - startedAt > 2500) {
         stopPolling();
-        if (wasRunning && project.job.name === "download" && project.job.state === "done") {
+        if (wasRunning && ["download", "import"].includes(project.job.name)
+            && project.job.state === "done") {
           showStep(2);
         }
         if (wasRunning && project.job.name === "render" && project.job.state === "done") {
@@ -284,7 +287,8 @@ async function loadHealth() {
   $("#health").innerHTML =
     tag("ffmpeg", h.ffmpeg) + tag("yt-dlp", h.yt_dlp) +
     tag(h.anthropic_key ? "clé Claude" : "script manuel", true) +
-    tag(`${h.music_count} musique(s)`, true);
+    tag(`${h.music_count} musique(s)`, true) +
+    (h.auth ? tag("protégé", true) : "");
   if (!h.ffmpeg || !h.yt_dlp) {
     alertBox("Dépendances manquantes : installe ffmpeg et `pip install -r requirements.txt`.");
   }
@@ -350,6 +354,35 @@ function bind() {
       startPolling();
     } catch (err) { alertBox(err.message); }
     finally { e.target.disabled = false; }
+  });
+
+  $("#uploads").addEventListener("change", (e) => {
+    const files = Array.from(e.target.files || []);
+    const total = files.reduce((sum, f) => sum + f.size, 0);
+    $("#upload-list").textContent = files.length
+      ? `${files.length} fichier(s) — ${(total / 1e6).toFixed(0)} Mo`
+      : "";
+    $("#btn-upload").classList.toggle("hidden", files.length === 0);
+  });
+
+  $("#btn-upload").addEventListener("click", async (e) => {
+    const files = Array.from($("#uploads").files || []);
+    if (!files.length) return;
+    const form = new FormData();
+    files.forEach((file) => form.append("files", file, file.name));
+    try {
+      alertBox("");
+      e.target.disabled = true;
+      e.target.textContent = "Envoi…";
+      // L'envoi peut être long depuis un téléphone : pas de JSON, du multipart.
+      const res = await fetch(`/api/projects/${state.project.id}/uploads`,
+        { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.detail) || `Erreur ${res.status}`);
+      applyProject(data);
+      startPolling();
+    } catch (err) { alertBox(err.message); }
+    finally { e.target.disabled = false; e.target.textContent = "Importer"; }
   });
 
   $("#btn-hook-next").addEventListener("click", async () => {
