@@ -168,6 +168,12 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 | **Signature** | Playfair Display | Serif haut de gamme, or discret. |
 | **Minimal** | Bebas Neue | Capitales espacées, sans animation. |
 
+À l'étape 3, chaque style s'accompagne d'un **échantillon vidéo rendu par
+ffmpeg** : mêmes polices, même animation que la vidéo finale, donc aucune
+mauvaise surprise. Les échantillons sont produits à la demande puis mis en
+cache dans `work/.samples/`, et regénérés automatiquement si le style change
+(le nom du fichier porte l'empreinte de ses réglages).
+
 Les quatre polices (SIL OFL) sont **embarquées dans `assets/fonts/`** et passées
 à ffmpeg via `fontsdir`. Sans elles, ffmpeg retombe sur une police système et
 les sous-titres perdent tout leur caractère — c'est ce qui se produit sur une
@@ -209,6 +215,7 @@ flambee/
   analyzer.py     détection des plans + score d'accroche
   downloader.py   étape 1 — wrapper yt-dlp
   auth.py         mot de passe optionnel (HTTP Basic)
+  samples.py      échantillons de sous-titres pour l'interface
 colab/            carnet Colab + lanceur (serveur derrière un tunnel HTTPS)
   trimmer.py      étape 2 — hooks + planification/découpe des extraits
   scriptgen.py    étape 4 — API Claude (+ mode manuel)

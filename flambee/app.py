@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import __version__, config, downloader, media, pipeline, scriptgen, voice
+from . import (__version__, config, downloader, media, pipeline, samples,
+               scriptgen, voice)
 from .auth import install_auth
 from .project import Project, store
 
@@ -183,6 +184,27 @@ async def music():
 
 
 # --- Projets --------------------------------------------------------------
+@app.get("/api/presets/{preset}/sample")
+async def preset_sample(preset: str):
+    """Échantillon vidéo du style de sous-titres, rendu par ffmpeg et mis en cache.
+
+    C'est le rendu réel — mêmes polices, même animation que la vidéo finale —
+    et non une imitation en HTML.
+    """
+    if preset not in config.SUBTITLE_PRESETS:
+        raise HTTPException(status_code=404, detail="Style inconnu.")
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.build_sample, preset)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(
+        chemin, media_type="video/mp4",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @app.post("/api/projects")
 async def create_project():
     project = store.create()

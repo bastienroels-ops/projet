@@ -373,3 +373,45 @@ def test_generation_sans_cle_explique_le_mode_manuel(client, monkeypatch):
                            json={"topic": "le sommeil"})
     assert response.status_code == 400
     assert "mode manuel" in response.json()["detail"]
+
+
+# --- Aperçu des styles de sous-titres -------------------------------------
+def test_echantillon_de_style_est_une_video(client):
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    response = client.get("/api/presets/punch/sample")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "video/mp4"
+    assert len(response.content) > 2000
+    assert "max-age" in response.headers.get("cache-control", "")
+
+
+def test_echantillon_style_inconnu(client):
+    assert client.get("/api/presets/inexistant/sample").status_code == 404
+
+
+def test_echantillon_vient_du_cache(client):
+    """Le second appel ne relance pas ffmpeg."""
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    from flambee import samples
+
+    samples.clear_cache()
+    chemin = samples.sample_path("minimal")
+    assert not chemin.exists()
+    client.get("/api/presets/minimal/sample")
+    assert chemin.exists()
+    horodatage = chemin.stat().st_mtime
+    client.get("/api/presets/minimal/sample")
+    assert chemin.stat().st_mtime == horodatage
+
+
+def test_cache_invalide_si_le_style_change(monkeypatch):
+    """Modifier un réglage doit produire un nouveau fichier, pas réutiliser l'ancien."""
+    from flambee import config as flambee_config
+    from flambee import samples
+
+    avant = samples.sample_path("punch")
+    style = flambee_config.SUBTITLE_PRESETS["punch"]
+    monkeypatch.setattr(style, "font_size", style.font_size + 10)
+    assert samples.sample_path("punch") != avant

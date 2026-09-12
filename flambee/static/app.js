@@ -352,10 +352,39 @@ async function loadPresets() {
   describePreset();
 }
 
-/* Chaque style de sous-titres s'explique en une ligne, sous le menu. */
+/* Chaque style s'accompagne d'un échantillon vidéo rendu par ffmpeg : ce que
+   l'on voit ici est exactement ce que produira le montage. */
 function describePreset() {
-  const choisi = state.presets.find((p) => p.id === $("#subtitle_preset").value);
-  $("#preset-description").textContent = choisi ? choisi.description : "";
+  const id = $("#subtitle_preset").value;
+  const choisi = state.presets.find((p) => p.id === id);
+  if (!choisi) return;
+
+  $("#preset-title").textContent = choisi.label;
+  $("#preset-description").textContent = choisi.description;
+
+  const video = $("#preset-video");
+  const src = `/api/presets/${encodeURIComponent(id)}/sample`;
+  if (video.dataset.preset === id) return;      // déjà à l'écran
+
+  video.dataset.preset = id;
+  const cadre = $("#preset-preview");
+  cadre.classList.add("loading");
+  cadre.classList.remove("unplayable");
+  video.hidden = false;
+  video.src = src;
+
+  // Le premier rendu d'un style prend une seconde ; ensuite il vient du cache.
+  video.oncanplay = () => {
+    cadre.classList.remove("loading");
+    video.play().catch(() => {});
+  };
+  // Rendu indisponible (ffmpeg absent) ou navigateur sans décodeur H.264 :
+  // on garde le nom et la description plutôt que de tout escamoter.
+  video.onerror = () => {
+    cadre.classList.remove("loading");
+    cadre.classList.add("unplayable");
+    video.hidden = true;
+  };
 }
 
 /* La piste du curseur se remplit jusqu'à la valeur choisie. */

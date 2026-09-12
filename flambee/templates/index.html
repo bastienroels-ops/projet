@@ -102,7 +102,14 @@
       </label>
       <label><span>Style des sous-titres</span><select id="subtitle_preset"></select></label>
     </div>
-    <p class="hint" id="preset-description"></p>
+    <figure class="preview" id="preset-preview">
+      <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
+      <figcaption>
+        <b id="preset-title"></b>
+        <span id="preset-description"></span>
+        <span class="preview-note">Rendu réel, bas du cadre.</span>
+      </figcaption>
+    </figure>
 
     <div class="grid">
       <label><span>Volume musique <b class="value" id="music_volume_v">12%</b></span>

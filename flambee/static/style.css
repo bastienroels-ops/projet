@@ -336,6 +336,40 @@ input[type=range]::-moz-range-thumb {
   transform: translateX(18px); background: #12100e;
 }
 
+/* ------------------------------------------------- Aperçu des sous-titres --- */
+.preview {
+  display: flex; align-items: center; gap: 20px;
+  margin: 18px 0 0; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: rgba(0, 0, 0, .28);
+}
+.preview video {
+  width: 270px; flex: none; display: block;
+  /* Proportions de l'échantillon : le cadre ne saute pas pendant le chargement. */
+  aspect-ratio: 54 / 35;
+  border-radius: 10px; background: #12131a;
+  box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .9);
+}
+/* `display: block` ci-dessus l'emporterait sur l'attribut hidden. */
+.preview video[hidden] { display: none; }
+.preview figcaption {
+  display: flex; flex-direction: column; gap: 7px;
+  font-size: 13.5px; color: var(--text-soft); line-height: 1.5;
+}
+.preview figcaption b {
+  font-family: var(--serif); font-weight: 400; font-size: 22px;
+  color: var(--text); letter-spacing: -.01em;
+}
+.preview-note {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.preview.loading video { opacity: .3; }
+.preview.unplayable .preview-note::after {
+  content: " — aperçu indisponible ici";
+  color: var(--ember-2);
+}
+
 /* -------------------------------------------------------------- Boutons --- */
 .row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 
@@ -543,6 +577,8 @@ code {
   .step span { display: none; }          /* on ne garde que le numéro… */
   .step.active span { display: inline; } /* …sauf pour l'étape en cours */
   .row button, .row .button { flex: 1 1 100%; }
+  .preview { flex-direction: column; align-items: stretch; gap: 14px; padding: 12px; }
+  .preview video { width: 100%; }
   .result { gap: 20px; }
   .result video { width: 100%; max-width: 300px; margin: 0 auto; }
   .recap dl { grid-template-columns: 1fr; }
