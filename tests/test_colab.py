@@ -110,3 +110,8 @@ def test_instructions_mentionnent_les_limites():
     for rappel in ("Télécharge tes vidéos", "onglet Colab ouvert",
                    "Choisir des vidéos", "aperçu 540p"):
         assert rappel in intro, f"rappel manquant : {rappel}"
+
+
+def test_lien_de_secours_absent_hors_colab():
+    """Hors Colab, l'absence du module ne doit rien casser."""
+    assert launch.colab_fallback_url(8000) is None

@@ -161,6 +161,20 @@ def _drain(process: subprocess.Popen) -> None:
             return
 
 
+def colab_fallback_url(port: int) -> str | None:
+    """Lien de secours propre à Colab, qui ne passe par aucun tunnel.
+
+    Il ne fonctionne que dans le navigateur connecté au compte Google, ce qui
+    en fait aussi le plus sûr des deux.
+    """
+    try:
+        from google.colab.output import eval_js  # type: ignore
+
+        return eval_js(f"google.colab.kernel.proxyPort({port})")
+    except Exception:
+        return None
+
+
 def banner(url: str, username: str, password: str) -> str:
     line = "═" * 54
     return "\n".join([
@@ -264,11 +278,19 @@ def main() -> int:
         log(f"❌ {exc}")
         return 1
 
+    secours = colab_fallback_url(args.port)
+
     if url:
         log(banner(url, args.username, password))
+    elif secours:
+        log("\n⚠️  Le tunnel ne s'est pas ouvert — utilise le lien de secours.")
+        log(f"   Identifiant : {args.username} — Mot de passe : {password}\n")
     else:
         log(f"\nServeur démarré sur http://127.0.0.1:{args.port} "
             f"(identifiant {args.username}, mot de passe {password}).")
+
+    if secours:
+        log(f"  Lien de secours Colab : {secours}\n")
 
     def stop(*_args) -> None:
         for process in (tunnel, server):
