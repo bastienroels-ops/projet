@@ -24,7 +24,10 @@
 
   <div id="job" class="job hidden">
     <div class="job-bar"><div class="job-fill" id="job-fill"></div></div>
-    <p class="job-message" id="job-message"></p>
+    <div class="job-line">
+      <p class="job-message" id="job-message"></p>
+      <button class="ghost small hidden" id="btn-cancel">Annuler</button>
+    </div>
   </div>
   <div id="alert" class="alert hidden"></div>
 
@@ -45,7 +48,7 @@
   <!-- Étape 2 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="2">
     <h2>Choisir l'accroche</h2>
-    <p class="hint">Les 3 premières secondes de chaque vidéo. Clique sur celle qui ouvrira ton montage.</p>
+    <p class="hint">Les 3 premières secondes de chaque vidéo, classées par impact (mouvement, énergie sonore, vues). Clique sur celle qui ouvrira ton montage.</p>
     <div id="hooks" class="hooks"></div>
     <div class="row"><button class="primary" id="btn-hook-next" disabled>Valider l'accroche</button></div>
   </section>
@@ -68,6 +71,9 @@
       <label>Musique de fond
         <select id="music"><option value="">Aucune</option></select>
       </label>
+      <label>Style des sous-titres
+        <select id="subtitle_preset"></select>
+      </label>
       <label>Volume musique <span class="value" id="music_volume_v">12%</span>
         <input type="range" id="music_volume" min="0" max="40" value="12">
       </label>
@@ -76,6 +82,8 @@
       <label><input type="checkbox" id="subtitles" checked> Sous-titres animés</label>
       <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
       <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
+      <label><input type="checkbox" id="motion" checked> Léger travelling sur chaque plan</label>
+      <label><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
     </div>
     <div class="grid" id="mask-options">
       <label>Type de masque
@@ -123,12 +131,14 @@
     <div id="recap" class="recap"></div>
     <div class="row">
       <button class="primary" id="btn-render">Lancer le rendu</button>
+      <button class="ghost" id="btn-preview">Aperçu rapide (540p)</button>
       <button class="ghost" id="btn-cleanup">Nettoyer les fichiers temporaires</button>
     </div>
     <div id="result" class="result hidden">
       <video id="result-video" controls playsinline></video>
       <div class="result-side">
         <p id="result-info"></p>
+        <p class="hint" id="result-badge"></p>
         <a id="result-download" class="primary button" download>Télécharger le .mp4</a>
         <p class="hint">Fichier enregistré dans <code>{{ output_dir }}</code></p>
       </div>

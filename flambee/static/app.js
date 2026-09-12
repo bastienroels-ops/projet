@@ -47,6 +47,7 @@ function renderJob(job) {
   const box = $("#job");
   if (!job || job.state === "idle") { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
+  $("#btn-cancel").classList.toggle("hidden", job.state !== "running");
   $("#job-fill").style.width = `${Math.round((job.progress || 0) * 100)}%`;
   $("#job-message").textContent = job.error
     ? `${job.message} ${job.error}`
@@ -85,10 +86,19 @@ function renderSources(sources) {
 function renderHooks(project) {
   const box = $("#hooks");
   box.innerHTML = "";
-  project.sources.filter((s) => s.ok && s.hook_url).forEach((s) => {
+  const hooks = project.sources
+    .filter((s) => s.ok && s.hook_url)
+    .sort((a, b) => (b.hook_score || 0) - (a.hook_score || 0));
+
+  hooks.forEach((s) => {
+    const recommended = project.recommended_hook === s.index;
     const el = document.createElement("div");
-    el.className = "hook" + (project.hook_index === s.index ? " selected" : "");
+    el.className = "hook"
+      + (project.hook_index === s.index ? " selected" : "")
+      + (recommended ? " recommended" : "");
     el.innerHTML = `
+      ${recommended ? '<span class="badge">Recommandé</span>' : ""}
+      ${s.hook_score ? `<span class="score">${Math.round(s.hook_score * 100)}</span>` : ""}
       <video src="${s.hook_url}#t=0.1" muted loop playsinline preload="metadata"></video>
       <div class="label"><b>${escapeHtml(s.title || "Source " + s.index)}</b>
         ${s.view_count ? s.view_count.toLocaleString("fr-FR") + " vues" : fmtDuration(s.duration)}</div>`;
@@ -105,8 +115,13 @@ function renderHooks(project) {
     });
     box.appendChild(el);
   });
+
   if (project.hook_index != null) {
     state.selectedHook = project.hook_index;
+    $("#btn-hook-next").disabled = false;
+  } else if (project.recommended_hook != null) {
+    // Pré-sélection de l'accroche la plus percutante : un clic suffit à valider.
+    state.selectedHook = project.recommended_hook;
     $("#btn-hook-next").disabled = false;
   }
 }
@@ -121,6 +136,11 @@ function renderSettings(settings) {
   $("#mask_source_subtitles").checked = settings.mask_source_subtitles;
   $("#keep_source_audio").checked = settings.keep_source_audio;
   $("#mask_mode").value = settings.mask_mode;
+  $("#motion").checked = settings.motion;
+  $("#scene_aware").checked = settings.scene_aware;
+  if ($("#subtitle_preset").options.length) {
+    $("#subtitle_preset").value = settings.subtitle_preset;
+  }
   $("#mask_height_ratio").value = Math.round(settings.mask_height_ratio * 100);
   $("#mask_height_ratio_v").textContent = `${Math.round(settings.mask_height_ratio * 100)}%`;
   $("#mask-options").classList.toggle("hidden", !settings.mask_source_subtitles);
@@ -141,13 +161,25 @@ function renderRecap(project) {
 
 function renderResult(project) {
   const box = $("#result");
-  if (!project.output_url) { box.classList.add("hidden"); return; }
+  const url = project.output_url || project.preview_url;
+  if (!url) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
+
+  // L'aperçu ne s'affiche que tant qu'aucun rendu définitif n'existe.
+  const isPreview = !project.output_url;
   const video = $("#result-video");
-  const src = `${project.output_url}?t=${Math.round(project.job.updated_at || 0)}`;
+  const src = `${url}?t=${Math.round(project.job.updated_at || 0)}`;
   if (video.getAttribute("src") !== src) video.setAttribute("src", src);
-  $("#result-info").textContent = project.output_name || "";
-  $("#result-download").href = `${project.output_url}?download=true`;
+  video.classList.toggle("preview", isPreview);
+
+  $("#result-info").textContent = isPreview
+    ? "Aperçu 540p (non exporté)"
+    : project.output_name || "";
+  $("#result-badge").textContent = isPreview
+    ? "Lance le rendu pour obtenir le .mp4 en 1080×1920 dans /output."
+    : "";
+  $("#result-download").classList.toggle("hidden", isPreview);
+  if (!isPreview) $("#result-download").href = `${project.output_url}?download=true`;
 }
 
 function escapeHtml(text) {
@@ -226,6 +258,13 @@ async function loadVoices() {
   $("#voice").value = def;
 }
 
+async function loadPresets() {
+  const { subtitles, default: def } = await api("/api/presets");
+  $("#subtitle_preset").innerHTML = subtitles
+    .map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join("");
+  $("#subtitle_preset").value = def;
+}
+
 async function loadMusic() {
   const { tracks } = await api("/api/music");
   $("#music").innerHTML = `<option value="">Aucune</option>` +
@@ -292,6 +331,9 @@ function bind() {
     mask_mode: $("#mask_mode").value,
     mask_height_ratio: +$("#mask_height_ratio").value / 100,
     keep_source_audio: $("#keep_source_audio").checked,
+    motion: $("#motion").checked,
+    scene_aware: $("#scene_aware").checked,
+    subtitle_preset: $("#subtitle_preset").value,
   });
 
   $("#music_volume").addEventListener("input", (e) => {
@@ -354,13 +396,25 @@ function bind() {
     } catch (err) { alertBox(err.message); }
   });
 
-  $("#btn-render").addEventListener("click", async (e) => {
+  const startRender = async (button, fast) => {
     try {
       alertBox("");
-      e.target.disabled = true;
+      button.disabled = true;
       applyProject(await api(`/api/projects/${state.project.id}/render`,
-        { method: "POST" }));
+        { method: "POST", body: { fast } }));
       startPolling();
+    } catch (err) { alertBox(err.message); }
+    finally { button.disabled = false; }
+  };
+
+  $("#btn-render").addEventListener("click", (e) => startRender(e.target, false));
+  $("#btn-preview").addEventListener("click", (e) => startRender(e.target, true));
+
+  $("#btn-cancel").addEventListener("click", async (e) => {
+    try {
+      e.target.disabled = true;
+      await api(`/api/projects/${state.project.id}/cancel`, { method: "POST" });
+      alertBox("Arrêt demandé…", true);
     } catch (err) { alertBox(err.message); }
     finally { e.target.disabled = false; }
   });
@@ -376,6 +430,6 @@ function bind() {
 
 bind();
 loadHealth().catch((e) => console.error(e));
-Promise.all([loadVoices(), loadMusic()])
+Promise.all([loadVoices(), loadMusic(), loadPresets()])
   .then(loadOrCreate)
   .catch((err) => alertBox(err.message));

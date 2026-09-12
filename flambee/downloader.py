@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
@@ -44,11 +46,13 @@ class Source:
     height: int = 0
     view_count: int | None = None
     like_count: int | None = None
+    has_audio: bool = True
     extractor: str = ""
     warnings: list[str] = field(default_factory=list)
     error: str = ""
     hook_path: str = ""          # rempli par trimmer.extract_hooks()
     hook_url: str = ""           # chemin servi par l'app
+    hook_score: float = 0.0      # rempli par analyzer (0 → 1)
 
     @property
     def ok(self) -> bool:
@@ -119,7 +123,13 @@ def _ydl_options(dest_dir: Path, index: int) -> dict:
     }
 
 
-def download_one(url: str, dest_dir: Path, index: int) -> Source:
+def download_one(
+    url: str,
+    dest_dir: Path,
+    index: int,
+    *,
+    cancel: threading.Event | None = None,
+) -> Source:
     """Télécharge une vidéo et retourne ses métadonnées."""
     from yt_dlp import YoutubeDL  # import tardif : démarrage de l'app plus rapide
     from yt_dlp.utils import DownloadError as YdlError
@@ -127,8 +137,16 @@ def download_one(url: str, dest_dir: Path, index: int) -> Source:
     dest_dir.mkdir(parents=True, exist_ok=True)
     source = Source(index=index, url=url)
 
+    options = _ydl_options(dest_dir, index)
+    if cancel is not None:
+        def _abort_if_cancelled(_status: dict) -> None:
+            if cancel.is_set():
+                raise DownloadError("Téléchargement annulé.")
+
+        options["progress_hooks"] = [_abort_if_cancelled]
+
     try:
-        with YoutubeDL(_ydl_options(dest_dir, index)) as ydl:
+        with YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=True)
             if info.get("_type") == "playlist":         # sécurité : 1re entrée
                 entries = [e for e in info.get("entries") or [] if e]
@@ -162,14 +180,14 @@ def download_one(url: str, dest_dir: Path, index: int) -> Source:
     source.height = int(info.get("height") or 0)
 
     # Les métadonnées yt-dlp sont parfois absentes : on complète via ffprobe.
-    if not source.duration or not source.width:
-        try:
-            media = probe(path)
-            source.duration = source.duration or media.duration
-            source.width = source.width or media.width
-            source.height = source.height or media.height
-        except MediaError as exc:
-            source.warnings.append(f"Analyse ffprobe impossible : {exc}")
+    try:
+        media = probe(path)
+        source.duration = source.duration or media.duration
+        source.width = source.width or media.width
+        source.height = source.height or media.height
+        source.has_audio = media.has_audio
+    except MediaError as exc:
+        source.warnings.append(f"Analyse ffprobe impossible : {exc}")
 
     source.warnings.extend(_check_source(source))
     return source
@@ -220,14 +238,40 @@ def download_all(
     dest_dir: Path,
     *,
     on_progress: Callable[[int, int, Source], None] | None = None,
+    cancel: threading.Event | None = None,
+    parallel: bool = True,
 ) -> list[Source]:
-    """Télécharge toutes les sources, en continuant malgré les échecs."""
-    sources: list[Source] = []
+    """Télécharge toutes les sources en parallèle, en continuant malgré les échecs.
+
+    Les téléchargements passent l'essentiel de leur temps à attendre le réseau :
+    les lancer ensemble divise l'attente par le nombre de liens.
+    """
     total = len(urls)
-    for index, url in enumerate(urls, start=1):
-        log.info("Téléchargement %s/%s : %s", index, total, url)
-        source = download_one(url, dest_dir, index)
-        sources.append(source)
-        if on_progress:
-            on_progress(index, total, source)
-    return sources
+    done = 0
+    lock = threading.Lock()
+    results: dict[int, Source] = {}
+
+    def fetch(item: tuple[int, str]) -> Source:
+        nonlocal done
+        index, url = item
+        if cancel is not None and cancel.is_set():
+            source = Source(index=index, url=url, error="Téléchargement annulé.")
+        else:
+            log.info("Téléchargement %s/%s : %s", index, total, url)
+            source = download_one(url, dest_dir, index, cancel=cancel)
+        with lock:
+            done += 1
+            results[index] = source
+            if on_progress:
+                on_progress(done, total, source)
+        return source
+
+    items = list(enumerate(urls, start=1))
+    if parallel and total > 1:
+        with ThreadPoolExecutor(max_workers=min(total, 4)) as pool:
+            list(pool.map(fetch, items))
+    else:
+        for item in items:
+            fetch(item)
+
+    return [results[index] for index, _ in items if index in results]

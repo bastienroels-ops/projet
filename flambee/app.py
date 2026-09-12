@@ -51,6 +51,13 @@ class SettingsIn(BaseModel):
     mask_height_ratio: float = 0.22
     keep_source_audio: bool = False
     source_audio_volume: float = 0.05
+    motion: bool = True
+    scene_aware: bool = True
+    subtitle_preset: str = config.DEFAULT_SUBTITLE_PRESET
+
+
+class RenderIn(BaseModel):
+    fast: bool = False        # aperçu rapide : encodage allégé
 
 
 class ScriptIn(BaseModel):
@@ -80,6 +87,13 @@ def _spawn(target, *args) -> None:
     threading.Thread(target=target, args=args, daemon=True).start()
 
 
+def _spawn_render(project: Project, *, fast: bool) -> None:
+    threading.Thread(
+        target=pipeline.run_render, args=(project,), kwargs={"fast": fast},
+        daemon=True,
+    ).start()
+
+
 def _project_payload(project: Project) -> dict:
     data = project.to_dict()
     for source in data["sources"]:
@@ -89,6 +103,9 @@ def _project_payload(project: Project) -> dict:
     if project.output_path:
         data["output_url"] = f"/api/projects/{project.id}/output"
         data["output_name"] = Path(project.output_path).name
+    if project.preview_path and Path(project.preview_path).exists():
+        data["preview_url"] = f"/api/projects/{project.id}/preview"
+    data["recommended_hook"] = project.recommended_hook
     data["script_notes"] = scriptgen.review(project.script) if project.script else []
     data["estimated_duration"] = round(
         scriptgen.estimate_duration(project.script), 1
@@ -121,8 +138,11 @@ async def health():
         ytdlp = True
     except ImportError:
         ytdlp = False
+    encoder = media.detect_encoder() if "ffmpeg" not in missing else None
     return {
         "version": __version__,
+        "encoder": encoder.name if encoder else "",
+        "hardware_encoder": bool(encoder and encoder.hardware),
         "ffmpeg": "ffmpeg" not in missing,
         "ffprobe": "ffprobe" not in missing,
         "yt_dlp": ytdlp,
@@ -242,6 +262,8 @@ async def update_settings(project_id: str, body: SettingsIn):
     data["source_audio_volume"] = max(0.0, min(1.0, data["source_audio_volume"]))
     if data["mask_mode"] not in ("blur", "black"):
         data["mask_mode"] = "blur"
+    if data["subtitle_preset"] not in config.SUBTITLE_PRESETS:
+        data["subtitle_preset"] = config.DEFAULT_SUBTITLE_PRESET
 
     project.settings = config.RenderSettings(**data)
     project.step = max(project.step, 4)
@@ -300,7 +322,7 @@ async def save_script(project_id: str, body: ScriptIn):
 
 # --- Étape 5 : rendu ------------------------------------------------------
 @app.post("/api/projects/{project_id}/render")
-async def render(project_id: str):
+async def render(project_id: str, body: RenderIn | None = None):
     project = _get(project_id)
     _require_idle(project)
     if not project.script.strip():
@@ -308,9 +330,31 @@ async def render(project_id: str):
     if not project.ready_sources:
         raise HTTPException(status_code=400, detail="Aucune vidéo source prête.")
     if project.hook_index is None:
-        project.hook_index = project.ready_sources[0].index
-    _spawn(pipeline.run_render, project)
+        project.hook_index = (
+            project.recommended_hook or project.ready_sources[0].index
+        )
+    _spawn_render(project, fast=bool(body and body.fast))
     return _project_payload(project)
+
+
+@app.post("/api/projects/{project_id}/cancel")
+async def cancel_job(project_id: str):
+    """Coupe la tâche en cours (téléchargement ou rendu)."""
+    project = _get(project_id)
+    stopped = pipeline.request_cancel(project.id)
+    return {"cancelled": stopped, "job": project.job.name}
+
+
+@app.get("/api/presets")
+async def presets():
+    return {
+        "subtitles": [
+            {"id": name, "label": name.capitalize(),
+             "font_size": style.font_size, "animate": style.animate}
+            for name, style in config.SUBTITLE_PRESETS.items()
+        ],
+        "default": config.DEFAULT_SUBTITLE_PRESET,
+    }
 
 
 @app.get("/api/projects/{project_id}/output")
@@ -323,6 +367,14 @@ async def download_output(project_id: str, download: bool = False):
         media_type="video/mp4",
         filename=Path(project.output_path).name if download else None,
     )
+
+
+@app.get("/api/projects/{project_id}/preview")
+async def download_preview(project_id: str):
+    project = _get(project_id)
+    if not project.preview_path or not Path(project.preview_path).exists():
+        raise HTTPException(status_code=404, detail="Aucun aperçu disponible.")
+    return FileResponse(project.preview_path, media_type="video/mp4")
 
 
 @app.post("/api/projects/{project_id}/cleanup")

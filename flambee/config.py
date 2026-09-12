@@ -69,6 +69,13 @@ class VideoFormat:
 
 FORMAT = VideoFormat()
 
+# Aperçu : même cadrage, quatre fois moins de pixels — pour vérifier un montage
+# en quelques secondes avant de lancer le rendu définitif.
+PREVIEW_FORMAT = VideoFormat(
+    width=FORMAT.width // 2, height=FORMAT.height // 2, fps=FORMAT.fps,
+    video_bitrate="2M", audio_bitrate="128k",
+)
+
 
 # --- Voix edge-tts françaises --------------------------------------------
 # Liste figée (rapide, sans réseau) ; `voice.list_voices()` interroge
@@ -106,6 +113,29 @@ class SubtitleStyle:
 
 SUBTITLE_STYLE = SubtitleStyle()
 
+# Trois rendus prêts à l'emploi, choisis à l'étape 3.
+SUBTITLE_PRESETS: dict[str, SubtitleStyle] = {
+    # Le style « TikTok » : gros, mot actif en jaune, petit pop à chaque ligne.
+    "punch": SubtitleStyle(),
+    # Sobre : une ligne blanche, sans surlignage ni animation.
+    "classique": SubtitleStyle(
+        font="Arial", font_size=68, highlight_color="&H00FFFFFF",
+        outline=4, margin_v=340, max_chars_per_line=28,
+        max_words_per_line=6, animate=False,
+    ),
+    # Saturé : très gros, contour épais, mot actif cyan.
+    "neon": SubtitleStyle(
+        font_size=96, highlight_color="&H00F0FF00", outline=8, shadow=0,
+        margin_v=520, max_chars_per_line=16, max_words_per_line=3,
+    ),
+}
+DEFAULT_SUBTITLE_PRESET = "punch"
+
+
+def subtitle_style(preset: str | None) -> SubtitleStyle:
+    """Retourne le style de sous-titres correspondant au preset demandé."""
+    return SUBTITLE_PRESETS.get(preset or "", SUBTITLE_PRESETS[DEFAULT_SUBTITLE_PRESET])
+
 
 # --- Génération de script (API Claude) ------------------------------------
 ANTHROPIC_MODEL = os.environ.get("FLAMBEE_ANTHROPIC_MODEL", "claude-sonnet-5")
@@ -138,4 +168,7 @@ class RenderSettings:
     mask_height_ratio: float = 0.22    # part basse de l'image à masquer
     keep_source_audio: bool = False
     source_audio_volume: float = 0.05
+    motion: bool = True                # léger travelling sur chaque plan
+    scene_aware: bool = True           # caler les coupes sur les changements de plan
+    subtitle_preset: str = "punch"
     extra: dict = field(default_factory=dict)

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import random
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from . import config
+from .analyzer import snap_to_scene
 from .downloader import Source
 from .media import MediaError, ffmpeg, has_media_duration, probe, vertical_filter
 
@@ -63,16 +65,21 @@ def extract_hook(
 
 
 def extract_hooks(sources: list[Source], out_dir: Path) -> list[Source]:
-    """Extrait le hook de chaque source téléchargée avec succès."""
-    for source in sources:
+    """Extrait le hook de chaque source, toutes en parallèle."""
+
+    def extract(source: Source) -> None:
         if not source.ok:
-            continue
+            return
         try:
-            path = extract_hook(source, out_dir)
-            source.hook_path = str(path)
+            source.hook_path = str(extract_hook(source, out_dir))
         except MediaError as exc:
             source.warnings.append(f"Hook non extrait : {exc}")
             log.warning("Hook KO pour %s : %s", source.url, exc)
+
+    usable = [s for s in sources if s.ok]
+    if usable:
+        with ThreadPoolExecutor(max_workers=min(len(usable), 4)) as pool:
+            list(pool.map(extract, usable))
     return sources
 
 
@@ -82,14 +89,18 @@ def plan_segments(
     hook_index: int,
     target_duration: float,
     hook_duration: float | None = None,
+    scenes: dict[int, list[float]] | None = None,
     seed: int | None = None,
 ) -> list[Segment]:
     """Construit la liste des extraits couvrant la durée de la voix off.
 
     Le hook choisi ouvre la vidéo ; le reste du temps est réparti entre toutes
     les sources, en alternant pour garder du rythme. Les points de départ sont
-    tirés au hasard dans la partie utile de chaque source (on évite les toutes
-    premières et dernières secondes, souvent des intros/outros).
+    tirés dans la partie utile de chaque source (on évite les intros/outros).
+
+    Quand `scenes` fournit les changements de plan détectés par `analyzer`, les
+    coupes sont recalées dessus : un extrait démarre sur un plan et s'arrête
+    avant le suivant, au lieu de trancher au milieu d'une action.
     """
     hook_duration = hook_duration or config.HOOK_DURATION
     usable = [s for s in sources if s.ok and s.duration > 0]
@@ -97,6 +108,7 @@ def plan_segments(
         raise MediaError("Aucune source exploitable pour le montage.")
 
     rng = random.Random(seed)
+    scenes = scenes or {}
     by_index = {s.index: s for s in usable}
     hook_source = by_index.get(hook_index) or usable[0]
 
@@ -129,6 +141,7 @@ def plan_segments(
         guard += 1
         source = rotation[position % len(rotation)]
         position += 1
+        cuts = scenes.get(source.index) or []
 
         available = source.duration - cursor[source.index] - 0.2
         if available < MIN_SEGMENT:
@@ -137,15 +150,29 @@ def plan_segments(
             if available < MIN_SEGMENT:
                 continue
 
-        length = min(MAX_SEGMENT, available, remaining)
-        if remaining - length < MIN_SEGMENT:
-            length = min(available, remaining)           # dernier extrait : on finit
-        length = max(min(length, available), min(MIN_SEGMENT, available))
-
         start = cursor[source.index]
-        jitter = rng.uniform(0, max(0.0, available - length) * 0.35)
-        start = min(start + jitter, source.duration - length - 0.05)
-        start = max(0.0, start)
+        jitter = rng.uniform(0, max(0.0, available - MIN_SEGMENT) * 0.35)
+        start = max(0.0, min(start + jitter, source.duration - MIN_SEGMENT - 0.05))
+        if cuts:
+            start = snap_to_scene(
+                start, cuts, tolerance=1.5,
+                upper_bound=source.duration - MIN_SEGMENT - 0.05,
+            )
+
+        available = source.duration - start - 0.1
+        if available < MIN_SEGMENT:
+            cursor[source.index] = _intro_skip(source)
+            continue
+
+        length = min(MAX_SEGMENT, available, remaining)
+        is_last = remaining - length < MIN_SEGMENT
+        if is_last:
+            length = min(available, remaining)
+        elif cuts:
+            # S'arrêter juste avant le plan suivant, si la longueur reste tenable.
+            following = next((c for c in cuts if c >= start + MIN_SEGMENT), None)
+            if following and MIN_SEGMENT <= following - start <= MAX_SEGMENT:
+                length = min(following - start, available, remaining)
 
         segments.append(
             Segment(source_index=source.index, start=round(start, 3),
@@ -154,6 +181,39 @@ def plan_segments(
         cursor[source.index] = start + length
         remaining -= length
 
+    return _ensure_coverage(segments, by_index, target_duration)
+
+
+def _ensure_coverage(
+    segments: list[Segment],
+    sources: dict[int, Source],
+    target_duration: float,
+) -> list[Segment]:
+    """Garantit que le montage couvre toute la voix off (jamais d'écran figé)."""
+    total = sum(s.duration for s in segments)
+    missing = target_duration - total
+    if missing <= 0.05 or not segments:
+        return segments
+
+    last = segments[-1]
+    source = sources.get(last.source_index)
+    if source:
+        room = source.duration - (last.start + last.duration) - 0.05
+        added = min(missing, max(0.0, room))
+        if added > 0.01:
+            last.duration = round(last.duration + added, 3)
+            missing -= added
+
+    # S'il manque encore du temps, on rejoue le début de la source la plus longue.
+    if missing > 0.05:
+        longest = max(sources.values(), key=lambda s: s.duration, default=None)
+        if longest and longest.duration > 0:
+            segments.append(Segment(
+                source_index=longest.index,
+                start=round(max(0.0, min(_intro_skip(longest),
+                                         longest.duration - missing)), 3),
+                duration=round(min(missing, longest.duration), 3),
+            ))
     return segments
 
 

@@ -6,7 +6,7 @@ import json
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from . import config
@@ -40,6 +40,8 @@ class Project:
     urls: list[str] = field(default_factory=list)
     sources: list[Source] = field(default_factory=list)
     hook_index: int | None = None
+    recommended_hook: int | None = None
+    analyses: dict[int, dict] = field(default_factory=dict)
     settings: config.RenderSettings = field(default_factory=config.RenderSettings)
     topic: str = ""
     instructions: str = ""
@@ -47,8 +49,11 @@ class Project:
     segments: list[Segment] = field(default_factory=list)
     voice_path: str = ""
     voice_duration: float = 0.0
+    voice_signature: str = ""
+    voice_words: list[dict] = field(default_factory=list)
     subtitle_path: str = ""
     output_path: str = ""
+    preview_path: str = ""
     job: JobState = field(default_factory=JobState)
 
     # --- Chemins ----------------------------------------------------------
@@ -80,6 +85,13 @@ class Project:
     def ready_sources(self) -> list[Source]:
         return [s for s in self.sources if s.ok]
 
+    def scene_cuts(self) -> dict[int, list[float]]:
+        """Changements de plan détectés, par index de source."""
+        return {
+            int(index): list(analysis.get("scenes") or [])
+            for index, analysis in self.analyses.items()
+        }
+
     # --- Sérialisation ----------------------------------------------------
     def to_dict(self) -> dict:
         return {
@@ -89,6 +101,8 @@ class Project:
             "urls": self.urls,
             "sources": [s.to_dict() for s in self.sources],
             "hook_index": self.hook_index,
+            "recommended_hook": self.recommended_hook,
+            "analyses": {str(k): v for k, v in self.analyses.items()},
             "settings": asdict(self.settings),
             "topic": self.topic,
             "instructions": self.instructions,
@@ -96,8 +110,11 @@ class Project:
             "segments": [s.to_dict() for s in self.segments],
             "voice_path": self.voice_path,
             "voice_duration": self.voice_duration,
+            "voice_signature": self.voice_signature,
+            "voice_words": self.voice_words,
             "subtitle_path": self.subtitle_path,
             "output_path": self.output_path,
+            "preview_path": self.preview_path,
             "job": asdict(self.job),
         }
 
@@ -109,18 +126,27 @@ class Project:
             step=data.get("step", 1),
             urls=data.get("urls", []),
             hook_index=data.get("hook_index"),
+            recommended_hook=data.get("recommended_hook"),
             topic=data.get("topic", ""),
             instructions=data.get("instructions", ""),
             script=data.get("script", ""),
             voice_path=data.get("voice_path", ""),
             voice_duration=data.get("voice_duration", 0.0),
+            voice_signature=data.get("voice_signature", ""),
+            voice_words=data.get("voice_words", []),
             subtitle_path=data.get("subtitle_path", ""),
             output_path=data.get("output_path", ""),
+            preview_path=data.get("preview_path", ""),
         )
+        known_source = {f.name for f in fields(Source)}
         project.sources = [
-            Source(**{k: v for k, v in raw.items() if k != "ok"})
+            Source(**{k: v for k, v in raw.items() if k in known_source})
             for raw in data.get("sources", [])
         ]
+        project.analyses = {
+            int(index): value
+            for index, value in (data.get("analyses") or {}).items()
+        }
         project.segments = [Segment(**raw) for raw in data.get("segments", [])]
         known = config.RenderSettings().__dict__.keys()
         project.settings = config.RenderSettings(

@@ -48,7 +48,7 @@ et la clé API sont détectés.
 | **2. Accroche** | Les 3 premières secondes de chaque source sont extraites (ffmpeg) et jouées côte à côte. Un clic choisit celle qui ouvrira le montage. |
 | **3. Style** | Voix `edge-tts` (+ débit), sous-titres animés on/off, musique de fond et son volume, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, fond d'ambiance des vidéos d'origine. |
 | **4. Script** | Sujet + consignes → appel à l'API Claude, **ou** bouton « Copier le prompt » pour le coller dans une conversation Claude et rapporter le texte. Le script reste éditable, avec un compteur de mots et la durée estimée. |
-| **5. Rendu** | Voix off → sous-titres `.ass` calés au mot → découpe et recadrage 9:16 des extraits → concaténation → mixage voix/musique → export `.mp4` dans `output/`. |
+| **5. Rendu** | Voix off → sous-titres `.ass` calés au mot → découpe, recadrage 9:16, montage, mixage et encodage **en une seule passe ffmpeg** → `.mp4` dans `output/`. Aperçu 540p en quelques secondes, barre de progression réelle, bouton d'annulation. |
 
 ## Comment c'est monté
 
@@ -56,19 +56,44 @@ et la clé API sont détectés.
   `trimmer.plan_segments()` répartit les extraits (2,5 à 6 s chacun) pour couvrir
   exactement cette durée, en alternant les sources et en évitant de repasser deux
   fois au même endroit.
+- Les **coupes tombent sur les changements de plan** : `analyzer` détecte les
+  scènes de chaque source (décodage en 192 px de large, donc très rapide) et le
+  planificateur y recale les entrées/sorties d'extrait.
 - Les **sous-titres** utilisent les évènements `WordBoundary` d'edge-tts : pas de
   transcription, un calage au mot exact, rendu façon TikTok (ligne complète, mot
-  actif surligné, léger « pop » en début de ligne).
-- Chaque extrait est **normalisé** (1080×1920, 30 fps, H.264/AAC) avant la
-  concaténation, qui se fait donc sans réencodage. Une seule passe finale incruste
-  les sous-titres et mixe l'audio.
+  actif surligné, léger « pop » en début de ligne). Trois styles au choix.
+- L'**accroche recommandée** est celle qui combine le plus de mouvement,
+  d'énergie sonore et de vues sur ses 3 premières secondes.
+- Le **son** est traité comme sur une vraie vidéo virale : voix normalisée en
+  EBU R128 (−14 LUFS), musique qui s'efface automatiquement sous la voix
+  (`sidechaincompress`), limiteur en sortie.
+
+## Optimisations
+
+Le rendu est la seule opération vraiment coûteuse : tout est organisé pour la
+réduire.
+
+| Levier | Effet |
+|---|---|
+| **Rendu en une passe** | Découpe, recadrage, travelling, masque, concaténation, sous-titres et mixage tiennent dans un seul `-filter_complex`. La vidéo n'est encodée **qu'une fois** au lieu de N+1 : plus rapide, et sans perte de génération. |
+| **Encodeur matériel** | Détecté au premier lancement en testant réellement chaque codec (VideoToolbox sur Mac, NVENC, QuickSync), avec repli `libx264`. Le résultat est mis en cache. |
+| **Aperçu 540p** | Même montage, quatre fois moins de pixels : ~3× plus rapide pour valider un montage avant le rendu définitif. |
+| **Parallélisme** | Téléchargements simultanés, accroches et analyse des plans extraites en parallèle sur tous les cœurs. |
+| **Voix mise en cache** | Tant que le script et la voix ne changent pas, la piste et son minutage sont réutilisés — un rendu final qui suit un aperçu ne rappelle pas edge-tts. |
+| **Flou économique** | Le masque des sous-titres sources passe par une réduction/agrandissement plutôt que `boxblur` : rendu équivalent, ~20 % de temps de rendu en moins. |
+| **Analyse à basse résolution** | Détection de plans et mesure d'énergie sur un flux de 192 px de large. |
+
+Ordres de grandeur mesurés sur 4 cœurs sans GPU (30 s de vidéo, 6 plans, tout
+activé) : **19 s** en 1080×1920, **9 s** pour l'aperçu 540p. Sur un Mac récent,
+VideoToolbox réduit encore nettement la partie encodage.
 
 ## Arborescence
 
 ```
 flambee/
-  config.py       réglages, formats, styles, prompt système
-  media.py        helpers ffmpeg/ffprobe (probe, filtres 9:16, masque)
+  config.py       réglages, formats, styles de sous-titres, prompt système
+  media.py        helpers ffmpeg (encodeur, progression, filtres 9:16, masque)
+  analyzer.py     détection des plans + score d'accroche
   downloader.py   étape 1 — wrapper yt-dlp
   trimmer.py      étape 2 — hooks + planification/découpe des extraits
   scriptgen.py    étape 4 — API Claude (+ mode manuel)
@@ -101,6 +126,7 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | `FLAMBEE_MIN_DURATION` | `45` | seuil d'avertissement sur les sources |
 | `FLAMBEE_HOOK_DURATION` | `3` | durée de l'accroche |
 | `FLAMBEE_ANTHROPIC_MODEL` | `claude-sonnet-5` | modèle utilisé pour le script |
+| `FLAMBEE_ENCODER` | auto | force un encodeur (`libx264`, `h264_videotoolbox`, `h264_nvenc`…) |
 | `ANTHROPIC_API_KEY` | — | active la génération en un clic |
 | `FLAMBEE_COOKIES_FROM_BROWSER` | — | `chrome`, `safari`, `firefox`… pour les vidéos qui exigent une connexion |
 | `FLAMBEE_COOKIES_FILE` | — | fichier `cookies.txt` (format Netscape), alternative à l'option ci-dessus |
@@ -127,8 +153,10 @@ aucun appel réseau.
   changent souvent) ; certaines vidéos privées ou régionalisées restent inaccessibles.
 - **Sous-titres dans une autre police** → `Arial Black` doit être installée ;
   sinon change `SubtitleStyle.font` dans `flambee/config.py`.
-- **Rendu long** → c'est l'encodage final ; baisse la résolution dans
-  `VideoFormat` ou passe `-preset` de `medium` à `veryfast` dans `assembler.py`.
+- **Rendu long** → regarde l'encodeur annoncé dans le bandeau : s'il affiche
+  `libx264` sur un Mac récent, VideoToolbox n'a pas été détecté (ffmpeg compilé
+  sans). Utilise l'aperçu 540p pour itérer, et le rendu complet une fois le
+  montage validé.
 
 ## Usage
 

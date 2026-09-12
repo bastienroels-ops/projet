@@ -7,6 +7,7 @@ vocale (edge-tts) est remplacée par un minutage simulé.
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -99,60 +100,121 @@ def test_render_segment_normalise_au_format_9_16(sources, tmp_path, mask):
     assert 1.8 <= info.duration <= 2.3
 
 
-def test_concat_et_rendu_final(sources, tmp_path):
-    settings = config.RenderSettings(subtitles=True)
-    clips = []
-    for position, segment in enumerate(
-        trimmer.plan_segments(sources, hook_index=1, target_duration=9, seed=3), 1
-    ):
-        source = next(s for s in sources if s.index == segment.source_index)
-        clips.append(trimmer.render_segment(
-            segment, source, tmp_path / f"clip_{position}.mp4", settings=settings
-        ))
+def _fake_voice(path: Path, seconds: float) -> Path:
+    """Une voix off factice : un silence, suffisant pour valider le mixage."""
+    media.ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+                  "-t", f"{seconds}", "-c:a", "aac", str(path)])
+    return path
 
-    montage = assembler.concat_clips(clips, tmp_path / "montage.mp4")
-    assert media.probe(montage).duration == pytest.approx(9, abs=0.6)
 
+def test_rendu_en_une_passe(sources, tmp_path):
+    """Le chemin principal : un seul ffmpeg du découpage au fichier final."""
+    settings = config.RenderSettings(subtitles=True, motion=True)
+    segments = trimmer.plan_segments(sources, hook_index=1, target_duration=9, seed=3)
     words = _estimate_words("Voici une astuce simple et redoutable pour tout changer", 8)
-    ass_path = subtitles.write_ass(words, tmp_path / "subs.ass", max_duration=8.5)
+    ass_path = subtitles.write_ass(words, tmp_path / "subs.ass", max_duration=9)
 
-    # Une voix off factice : un silence de 8 s, suffisant pour valider le mixage.
-    voice_path = tmp_path / "voice.m4a"
-    media.ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "8",
-                  "-c:a", "aac", str(voice_path)])
-
-    out = assembler.finalize(
-        montage, tmp_path / "final.mp4",
-        voice_path=voice_path, subtitle_path=ass_path, music_path=None,
-        settings=settings, duration=8.5,
+    result = assembler.render(
+        segments, sources, tmp_path / "final.mp4",
+        voice_path=_fake_voice(tmp_path / "voice.m4a", 8.5),
+        subtitle_path=ass_path, music_path=None,
+        settings=settings, duration=9, fast=True,
     )
-    info = media.probe(out)
-    assert info.duration == pytest.approx(8.5, abs=0.4)
-    assert (info.width, info.height) == (config.FORMAT.width, config.FORMAT.height)
-    assert info.has_audio
+    assert result.duration == pytest.approx(9, abs=0.4)
+    assert (result.width, result.height) == (config.FORMAT.width, config.FORMAT.height)
+    assert media.probe(Path(result.path)).has_audio
 
 
-def test_finalize_avec_musique_et_audio_source(sources, tmp_path):
+def test_rendu_une_passe_avec_musique_et_ambiance(sources, tmp_path):
+    """Ducking de la musique sous la voix + ambiance des sources."""
     settings = config.RenderSettings(
-        subtitles=False, keep_source_audio=True, music_volume=0.2
+        subtitles=False, keep_source_audio=True, music_volume=0.2, motion=False
     )
-    segment = trimmer.Segment(source_index=1, start=0, duration=3, is_hook=True)
-    clip = trimmer.render_segment(segment, sources[0], tmp_path / "clip.mp4",
-                                  settings=settings)
-    montage = assembler.concat_clips([clip], tmp_path / "montage2.mp4")
-
     music = tmp_path / "music.m4a"
-    media.ffmpeg(["-f", "lavfi", "-i", "sine=frequency=220", "-t", "2",
+    media.ffmpeg(["-f", "lavfi", "-i", "sine=frequency=220", "-t", "3",
                   "-c:a", "aac", str(music)])
-    voice = tmp_path / "voice2.m4a"
-    media.ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "3",
-                  "-c:a", "aac", str(voice)])
+    segments = [trimmer.Segment(source_index=1, start=0, duration=3, is_hook=True),
+                trimmer.Segment(source_index=2, start=2, duration=3)]
 
-    out = assembler.finalize(
-        montage, tmp_path / "final2.mp4", voice_path=voice, subtitle_path=None,
-        music_path=music, settings=settings, duration=3,
+    result = assembler.render(
+        segments, sources, tmp_path / "final2.mp4",
+        voice_path=_fake_voice(tmp_path / "voice2.m4a", 5.5),
+        subtitle_path=None, music_path=music,
+        settings=settings, duration=6, fast=True,
     )
-    assert media.probe(out).has_audio
+    assert result.duration == pytest.approx(6, abs=0.4)
+    assert media.probe(Path(result.path)).has_audio
+
+
+def test_rendu_respecte_la_progression_et_l_annulation(sources, tmp_path):
+    """La progression remonte, et un rendu annulé s'arrête sans fichier valable."""
+    seen: list[float] = []
+    segments = [trimmer.Segment(source_index=1, start=0, duration=4, is_hook=True)]
+    assembler.render(
+        segments, sources, tmp_path / "p.mp4", voice_path=None, subtitle_path=None,
+        music_path=None, settings=config.RenderSettings(subtitles=False),
+        duration=4, fast=True, on_progress=seen.append,
+    )
+    assert seen and seen[-1] == 1.0 and all(0 <= v <= 1 for v in seen)
+
+    cancel = threading.Event()
+    cancel.set()
+    with pytest.raises(media.Cancelled):
+        assembler.render(
+            segments, sources, tmp_path / "annule.mp4", voice_path=None,
+            subtitle_path=None, music_path=None,
+            settings=config.RenderSettings(subtitles=False),
+            duration=4, fast=True, cancel=cancel,
+        )
+
+
+def test_graphe_unique_declare_toutes_les_entrees(sources):
+    """Le graphe numérote correctement ses entrées (vidéo, voix, musique)."""
+    graph = assembler.build_graph(
+        [trimmer.Segment(source_index=1, start=0, duration=3),
+         trimmer.Segment(source_index=2, start=1, duration=3)],
+        {s.index: s for s in sources},
+        voice_path=Path("/tmp/v.mp3"), subtitle_path=None,
+        music_path=Path("/tmp/m.mp3"),
+        settings=config.RenderSettings(subtitles=False),
+        duration=6, fmt=config.FORMAT,
+    )
+    assert graph.inputs.count("-i") == 4          # 2 extraits + voix + musique
+    assert graph.video_label == "vcat"
+    assert graph.audio_label == "aout"
+    joined = ";".join(graph.filters)
+    assert "sidechaincompress" in joined          # musique atténuée sous la voix
+    assert assembler.VOICE_LOUDNESS in joined     # voix normalisée
+
+
+def test_repli_multi_passes(sources, tmp_path):
+    """Le chemin de secours (un fichier par extrait) reste fonctionnel."""
+    settings = config.RenderSettings(subtitles=False)
+    clips = [
+        trimmer.render_segment(segment, next(s for s in sources
+                                             if s.index == segment.source_index),
+                               tmp_path / f"clip_{i}.mp4", settings=settings)
+        for i, segment in enumerate(
+            trimmer.plan_segments(sources, hook_index=1, target_duration=8, seed=3), 1
+        )
+    ]
+    montage = assembler.concat_clips(clips, tmp_path / "montage.mp4")
+    assert media.probe(montage).duration == pytest.approx(8, abs=0.6)
+
+    result = assembler.finalize(
+        montage, tmp_path / "final3.mp4",
+        voice_path=_fake_voice(tmp_path / "voice3.m4a", 7.5), subtitle_path=None,
+        music_path=None, settings=settings, duration=7.8,
+    )
+    assert result.duration == pytest.approx(7.8, abs=0.4)
+
+
+def test_encodeur_detecte_et_mis_en_cache():
+    first = media.detect_encoder()
+    assert first.name and first.args()
+    assert media.detect_encoder() is first          # cache mémoire
+    forced = media.detect_encoder(force="libx264")
+    assert forced.name == "libx264"
 
 
 # --- Sous-titres ----------------------------------------------------------
@@ -167,3 +229,18 @@ def test_build_ass_respecte_la_duree_max():
 
 def test_clean_script_retire_le_markdown():
     assert clean_script("**Accroche :** Voici [plan] un *test*") == "Voici un test"
+
+
+def test_ass_declare_les_dix_champs_de_dialogue():
+    """Un champ manquant dans l'en-tête décale le texte (virgule parasite)."""
+    words = _estimate_words("bonjour tout le monde", 2)
+    content = subtitles.build_ass(words)
+    header = next(line for line in content.splitlines()
+                  if line.startswith("Format: Layer"))
+    dialogues = [line for line in content.splitlines() if line.startswith("Dialogue:")]
+    assert header.count(",") + 1 == 10
+    assert dialogues
+    for line in dialogues:
+        payload = line.split(",", 9)[9]          # le champ Text
+        assert not payload.lstrip("{").startswith(",")
+        assert payload.startswith("{")           # commence par les balises de style

@@ -113,13 +113,15 @@ def test_parcours_complet(client, fake_download, monkeypatch):
     # Étape 5 : le rendu est lancé (pipeline simulé)
     rendered = {}
 
-    def fake_render(project: Project) -> None:
+    def fake_render(project: Project, *, fast: bool = False) -> None:
         rendered["id"] = project.id
+        rendered["fast"] = fast
         project.set_job("render", "done", progress=1.0, message="fini")
 
     monkeypatch.setattr(app_module.pipeline, "run_render", fake_render)
-    assert client.post(f"/api/projects/{project_id}/render").status_code == 200
-    assert rendered["id"] == project_id
+    assert client.post(f"/api/projects/{project_id}/render",
+                       json={"fast": True}).status_code == 200
+    assert rendered["id"] == project_id and rendered["fast"] is True
 
 
 def test_render_refuse_sans_script(client, fake_download):
@@ -175,3 +177,76 @@ def test_message_derreur_yt_dlp_donne_une_piste():
     )
     assert "FLAMBEE_COOKIES_FROM_BROWSER" in message
     assert "https://x" not in message
+
+
+def test_presets_de_sous_titres(client):
+    body = client.get("/api/presets").json()
+    ids = {p["id"] for p in body["subtitles"]}
+    assert {"punch", "classique", "neon"} <= ids
+    assert body["default"] in ids
+
+
+def test_preset_inconnu_retombe_sur_le_defaut(client):
+    project_id = _create(client)
+    body = client.post(f"/api/projects/{project_id}/settings",
+                       json={"subtitle_preset": "nimportequoi"}).json()
+    assert body["settings"]["subtitle_preset"] == "punch"
+
+
+def test_annulation_dune_tache(client, monkeypatch):
+    project_id = _create(client)
+    # Sans tâche en cours, rien à annuler.
+    assert client.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is False
+
+    token = pipeline.cancel_token(project_id)
+    assert client.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is True
+    assert token.is_set()
+    pipeline._clear_cancel(project_id)
+
+
+def test_health_annonce_lencodeur(client):
+    body = client.get("/api/health").json()
+    assert body["encoder"]
+    assert isinstance(body["hardware_encoder"], bool)
+
+
+def test_accroche_recommandee_exposee(client, fake_download):
+    project_id = _create(client)
+    body = client.post(f"/api/projects/{project_id}/sources", json={
+        "urls": "https://a.test/1\nhttps://b.test/2"}).json()
+    assert "recommended_hook" in body
+
+
+def test_telechargements_paralleles(monkeypatch, tmp_path):
+    """Les téléchargements doivent se recouvrir, pas s'enchaîner."""
+    import time as _time
+
+    from flambee import downloader as dl
+
+    def slow_download(url, dest_dir, index, cancel=None):
+        _time.sleep(0.4)
+        return dl.Source(index=index, url=url, path=f"/tmp/{index}.mp4", duration=60)
+
+    monkeypatch.setattr(dl, "download_one", slow_download)
+    urls = [f"https://a.test/{i}" for i in range(4)]
+
+    started = _time.monotonic()
+    sources = dl.download_all(urls, tmp_path)
+    elapsed = _time.monotonic() - started
+
+    assert [s.index for s in sources] == [1, 2, 3, 4]     # ordre préservé
+    assert elapsed < 1.0, f"séquentiel ({elapsed:.1f}s pour 4 × 0,4 s)"
+
+
+def test_telechargement_annule_avant_de_commencer(monkeypatch, tmp_path):
+    import threading as _threading
+
+    from flambee import downloader as dl
+
+    monkeypatch.setattr(dl, "download_one",
+                        lambda *a, **k: pytest.fail("ne doit pas être appelé"))
+    token = _threading.Event()
+    token.set()
+    sources = dl.download_all(["https://a.test/1", "https://a.test/2"], tmp_path,
+                              cancel=token)
+    assert all(s.error for s in sources)

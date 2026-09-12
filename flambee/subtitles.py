@@ -28,7 +28,7 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
 Style: Flambee,{font},{size},{primary},{highlight},{outline_color},&H64000000,-1,0,0,0,100,100,0,0,1,{outline},{shadow},2,60,60,{margin_v},1
 
 [Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, Effect, Text
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
 _SENTENCE_END = re.compile(r"[.!?…:;]$")
@@ -206,9 +206,10 @@ def build_ass(
 
 
 def _dialogue(start: float, end: float, text: str) -> str:
-    return (
-        f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Flambee,,0,0,0,,{text}"
-    )
+    # 10 champs : Layer, Start, End, Style, Name, MarginL, MarginR, MarginV,
+    # Effect, Text — l'en-tête [Events] doit les déclarer dans le même ordre,
+    # sans quoi le champ en trop se retrouve collé au début du texte affiché.
+    return f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Flambee,,0,0,0,,{text}"
 
 
 def write_ass(words: list[Word], out_path: Path, **kwargs) -> Path:
