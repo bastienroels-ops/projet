@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flambée — montage vidéo viral</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="flame">🔥</span> Flambée <span class="version">v{{ version }}</span></div>
+  <div id="health" class="health"></div>
+</header>
+
+<main>
+  <nav class="steps" id="steps">
+    <button class="step" data-step="1"><b>1</b> Sources</button>
+    <button class="step" data-step="2"><b>2</b> Accroche</button>
+    <button class="step" data-step="3"><b>3</b> Style</button>
+    <button class="step" data-step="4"><b>4</b> Script</button>
+    <button class="step" data-step="5"><b>5</b> Rendu</button>
+  </nav>
+
+  <div id="job" class="job hidden">
+    <div class="job-bar"><div class="job-fill" id="job-fill"></div></div>
+    <p class="job-message" id="job-message"></p>
+  </div>
+  <div id="alert" class="alert hidden"></div>
+
+  <!-- Étape 1 ---------------------------------------------------------- -->
+  <section class="panel" data-panel="1">
+    <h2>Coller les liens sources</h2>
+    <p class="hint">De {{ min_sources }} à {{ max_sources }} liens TikTok ou YouTube Shorts sur une même thématique, un par ligne.</p>
+    <textarea id="urls" rows="6" spellcheck="false"
+      placeholder="https://www.tiktok.com/@compte/video/123...&#10;https://www.youtube.com/shorts/abc..."></textarea>
+    <div class="row">
+      <button class="primary" id="btn-download">Télécharger les vidéos</button>
+      <button class="ghost" id="btn-new">Nouveau projet</button>
+    </div>
+    <div id="sources-list" class="sources"></div>
+    <p class="legal">Usage strictement personnel. Le téléchargement de vidéos TikTok/YouTube contrevient aux CGU de ces plateformes : ne republie pas les sources telles quelles, ne partage pas l'outil.</p>
+  </section>
+
+  <!-- Étape 2 ---------------------------------------------------------- -->
+  <section class="panel hidden" data-panel="2">
+    <h2>Choisir l'accroche</h2>
+    <p class="hint">Les 3 premières secondes de chaque vidéo. Clique sur celle qui ouvrira ton montage.</p>
+    <div id="hooks" class="hooks"></div>
+    <div class="row"><button class="primary" id="btn-hook-next" disabled>Valider l'accroche</button></div>
+  </section>
+
+  <!-- Étape 3 ---------------------------------------------------------- -->
+  <section class="panel hidden" data-panel="3">
+    <h2>Personnaliser le style</h2>
+    <div class="grid">
+      <label>Voix off
+        <select id="voice"></select>
+      </label>
+      <label>Débit
+        <select id="voice_rate">
+          <option value="-10%">Posé (-10%)</option>
+          <option value="+0%" selected>Normal</option>
+          <option value="+10%">Rapide (+10%)</option>
+          <option value="+20%">Très rapide (+20%)</option>
+        </select>
+      </label>
+      <label>Musique de fond
+        <select id="music"><option value="">Aucune</option></select>
+      </label>
+      <label>Volume musique <span class="value" id="music_volume_v">12%</span>
+        <input type="range" id="music_volume" min="0" max="40" value="12">
+      </label>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="subtitles" checked> Sous-titres animés</label>
+      <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
+      <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
+    </div>
+    <div class="grid" id="mask-options">
+      <label>Type de masque
+        <select id="mask_mode"><option value="blur">Flou</option><option value="black">Bandeau noir</option></select>
+      </label>
+      <label>Hauteur masquée <span class="value" id="mask_height_ratio_v">22%</span>
+        <input type="range" id="mask_height_ratio" min="8" max="45" value="22">
+      </label>
+    </div>
+    <div class="row"><button class="primary" id="btn-style-next">Continuer</button></div>
+  </section>
+
+  <!-- Étape 4 ---------------------------------------------------------- -->
+  <section class="panel hidden" data-panel="4">
+    <h2>Générer le script</h2>
+    <div class="grid">
+      <label>Sujet
+        <input type="text" id="topic" placeholder="ex. 3 erreurs qui ruinent ton sommeil">
+      </label>
+      <label>Durée visée
+        <select id="duration">
+          <option value="30">30 s</option>
+          <option value="45" selected>45 s</option>
+          <option value="60">60 s</option>
+        </select>
+      </label>
+    </div>
+    <label class="block">Consignes
+      <textarea id="instructions" rows="2" placeholder="ton, angle, public visé, appel à l'action…"></textarea>
+    </label>
+    <div class="row">
+      <button class="primary" id="btn-generate">Générer avec Claude</button>
+      <button class="ghost" id="btn-copy-prompt">Copier le prompt (mode manuel)</button>
+    </div>
+    <label class="block">Script (éditable)
+      <textarea id="script" rows="9" placeholder="Colle ou modifie ici le script lu par la voix off."></textarea>
+    </label>
+    <p class="hint" id="script-meta"></p>
+    <div class="row"><button class="primary" id="btn-script-next">Valider le script</button></div>
+  </section>
+
+  <!-- Étape 5 ---------------------------------------------------------- -->
+  <section class="panel hidden" data-panel="5">
+    <h2>Assemblage final</h2>
+    <div id="recap" class="recap"></div>
+    <div class="row">
+      <button class="primary" id="btn-render">Lancer le rendu</button>
+      <button class="ghost" id="btn-cleanup">Nettoyer les fichiers temporaires</button>
+    </div>
+    <div id="result" class="result hidden">
+      <video id="result-video" controls playsinline></video>
+      <div class="result-side">
+        <p id="result-info"></p>
+        <a id="result-download" class="primary button" download>Télécharger le .mp4</a>
+        <p class="hint">Fichier enregistré dans <code>{{ output_dir }}</code></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

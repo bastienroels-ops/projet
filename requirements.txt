@@ -1,0 +1,8 @@
+# Flambée — dépendances (toutes gratuites / open-source)
+yt-dlp>=2024.8.6
+fastapi>=0.110
+uvicorn[standard]>=0.29
+jinja2>=3.1
+python-multipart>=0.0.9
+edge-tts>=6.1.9
+anthropic>=0.39          # optionnel : génération de script via l'API Claude

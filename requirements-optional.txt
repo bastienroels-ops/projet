@@ -1,0 +1,3 @@
+# Transcription locale des vidéos sources (analyse / resynchronisation).
+# Lourd (~300 Mo de modèles au premier lancement) : à installer seulement si besoin.
+faster-whisper>=1.0
