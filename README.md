@@ -40,6 +40,30 @@ uvicorn flambee.app:app --host 127.0.0.1 --port 8000
 Puis ouvre <http://127.0.0.1:8000>. Le bandeau du haut indique si `ffmpeg`, `yt-dlp`
 et la clé API sont détectés.
 
+## Piloter Flambée depuis un iPhone
+
+L'outil a besoin de Python, ffmpeg et yt-dlp : il tourne **sur le Mac**, pas sur
+le téléphone. En revanche l'interface est utilisable depuis un iPhone sur le
+même Wi-Fi.
+
+```bash
+FLAMBEE_HOST=0.0.0.0 ./run.sh
+```
+
+Le script affiche l'adresse à taper dans Safari, du type `http://192.168.1.20:8000`.
+Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app.
+
+- Le Mac doit rester allumé et le terminal ouvert : c'est lui qui télécharge et
+  encode.
+- Le serveur devient accessible à **toute personne présente sur ce réseau** :
+  à réserver à un Wi-Fi de confiance, et à couper (Ctrl-C) après usage.
+- En Wi-Fi le presse-papier du navigateur est indisponible (connexion non
+  sécurisée) : le bouton « Copier le prompt » affiche alors le texte à
+  sélectionner et copier à la main.
+- Pour récupérer la vidéo sur le téléphone : bouton *Télécharger le .mp4*
+  (elle arrive dans Fichiers, puis *Partager → Enregistrer dans Photos*).
+  Depuis le Mac, AirDrop du fichier de `output/` marche tout aussi bien.
+
 ## Les 5 étapes
 
 | Étape | Ce qui se passe |
@@ -121,6 +145,7 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `FLAMBEE_PORT` | `8000` | port du serveur local |
+| `FLAMBEE_HOST` | `127.0.0.1` | `0.0.0.0` pour ouvrir l'accès au réseau local (téléphone) |
 | `FLAMBEE_OUTPUT_DIR` | `./output` | dossier des rendus |
 | `FLAMBEE_WORK_DIR` | `./work` | fichiers de travail |
 | `FLAMBEE_MIN_DURATION` | `45` | seuil d'avertissement sur les sources |

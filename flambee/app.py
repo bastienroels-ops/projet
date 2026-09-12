@@ -397,12 +397,17 @@ async def media_error_handler(_request: Request, exc: media.MediaError):
 
 
 def main() -> None:
-    """Point d'entrée `python -m flambee.app` : serveur local uniquement."""
+    """Point d'entrée `python -m flambee.app`.
+
+    Par défaut le serveur n'écoute que sur la machine locale. `FLAMBEE_HOST=0.0.0.0`
+    l'ouvre au réseau local, pour piloter l'outil depuis un téléphone sur le même
+    Wi-Fi — tout le monde sur ce réseau peut alors y accéder.
+    """
     import uvicorn
 
     uvicorn.run(
         "flambee.app:app",
-        host="127.0.0.1",
+        host=os.environ.get("FLAMBEE_HOST", "127.0.0.1"),
         port=int(os.environ.get("FLAMBEE_PORT", "8000")),
         reload=False,
         log_level="info",

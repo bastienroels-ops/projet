@@ -27,7 +27,7 @@ body {
   background: linear-gradient(180deg, #191d25, #14171d);
   position: sticky; top: 0; z-index: 10;
 }
-.brand { font-weight: 700; font-size: 18px; letter-spacing: .2px; }
+.brand { font-weight: 700; font-size: 18px; letter-spacing: .2px; white-space: nowrap; }
 .flame { filter: drop-shadow(0 0 6px rgba(255,107,53,.6)); }
 .version { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
 .health { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
@@ -142,6 +142,12 @@ code { background: var(--panel-2); padding: 2px 6px; border-radius: 5px; font-si
   main { padding: 16px 12px 60px; }
   .panel { padding: 16px; }
   .recap dl { grid-template-columns: 1fr; }
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .health { width: 100%; }
+  .row button, .row .button { flex: 1 1 100%; text-align: center; }
+  .result video { width: 100%; max-width: 320px; }
+  /* Sur iOS, une police d'entrée sous 16px déclenche un zoom automatique. */
+  textarea, input[type=text], select { font-size: 16px; }
 }
 
 /* --- Ajouts : accroche recommandée, aperçu, annulation ------------------ */
@@ -163,3 +169,9 @@ button.small { padding: 5px 12px; font-size: 13px; }
 
 .result video.preview { outline: 2px dashed rgba(255,183,3,.5); }
 #result-badge { margin-top: 2px; }
+
+.prompt-box {
+  margin-top: 14px; padding: 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel-2);
+}
+.prompt-box textarea { font-size: 13px; margin-bottom: 8px; }

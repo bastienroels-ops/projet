@@ -182,6 +182,45 @@ function renderResult(project) {
   if (!isPreview) $("#result-download").href = `${project.output_url}?download=true`;
 }
 
+/* navigator.clipboard n'existe qu'en contexte sécurisé : absent dès qu'on
+   ouvre l'app depuis un téléphone via http://192.168.x.x. On retombe alors sur
+   la méthode historique, puis sur l'affichage du texte à copier à la main. */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) { /* on tente le repli */ }
+
+  try {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(helper);
+    helper.select();
+    helper.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(helper);
+    return ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+function showPrompt(prompt, copied) {
+  $("#prompt-text").value = prompt;
+  $("#prompt-box").classList.remove("hidden");
+  $("#prompt-status").textContent = copied
+    ? "Prompt copié. Colle-le dans une conversation Claude, puis ramène le script ci-dessous."
+    : "Sélectionne et copie le texte ci-dessous, puis colle-le dans une conversation Claude.";
+  if (!copied) {
+    $("#prompt-text").focus();
+    $("#prompt-text").select();
+  }
+}
+
 function escapeHtml(text) {
   return String(text ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -378,12 +417,15 @@ function bind() {
     try {
       const { prompt } = await api(`/api/projects/${state.project.id}/script/prompt`,
         { method: "POST", body: scriptPayload() });
-      await navigator.clipboard.writeText(prompt);
-      alertBox("Prompt copié : colle-le dans une conversation Claude, "
-        + "puis ramène le script ci-dessous.", true);
+      const copied = await copyText(prompt);
+      showPrompt(prompt, copied);
     } catch (err) {
       alertBox(err.message);
     }
+  });
+
+  $("#btn-prompt-hide").addEventListener("click", () => {
+    $("#prompt-box").classList.add("hidden");
   });
 
   $("#script").addEventListener("input", () => updateScriptMeta(state.project));

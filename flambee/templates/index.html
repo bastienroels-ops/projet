@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Flambée">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Flambée — montage vidéo viral</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
@@ -117,6 +121,11 @@
     <div class="row">
       <button class="primary" id="btn-generate">Générer avec Claude</button>
       <button class="ghost" id="btn-copy-prompt">Copier le prompt (mode manuel)</button>
+    </div>
+    <div id="prompt-box" class="prompt-box hidden">
+      <p class="hint" id="prompt-status"></p>
+      <textarea id="prompt-text" rows="6" readonly spellcheck="false"></textarea>
+      <button class="ghost small" id="btn-prompt-hide">Masquer</button>
     </div>
     <label class="block">Script (éditable)
       <textarea id="script" rows="9" placeholder="Colle ou modifie ici le script lu par la voix off."></textarea>
