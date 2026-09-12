@@ -105,7 +105,12 @@ def wait_for_server(port: int, timeout: float = 60.0) -> bool:
     return False
 
 
-def start_server(port: int, password: str, username: str) -> subprocess.Popen:
+def start_server(
+    port: int,
+    password: str,
+    username: str,
+    anthropic_key: str = "",
+) -> subprocess.Popen:
     environment = {
         **os.environ,
         "FLAMBEE_PASSWORD": password,
@@ -114,6 +119,10 @@ def start_server(port: int, password: str, username: str) -> subprocess.Popen:
         "FLAMBEE_PORT": str(port),
         "PYTHONUNBUFFERED": "1",
     }
+    if anthropic_key.strip():
+        # Active la génération de script en un clic ; sans elle, l'app bascule
+        # sur le mode manuel (prompt à copier dans une conversation Claude).
+        environment["ANTHROPIC_API_KEY"] = anthropic_key.strip()
     return subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "flambee.app:app",
          "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
@@ -200,6 +209,7 @@ def start_all(
     password: str = "",
     username: str = "flambee",
     *,
+    anthropic_key: str = "",
     tunnel: bool = True,
 ) -> tuple[subprocess.Popen, subprocess.Popen | None, str | None, str]:
     """Prépare l'environnement, démarre le serveur et (au besoin) le tunnel.
@@ -212,7 +222,7 @@ def start_all(
     ensure_dependencies()
     password = password or generate_password()
 
-    server = start_server(port, password, username)
+    server = start_server(port, password, username, anthropic_key)
     if not wait_for_server(port):
         output = (server.stdout.read() if server.stdout else "")[-2000:]
         server.terminate()
@@ -255,6 +265,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--password", default=os.environ.get("FLAMBEE_PASSWORD", ""))
     parser.add_argument("--username", default=os.environ.get("FLAMBEE_USERNAME", "flambee"))
+    parser.add_argument("--anthropic-key", default="",
+                        help="clé API Anthropic (sinon : mode manuel)")
     parser.add_argument("--no-tunnel", action="store_true",
                         help="démarre le serveur seul, sans tunnel")
     parser.add_argument("--check", action="store_true",
@@ -272,7 +284,8 @@ def main() -> int:
 
     try:
         server, tunnel, url, password = start_all(
-            args.port, args.password, args.username, tunnel=not args.no_tunnel
+            args.port, args.password, args.username,
+            anthropic_key=args.anthropic_key, tunnel=not args.no_tunnel,
         )
     except RuntimeError as exc:
         log(f"❌ {exc}")

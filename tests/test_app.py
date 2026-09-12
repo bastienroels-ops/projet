@@ -353,3 +353,20 @@ def test_acces_protege_par_mot_de_passe(monkeypatch):
 def test_sans_mot_de_passe_aucun_controle(client):
     """Comportement local par défaut : pas d'authentification."""
     assert client.get("/api/health").status_code == 200
+
+
+def test_health_signale_absence_de_cle_api(client, monkeypatch):
+    """L'interface s'appuie dessus pour proposer le mode manuel."""
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
+    assert client.get("/api/health").json()["anthropic_key"] is False
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: True)
+    assert client.get("/api/health").json()["anthropic_key"] is True
+
+
+def test_generation_sans_cle_explique_le_mode_manuel(client, monkeypatch):
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
+    project_id = _create(client)
+    response = client.post(f"/api/projects/{project_id}/script/generate",
+                           json={"topic": "le sommeil"})
+    assert response.status_code == 400
+    assert "mode manuel" in response.json()["detail"]

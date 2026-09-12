@@ -284,6 +284,7 @@ function stopPolling() {
 async function loadHealth() {
   const h = await api("/api/health");
   const tag = (label, ok) => `<span class="tag ${ok ? "ok" : "ko"}">${label}</span>`;
+  applyScriptMode(h.anthropic_key);
   $("#health").innerHTML =
     tag("ffmpeg", h.ffmpeg) + tag("yt-dlp", h.yt_dlp) +
     tag(h.anthropic_key ? "clé Claude" : "script manuel", true) +
@@ -292,6 +293,24 @@ async function loadHealth() {
   if (!h.ffmpeg || !h.yt_dlp) {
     alertBox("Dépendances manquantes : installe ffmpeg et `pip install -r requirements.txt`.");
   }
+}
+
+/* Sans clé API, « Générer avec Claude » ne peut pas aboutir : plutôt que de
+   laisser l'utilisateur buter sur un message d'erreur, on désactive le bouton
+   et on met le mode manuel en avant. */
+function applyScriptMode(hasApiKey) {
+  const generate = $("#btn-generate");
+  const copy = $("#btn-copy-prompt");
+  generate.disabled = !hasApiKey;
+  generate.title = hasApiKey ? "" : "Nécessite une clé API Anthropic";
+  generate.classList.toggle("primary", hasApiKey);
+  generate.classList.toggle("ghost", !hasApiKey);
+  copy.classList.toggle("primary", !hasApiKey);
+  copy.classList.toggle("ghost", hasApiKey);
+  copy.textContent = hasApiKey
+    ? "Copier le prompt (mode manuel)"
+    : "Écrire le script avec Claude";
+  $("#manual-hint").classList.toggle("hidden", hasApiKey);
 }
 
 async function loadVoices() {
