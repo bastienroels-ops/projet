@@ -213,3 +213,68 @@ if (entete) {
     rendre();
   }
 })();
+
+
+/* 7. Finitions.
+      Trois effets qui ne changent rien au contenu mais donnent sa matière à
+      la page. Tous s'effacent si le système demande de réduire les animations. */
+(() => {
+  const sobre = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* a. La barre de progression de lecture. */
+  const barre = document.getElementById("progression");
+  if (barre) {
+    const avancer = () => {
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      const part = total > 0 ? (window.scrollY / total) * 100 : 0;
+      barre.style.setProperty("--avance", `${Math.min(100, part).toFixed(2)}%`);
+    };
+    avancer();
+    window.addEventListener("scroll", avancer, { passive: true });
+    window.addEventListener("resize", avancer, { passive: true });
+  }
+
+  /* b. Le halo qui suit le curseur sur les boutons pleins. On ne l'installe
+        que sur les appareils à pointeur fin : sur un écran tactile, il n'y a
+        pas de survol, et l'écouteur ne servirait qu'à consommer. */
+  if (!sobre && window.matchMedia("(pointer: fine)").matches) {
+    document.querySelectorAll(".button.primary, button.primary").forEach((el) => {
+      el.addEventListener("pointermove", (e) => {
+        const cadre = el.getBoundingClientRect();
+        el.style.setProperty("--x", `${e.clientX - cadre.left}px`);
+        el.style.setProperty("--y", `${e.clientY - cadre.top}px`);
+      });
+    });
+  }
+
+  /* c. Les chiffres se posent quand la bande entre à l'écran. On ne compte
+        que ce qui est un nombre : « 9:16 » et « 1080p » restent tels quels. */
+  const chiffres = document.querySelectorAll(".chiffres-grille b");
+  if (chiffres.length && !sobre && "IntersectionObserver" in window) {
+    const compter = (element) => {
+      const texte = element.textContent.trim();
+      const cible = parseInt(texte, 10);
+      if (!Number.isFinite(cible) || !/^\d+$/.test(texte)) return;
+      const duree = 900;
+      const depart = performance.now();
+      const pas = (instant) => {
+        const part = Math.min(1, (instant - depart) / duree);
+        /* Décélération : le compteur ralentit en approchant, comme un
+           compteur mécanique qui se cale. */
+        const douceur = 1 - Math.pow(1 - part, 3);
+        element.textContent = String(Math.round(cible * douceur));
+        if (part < 1) requestAnimationFrame(pas);
+      };
+      requestAnimationFrame(pas);
+    };
+    const oeil = new IntersectionObserver((entrees) => {
+      entrees.forEach((entree) => {
+        if (entree.isIntersecting) {
+          compter(entree.target);
+          oeil.unobserve(entree.target);
+        }
+      });
+    }, { rootMargin: "-40px" });
+    chiffres.forEach((c) => oeil.observe(c));
+  }
+})();

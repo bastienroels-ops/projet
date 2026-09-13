@@ -87,8 +87,11 @@ body.site { padding: 0; }
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--ember); box-shadow: 0 0 10px var(--ember);
 }
+/* Le jeton du bas désigne les sous-titres : il se place sous eux, dans la
+   bande vide du cadre. Le sortir entièrement du téléphone élargissait la page
+   — débordement horizontal constaté de 1000 à 1280 px, et sur mobile. */
 .jeton-haut { top: 58px; left: -86px; }
-.jeton-bas { bottom: 96px; right: -104px; animation-delay: -3s; }
+.jeton-bas { bottom: 26px; right: -104px; animation-delay: -3s; }
 @keyframes jeton-flotte {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-8px); }
@@ -304,7 +307,7 @@ body.site { padding: 0; }
   .hero { grid-template-columns: 1fr; gap: 46px; padding: 56px 20px 50px; text-align: center; }
   .jeton { font-size: 11.5px; padding: 8px 12px; }
   .jeton-haut { left: -12px; top: 36px; }
-  .jeton-bas { right: -12px; bottom: 70px; }
+  .jeton-bas { right: -12px; bottom: 20px; }
   .hero-accroche { margin-inline: auto; }
   .hero-actions { justify-content: center; }
   .footer-grille { grid-template-columns: 1fr 1fr; gap: 34px; }

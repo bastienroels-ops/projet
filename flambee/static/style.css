@@ -671,3 +671,81 @@ code {
 @media (max-width: 680px) {
   .tarif { padding: 28px 22px; }
 }
+
+/* ==========================================================================
+   Finitions — grain, aurore, halo, progression
+   Trois couches qui ne changent rien à la lecture mais donnent sa matière au
+   noir : sans elles, un fond sombre est un aplat, pas une image.
+   ========================================================================== */
+
+/* Le grain. Un bruit fixe, très faible, appliqué au-dessus de tout : il casse
+   les bandes de dégradé que produisent les écrans 8 bits et donne au noir une
+   texture de pellicule. Le motif est en SVG embarqué — aucun fichier à
+   charger, aucun appel réseau. */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none; opacity: .04; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b)'/%3E%3C/svg%3E");
+}
+
+/* L'aurore : deux halos chauds qui dérivent lentement derrière la page. Ils
+   vivent dans un conteneur à part, sous tout le reste, pour ne jamais gêner
+   ni la sélection du texte ni le défilement. */
+.aurore {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden;
+  pointer-events: none;
+}
+.aurore span {
+  position: absolute; display: block; border-radius: 50%;
+  filter: blur(90px); opacity: .5;
+  will-change: transform;
+}
+.aurore span:nth-child(1) {
+  width: 46vw; height: 46vw; top: -14vw; left: -8vw;
+  background: radial-gradient(circle, rgba(255, 122, 47, .30), transparent 68%);
+  animation: derive-a 34s ease-in-out infinite alternate;
+}
+.aurore span:nth-child(2) {
+  width: 38vw; height: 38vw; top: 8vw; right: -10vw;
+  background: radial-gradient(circle, rgba(120, 90, 255, .17), transparent 68%);
+  animation: derive-b 41s ease-in-out infinite alternate;
+}
+@keyframes derive-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6vw, 5vw, 0) scale(1.14); }
+}
+@keyframes derive-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to   { transform: translate3d(-7vw, 4vw, 0) scale(.92); }
+}
+
+/* Le halo du curseur sur les boutons pleins : la lumière suit la main. Les
+   coordonnées sont posées par le script sous forme de variables. */
+.button.primary, button.primary {
+  position: relative; overflow: hidden; isolation: isolate;
+}
+.button.primary::after, button.primary::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  opacity: 0; transition: opacity .3s;
+  background: radial-gradient(180px circle at var(--x, 50%) var(--y, 50%),
+              rgba(255, 255, 255, .35), transparent 62%);
+}
+.button.primary:hover::after, button.primary:hover::after { opacity: 1; }
+
+/* La progression de lecture, posée sur le filet de l'en-tête. */
+.progression {
+  position: fixed; top: 0; left: 0; height: 2px; z-index: 60;
+  width: var(--avance, 0%);
+  background: linear-gradient(90deg, var(--ember-2), var(--ember));
+  box-shadow: 0 0 14px rgba(255, 122, 47, .6);
+  transition: width .1s linear;
+}
+
+/* Les chiffres qui se posent : la tabulation numérique évite que la largeur
+   saute pendant le décompte. */
+.chiffres-grille b { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurore span { animation: none; }
+  .progression { transition: none; }
+}
