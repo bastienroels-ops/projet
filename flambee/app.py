@@ -583,6 +583,24 @@ async def studio_supprimer_compte(request: Request, confirmation: str = Form("")
     return fermer_session(RedirectResponse("/", status_code=303))
 
 
+def _version_du_code() -> str:
+    """Le commit en cours d'exécution, pour savoir si la session est à jour."""
+    import subprocess
+
+    racine = Path(__file__).resolve().parent.parent
+    try:
+        resultat = subprocess.run(
+            ["git", "-C", str(racine), "log", "-1", "--format=%h — %cd",
+             "--date=format:%d/%m/%Y %H:%M"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if resultat.returncode == 0 and resultat.stdout.strip():
+            return resultat.stdout.strip()
+    except Exception:
+        pass
+    return f"version {__version__} (dépôt git introuvable)"
+
+
 @app.get("/studio/parametres", response_class=HTMLResponse)
 async def studio_parametres(request: Request):
     manquants = media.ensure_tools()
@@ -601,8 +619,15 @@ async def studio_parametres(request: Request):
          + (" (matériel)" if encodeur and encodeur.hardware else "")
          if encodeur else "indisponible", bool(encodeur)),
         ("yt-dlp", "présent" if ytdlp else "absent", ytdlp),
-        ("Transcription", "disponible" if transcribe.available()
-         else "non installée", transcribe.available()),
+        ("Transcription", (f"{transcribe.moteur_actif()}"
+                           if transcribe.available()
+                           else f"indisponible — {transcribe.raison_indisponible()}"),
+         transcribe.available()),
+        # Sans cette ligne, rien ne distingue une session qui tourne sur du
+        # code d'hier d'une session à jour : c'est la source de confusion la
+        # plus coûteuse quand le serveur vit ailleurs (Colab garde la cellule
+        # en mémoire alors que le dépôt, lui, a bougé).
+        ("Version du code", _version_du_code(), True),
         ("Clé API Claude", "configurée" if scriptgen.api_key_available()
          else "absente — mode manuel", scriptgen.api_key_available()),
         ("Musiques", f"{len(pipeline.list_music())} fichier(s)", True),
