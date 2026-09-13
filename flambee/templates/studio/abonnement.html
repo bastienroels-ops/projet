@@ -1,0 +1,66 @@
+{% extends "studio/base.html" %}
+{% block title %}Abonnement — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Ton <em>abonnement</em></h1></div>
+  <p class="page-accroche">Formule en cours, consommation et changement de palier.</p>
+
+  <div class="carte">
+    <div class="lignes">
+      <div class="ligne">
+        <span class="ligne-cle">Formule</span>
+        <span class="ligne-valeur">{{ plan_actuel.name }} —
+          {% if plan_actuel.price_monthly %}{{ plan_actuel.price_monthly }} € / mois{% else %}gratuite{% endif %}</span>
+      </div>
+      <div class="ligne">
+        <span class="ligne-cle">Inclus</span>
+        <span class="ligne-valeur">{{ plan_actuel.videos }}</span>
+      </div>
+      <div class="ligne">
+        <span class="ligne-cle">Ce mois-ci</span>
+        <span class="ligne-valeur">{{ credits.consommes }} vidéo(s) rendue(s)</span>
+      </div>
+      <div class="ligne">
+        <span class="ligne-cle">Depuis le</span>
+        <span class="ligne-valeur">{{ compte.cree_le }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="avis">
+    <b>Le paiement n'est pas encore branché.</b>
+    Changer de formule ici modifie immédiatement tes limites, sans rien facturer.
+    C'est volontaire : l'outil sert d'abord à éprouver le produit. Ce qu'il reste
+    à mettre en place est décrit dans <code>docs/COMMERCIALISATION.md</code>.
+  </div>
+
+  <h2 style="font-family:var(--serif);font-weight:400;font-size:28px;margin:34px 0 20px">
+    Changer de formule</h2>
+  <div class="tarifs-grille">
+    {% for plan in plans %}
+    <article class="tarif {% if plan.highlight %}vedette{% endif %}">
+      {% if plan.id == compte.plan %}<span class="ruban">Formule actuelle</span>{% endif %}
+      <h3>{{ plan.name }}</h3>
+      <p class="tarif-accroche">{{ plan.tagline }}</p>
+      <p class="tarif-prix">
+        {% if plan.price_monthly == 0 %}<b>Gratuit</b>
+        {% else %}<b>{{ plan.price_monthly }} €</b><span>par mois</span>{% endif %}
+      </p>
+      <p class="tarif-volume">{{ plan.videos }}</p>
+      {% if plan.id == compte.plan %}
+      <button class="ghost" disabled>Formule actuelle</button>
+      {% else %}
+      <form method="post" action="/studio/abonnement">
+        <input type="hidden" name="plan" value="{{ plan.id }}">
+        <button class="{% if plan.highlight %}primary{% else %}ghost{% endif %}" type="submit">
+          Choisir {{ plan.name }}</button>
+      </form>
+      {% endif %}
+      <ul class="tarif-liste">
+        {% for point in plan.features %}<li>{{ point }}</li>{% endfor %}
+      </ul>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

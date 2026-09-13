@@ -1,0 +1,35 @@
+{% extends "studio/base.html" %}
+{% block title %}Mes créations — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Mes <em>créations</em></h1></div>
+  <p class="page-accroche">Tous les projets de cet atelier, du plus récent au plus ancien.
+    Les fichiers rendus restent accessibles tant que tu ne les effaces pas.</p>
+
+  {% if creations %}
+  <div class="creations">
+    {% for projet in creations %}
+    <a class="creation" href="/studio?projet={{ projet.id }}">
+      {% if projet.viewing_url %}
+      <video src="{{ projet.viewing_url }}#t=0.5" muted playsinline preload="metadata"></video>
+      {% else %}
+      <div class="vide">🎬</div>
+      {% endif %}
+      <div class="creation-info">
+        <b>{{ projet.titre }}</b>
+        <span>{{ projet.date }} · étape {{ projet.step }}/5</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="vide-etat">
+    <span class="grand">🎬</span>
+    Aucune création pour l'instant.
+    <div class="row" style="justify-content:center">
+      <a href="/studio" class="button primary">Créer ma première vidéo</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

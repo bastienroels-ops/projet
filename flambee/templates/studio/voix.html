@@ -1,0 +1,94 @@
+{% extends "studio/base.html" %}
+{% block title %}Voice Studio — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Voice <em>Studio</em></h1></div>
+  <p class="page-accroche">Utilise ta propre voix plutôt qu'une voix de synthèse.
+    Enregistre-toi, importe le fichier : Flambée en retrouve le minutage mot à
+    mot et cale les sous-titres dessus.</p>
+
+  {% if not plan_actuel.pro %}
+  <div class="carte verrou">
+    <div class="verrou-rond">🔒</div>
+    <h2>Disponible à partir de <em>Créateur</em></h2>
+    <p>Ta voix change tout : c'est elle qui distingue une vidéo automatisée d'une
+      vidéo qui t'appartient.</p>
+    <ul class="verrou-liste">
+      <li>⭐ <span><b>Créateur</b> — voix importées illimitées</span></li>
+      <li>💎 <span><b>Studio</b> — plusieurs voix enregistrées, une par marque</span></li>
+    </ul>
+    <a href="/studio/abonnement" class="button primary grand">Voir les formules</a>
+  </div>
+  {% else %}
+
+  {% if voix %}
+  <div class="carte">
+    <h2>Ta voix enregistrée</h2>
+    <div class="lignes">
+      <div class="ligne"><span class="ligne-cle">Fichier</span>
+        <span class="ligne-valeur">{{ voix.nom }}</span></div>
+      <div class="ligne"><span class="ligne-cle">Durée</span>
+        <span class="ligne-valeur">{{ voix.duree }}</span></div>
+      <div class="ligne"><span class="ligne-cle">Mots repérés</span>
+        <span class="ligne-valeur">{{ voix.mots }}</span></div>
+    </div>
+    <audio controls src="/studio/voix/fichier" style="width:100%;margin-top:18px"></audio>
+    <div class="row">
+      <a class="button primary" href="/studio">L'utiliser dans une vidéo</a>
+      <form method="post" action="/studio/voix/supprimer" style="display:inline">
+        <button class="ghost" type="submit">Supprimer</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="carte">
+    <h2>{% if voix %}Remplacer{% else %}Importer une voix{% endif %}</h2>
+    <p>Un enregistrement clair, sans musique de fond. Le dictaphone d'un
+      téléphone suffit largement.</p>
+    <form method="post" action="/studio/voix" enctype="multipart/form-data"
+          class="formulaire" id="formulaire-voix">
+      <label class="button ghost file-button">
+        Choisir un enregistrement
+        <input type="file" name="fichier" accept="audio/*,video/*" hidden id="fichier-voix">
+      </label>
+      <p class="hint" id="voix-nom"></p>
+      <button class="primary" type="submit" id="bouton-voix">Analyser et enregistrer</button>
+      <p class="mention">Formats acceptés : mp3, m4a, wav, aac, ogg, ou une vidéo
+        dont on extrait le son.</p>
+    </form>
+  </div>
+
+  {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+
+  <div class="carte">
+    <h2>Et le clonage de voix ?</h2>
+    <p>Fabriquer une voix de synthèse à partir d'un échantillon est une autre
+      affaire : il faut un modèle dédié, lourd, et une carte graphique pour que
+      ce soit utilisable. Ce n'est pas en place, et je préfère te le dire plutôt
+      que d'afficher un bouton qui ne fait rien.</p>
+    <p>Un point à garder en tête si tu l'ajoutes un jour : cloner une voix
+      demande le consentement explicite de la personne. Faire lire une phrase
+      imposée au micro, comme le font les outils sérieux, est le minimum.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+const champVoix = document.getElementById("fichier-voix");
+if (champVoix) champVoix.addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  document.getElementById("voix-nom").textContent =
+    f ? `${f.name} — ${(f.size / 1e6).toFixed(1)} Mo` : "";
+});
+const formVoix = document.getElementById("formulaire-voix");
+if (formVoix) formVoix.addEventListener("submit", () => {
+  const b = document.getElementById("bouton-voix");
+  b.disabled = true; b.textContent = "Analyse en cours…";
+});
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "studio/base.html" %}
+{% block title %}Script Viral — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Script <em>Viral</em></h1></div>
+  <p class="page-accroche">Colle le lien d'une vidéo — ou importe un fichier — pour
+    en récupérer le texte intégral, minuté. La transcription se fait sur cette
+    machine : rien n'est envoyé ailleurs.</p>
+
+  {% if not plan_actuel.pro %}
+  <div class="carte verrou">
+    <div class="verrou-rond">🔒</div>
+    <h2>Disponible à partir de <em>Créateur</em></h2>
+    <p>Récupérer le texte d'une vidéo demande une transcription complète, plus
+      coûteuse en calcul qu'un simple montage.</p>
+    <ul class="verrou-liste">
+      <li>⭐ <span><b>Créateur</b> — transcription illimitée</span></li>
+      <li>💎 <span><b>Studio</b> — transcription illimitée et rendu prioritaire</span></li>
+    </ul>
+    <a href="/studio/abonnement" class="button primary grand">Voir les formules</a>
+  </div>
+  {% elif not transcription_disponible %}
+  <div class="carte verrou">
+    <div class="verrou-rond">⚙️</div>
+    <h2>Moteur de transcription absent</h2>
+    <p>Cette rubrique s'appuie sur <code>faster-whisper</code>, qui n'est pas
+      installé. Une seule commande suffit :</p>
+    <p><code>pip install -r requirements-optional.txt</code></p>
+  </div>
+  {% else %}
+  <div class="carte">
+    <form method="post" action="/studio/script-viral" class="formulaire"
+          enctype="multipart/form-data" id="formulaire-script">
+      <label class="block"><span>Lien de la vidéo</span>
+        <input type="text" name="url" value="{{ url or '' }}"
+               placeholder="https://www.tiktok.com/@compte/video/123...">
+      </label>
+      <div class="separator"><span>ou</span></div>
+      <label class="button ghost file-button">
+        Choisir un fichier
+        <input type="file" name="fichier" accept="video/*,audio/*" hidden id="fichier-script">
+      </label>
+      <p class="hint" id="fichier-nom"></p>
+      <button class="primary" type="submit" id="bouton-script">Récupérer le script</button>
+      <p class="mention">Une vidéo d'une minute demande une vingtaine de secondes.</p>
+    </form>
+  </div>
+
+  {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+
+  {% if resultat %}
+  <div class="carte">
+    <h2>Le texte</h2>
+    <div class="lignes">
+      <div class="ligne"><span class="ligne-cle">Durée</span>
+        <span class="ligne-valeur">{{ resultat.duree }}</span></div>
+      <div class="ligne"><span class="ligne-cle">Mots</span>
+        <span class="ligne-valeur">{{ resultat.mots }}</span></div>
+      <div class="ligne"><span class="ligne-cle">Langue détectée</span>
+        <span class="ligne-valeur">{{ resultat.langue }}</span></div>
+    </div>
+    <label class="block" style="margin-top:20px"><span>Transcription</span>
+      <textarea id="texte-script" rows="11" spellcheck="false">{{ resultat.texte }}</textarea>
+    </label>
+    <div class="row">
+      <button class="primary" id="copier-script">Copier</button>
+      <a class="ghost button" href="/studio?script={{ resultat.jeton }}">Partir de ce texte</a>
+    </div>
+    <p class="mention">Ce texte est celui d'un auteur. Repartir de sa structure
+      est courant ; le reprendre mot pour mot ne l'est pas — et t'expose.</p>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(() => {
+const champ = document.getElementById("fichier-script");
+if (champ) champ.addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  document.getElementById("fichier-nom").textContent =
+    f ? `${f.name} — ${(f.size / 1e6).toFixed(1)} Mo` : "";
+});
+const bouton = document.getElementById("bouton-script");
+const formulaire = document.getElementById("formulaire-script");
+if (formulaire) formulaire.addEventListener("submit", () => {
+  bouton.disabled = true;
+  bouton.textContent = "Transcription en cours…";
+});
+const copier = document.getElementById("copier-script");
+if (copier) copier.addEventListener("click", async () => {
+  const zone = document.getElementById("texte-script");
+  zone.select();
+  try { await navigator.clipboard.writeText(zone.value); }
+  catch (_) { document.execCommand("copy"); }
+  copier.textContent = "Copié";
+  setTimeout(() => { copier.textContent = "Copier"; }, 1800);
+});
+})();
+</script>
+{% endblock %}

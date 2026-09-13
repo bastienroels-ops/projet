@@ -1,0 +1,44 @@
+{% extends "studio/base.html" %}
+{% block title %}Crédits — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Tes <em>crédits</em></h1></div>
+  <p class="page-accroche">Un crédit correspond à un rendu définitif. Les aperçus
+    en 540p sont illimités et ne décomptent rien — c'est fait pour que tu puisses
+    itérer sans compter.</p>
+
+  <div class="carte">
+    {% if credits.quota %}
+    <div class="consommation">
+      <div class="consommation-piste">
+        <div class="consommation-part {% if credits.restants == 0 %}pleine{% endif %}"
+             style="width: {{ (credits.consommes / credits.quota * 100) | round | int }}%"></div>
+      </div>
+      <div class="consommation-mots">
+        <span>{{ credits.consommes }} utilisé(s)</span>
+        <span>{{ credits.restants }} restant(s) sur {{ credits.quota }}</span>
+      </div>
+    </div>
+    {% else %}
+    <p><b>Rendus illimités</b> avec la formule {{ plan_actuel.name }}.</p>
+    {% endif %}
+    <p>Le compteur se remet à zéro au premier jour de chaque mois.</p>
+  </div>
+
+  <div class="carte">
+    <h2>Historique</h2>
+    {% if historique %}
+    <div class="lignes">
+      {% for evenement in historique %}
+      <div class="ligne">
+        <span class="ligne-cle">{{ evenement.date.replace('T', ' à ') }}</span>
+        <span class="ligne-valeur">{{ evenement.libelle }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p>Rien encore. Le premier rendu apparaîtra ici.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -14,7 +14,22 @@ sur `http://127.0.0.1:8000`.
 | Adresse | Ce que c'est |
 |---|---|
 | `/` | Le **site public** : accueil, fonctionnalités, tarifs, questions, pages légales, liste d'attente. |
-| `/studio` | **L'atelier** : les 5 étapes de création, protégé par `FLAMBEE_PASSWORD` si défini. |
+| `/studio` | **L'application** : menu latéral, crédits, abonnement, et les 5 étapes de création. |
+
+### Les rubriques de l'application
+
+| Rubrique | État |
+|---|---|
+| **Créer** | Les 5 étapes de montage. |
+| **Script Viral** | Récupère le texte d'une vidéo (lien ou fichier) par transcription locale. Réservé aux formules payantes. |
+| **Voice Studio** | Importe ta propre voix : le minutage est retrouvé par transcription, les sous-titres se calent dessus. Réservé aux formules payantes. |
+| **Mes créations** | Tous les projets, avec leur rendu. |
+| **Tutoriel** | Prise en main et réflexes. |
+| **Communauté** | Annoncée comme non ouverte — elle le sera quand il y aura des membres. |
+| **Abonnement** | Formule en cours et changement de palier. Aucun paiement n'est branché. |
+| **Crédits** | Un rendu définitif = un crédit. Les aperçus sont illimités. Quota réellement appliqué. |
+| **Paramètres** | État du moteur, dossiers, variables d'environnement. |
+| **Profil** | Nom, e-mail, formule. Local à la machine. |
 
 Les formules, arguments et questions se modifient dans `flambee/plans.py` — un
 seul fichier, aucun HTML à toucher. Ce qu'il reste à brancher pour vendre
@@ -229,6 +244,10 @@ flambee/
   samples.py      échantillons de sous-titres et démonstration d'accueil
   plans.py        formules, arguments, étapes, questions du site
   site.py         textes légaux et liste d'attente
+  account.py      formule, quotas et historique des crédits
+  transcribe.py   transcription locale (faster-whisper)
+  voicestudio.py  voix importée et son minutage
+  templates/studio/ gabarits de l'application
   templates/site/ gabarits du site public
 colab/            carnet Colab + lanceur (serveur derrière un tunnel HTTPS)
   trimmer.py      étape 2 — hooks + planification/découpe des extraits

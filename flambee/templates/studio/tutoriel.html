@@ -1,0 +1,28 @@
+{% extends "studio/base.html" %}
+{% block title %}Tutoriel — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Prendre <em>la main</em></h1></div>
+  <p class="page-accroche">Dix minutes pour comprendre l'outil, et les quelques
+    réflexes qui font la différence entre une vidéo correcte et une vidéo qui tient.</p>
+
+  {% for etape in steps %}
+  <div class="carte">
+    <h3><span style="color:var(--ember);font-family:var(--serif)">{{ etape.number }}</span>
+      &nbsp;{{ etape.title }}</h3>
+    <p>{{ etape.body }}</p>
+  </div>
+  {% endfor %}
+
+  <div class="carte">
+    <h2>Trois réflexes</h2>
+    <p><b>Commence toujours par l'aperçu.</b> Il est gratuit, illimité, et arrive
+      en quelques secondes. Le rendu définitif ne sert qu'à la version finale.</p>
+    <p><b>Écris court.</b> Cent trente mots font environ quarante-cinq secondes.
+      Au-delà, l'attention décroche avant la chute.</p>
+    <p><b>Soigne les trois premières secondes.</b> C'est la seule partie que
+      tout le monde voit. L'accroche recommandée est un point de départ, pas une
+      obligation : écoute-les toutes.</p>
+  </div>
+</div>
+{% endblock %}

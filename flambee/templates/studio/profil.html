@@ -1,0 +1,42 @@
+{% extends "studio/base.html" %}
+{% block title %}Profil — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Ton <em>profil</em></h1></div>
+  <p class="page-accroche">Ces informations restent sur cette machine. Aucun compte
+    en ligne n'existe encore.</p>
+
+  {% if enregistre %}<div class="avis" style="border-color:rgba(95,214,164,.3);background:rgba(95,214,164,.06);color:#a5ead0">
+    <b>Enregistré.</b>Tes informations ont été mises à jour.</div>{% endif %}
+
+  <div class="carte">
+    <form method="post" action="/studio/profil" class="formulaire">
+      <label class="block"><span>Nom affiché</span>
+        <input type="text" name="nom" value="{{ compte.nom }}" placeholder="ex. Bastien">
+      </label>
+      <label class="block"><span>Adresse e-mail</span>
+        <input type="text" name="email" value="{{ compte.email }}" placeholder="toi@exemple.fr">
+      </label>
+      <button class="primary" type="submit">Enregistrer</button>
+    </form>
+  </div>
+
+  <div class="carte">
+    <h2>Accès</h2>
+    <div class="lignes">
+      <div class="ligne">
+        <span class="ligne-cle">Protection</span>
+        <span class="ligne-valeur">{% if auth %}Mot de passe actif{% else %}Aucune — accès libre{% endif %}</span>
+      </div>
+      <div class="ligne">
+        <span class="ligne-cle">Formule</span>
+        <span class="ligne-valeur">{{ plan_actuel.name }}</span>
+      </div>
+      <div class="ligne">
+        <span class="ligne-cle">Membre depuis</span>
+        <span class="ligne-valeur">{{ compte.cree_le }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

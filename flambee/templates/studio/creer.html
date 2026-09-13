@@ -1,25 +1,9 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#08090c">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Flambée">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Transforme plusieurs vidéos sources en une vidéo verticale prête à publier.">
-  <title>Flambée — l'atelier des vidéos qui prennent</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
-</head>
-<body>
-<header class="topbar">
-  <div class="brand"><span class="flame">🔥</span> Flambée <span class="version">v{{ version }}</span></div>
-  <div id="health" class="health"></div>
-</header>
+{% extends "studio/base.html" %}
+{% block title %}Créer — Flambée{% endblock %}
 
-<main>
-  <nav class="steps" id="steps">
+{% block contenu %}
+<div class="page atelier">
+<nav class="steps" id="steps">
     <button class="step" data-step="1"><b>1</b><span>Sources</span></button>
     <button class="step" data-step="2"><b>2</b><span>Accroche</span></button>
     <button class="step" data-step="3"><b>3</b><span>Style</span></button>
@@ -206,8 +190,7 @@
       </div>
     </div>
   </section>
-</main>
+</div>
+{% endblock %}
 
-<script src="/static/app.js"></script>
-</body>
-</html>
+{% block scripts %}<script src="/static/app.js"></script>{% endblock %}

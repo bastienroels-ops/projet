@@ -1,3 +1,5 @@
-# Transcription locale des vidéos sources (analyse / resynchronisation).
-# Lourd (~300 Mo de modèles au premier lancement) : à installer seulement si besoin.
+# Transcription locale — nécessaire à deux rubriques de l'application :
+#   · Script Viral    récupérer le texte d'une vidéo
+#   · Voice Studio    retrouver le minutage d'une voix enregistrée
+# Le modèle (~150 Mo pour « base ») se télécharge au premier usage.
 faster-whisper>=1.0

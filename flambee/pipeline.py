@@ -15,7 +15,9 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import analyzer, assembler, config, downloader, subtitles, trimmer, voice
+from . import (analyzer, assembler, config, downloader, subtitles, trimmer,
+               voice, voicestudio)
+from . import account
 from .media import Cancelled, MediaError, detect_encoder, ensure_tools, probe
 from .project import Project
 
@@ -225,7 +227,8 @@ def run_render(project: Project, *, fast: bool = False) -> None:
                 f"Outil manquant : {', '.join(missing)}. Installe ffmpeg "
                 "(ex. `brew install ffmpeg` ou `apt install ffmpeg`)."
             )
-        if not project.script.strip():
+        if (not project.script.strip()
+                and project.settings.voice != voicestudio.VOICE_ID):
             raise MediaError("Aucun script validé.")
         if not project.ready_sources:
             raise MediaError("Aucune vidéo source exploitable.")
@@ -296,6 +299,7 @@ def run_render(project: Project, *, fast: bool = False) -> None:
             project.preview_path = str(out_path)
         else:
             project.output_path = str(out_path)
+            account.noter("rendu", out_path.name)   # un crédit consommé
         project.step = 5
         project.set_job(
             "render", "done", progress=1.0,
@@ -380,6 +384,14 @@ def _voice_signature(project: Project) -> str:
 
 def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceTrack:
     """Retourne la voix off, depuis le cache du projet si elle est à jour."""
+    # Voix importée : le fichier existe déjà, son minutage vient de la
+    # transcription. Rien à synthétiser, et le script n'entre pas en jeu.
+    if project.settings.voice == voicestudio.VOICE_ID:
+        piste = voicestudio.piste()
+        project.set_job("render", "running", progress=0.10,
+                        message="Voix importée : montage calé sur ton enregistrement.")
+        return piste
+
     signature = _voice_signature(project)
     path = project.dir / "voice.mp3"
 

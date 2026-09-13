@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import shutil
@@ -17,8 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import (__version__, config, downloader, media, pipeline, plans,
-               samples, scriptgen, site, voice)
+from . import (__version__, account, config, downloader, media, pipeline,
+               plans, samples, scriptgen, site, transcribe, voice, voicestudio)
 from .auth import install_auth
 from .project import Project, store
 
@@ -232,19 +233,300 @@ async def confidentialite(request: Request):
     return _page_legale(request, "confidentialite")
 
 
-# --- L'atelier ------------------------------------------------------------
+# --- L'application --------------------------------------------------------
+def _contexte_app(rubrique: str, **extra) -> dict:
+    """Contexte commun à toutes les pages de l'application connectée."""
+    compte = account.charger()
+    return {
+        "rubrique": rubrique,
+        "compte": compte,
+        "plan_actuel": {
+            "name": compte.formule.name,
+            "videos": compte.formule.videos,
+            "price_monthly": compte.formule.price_monthly,
+            "pro": compte.pro,
+        },
+        "credits": {
+            "consommes": compte.consommes(),
+            "restants": compte.restants(),
+            "quota": compte.quota,
+        },
+        "profil": {"initiales": compte.initiales},
+        "plans": plans.PLANS,
+        "steps": plans.STEPS,
+        "version": __version__,
+        **extra,
+    }
+
+
 @app.get("/studio", response_class=HTMLResponse)
 async def studio(request: Request):
     return templates.TemplateResponse(
-        request,
-        "index.html",
-        {
-            "version": __version__,
-            "min_sources": config.MIN_SOURCES,
-            "max_sources": config.MAX_SOURCES,
-            "output_dir": str(config.OUTPUT_DIR),
-        },
+        request, "studio/creer.html",
+        _contexte_app("creer",
+                      min_sources=config.MIN_SOURCES,
+                      max_sources=config.MAX_SOURCES,
+                      output_dir=str(config.OUTPUT_DIR)),
     )
+
+
+@app.get("/studio/creations", response_class=HTMLResponse)
+async def studio_creations(request: Request):
+    creations = []
+    for projet in store.list_recent(limit=40):
+        creations.append({
+            "id": projet.id,
+            "titre": projet.topic or (projet.sources[0].title if projet.sources
+                                      else "Projet sans titre"),
+            "date": time.strftime("%d/%m/%Y", time.localtime(projet.created_at)),
+            "step": projet.step,
+            "viewing_url": (f"/api/projects/{projet.id}/viewing"
+                            if projet.output_path
+                            and Path(projet.output_path).exists() else ""),
+        })
+    return templates.TemplateResponse(
+        request, "studio/creations.html",
+        _contexte_app("creations", creations=creations),
+    )
+
+
+@app.get("/studio/tutoriel", response_class=HTMLResponse)
+async def studio_tutoriel(request: Request):
+    return templates.TemplateResponse(request, "studio/tutoriel.html",
+                                      _contexte_app("tutoriel"))
+
+
+@app.get("/studio/communaute", response_class=HTMLResponse)
+async def studio_communaute(request: Request):
+    return templates.TemplateResponse(request, "studio/communaute.html",
+                                      _contexte_app("communaute"))
+
+
+@app.get("/studio/abonnement", response_class=HTMLResponse)
+async def studio_abonnement(request: Request):
+    return templates.TemplateResponse(request, "studio/abonnement.html",
+                                      _contexte_app("abonnement"))
+
+
+@app.post("/studio/abonnement", response_class=HTMLResponse)
+async def studio_changer_formule(request: Request, plan: str = Form("")):
+    account.changer_de_formule(plan)
+    return RedirectResponse("/studio/abonnement", status_code=303)
+
+
+@app.get("/studio/credits", response_class=HTMLResponse)
+async def studio_credits(request: Request):
+    compte = account.charger()
+    libelles = {"rendu": "Vidéo rendue", "apercu": "Aperçu",
+                "transcription": "Transcription", "voix": "Voix importée"}
+    historique = [
+        {"date": evenement.get("date", ""),
+         "libelle": libelles.get(evenement.get("type", ""), evenement.get("type", ""))}
+        for evenement in reversed(compte.historique[-25:])
+    ]
+    return templates.TemplateResponse(
+        request, "studio/credits.html",
+        _contexte_app("credits", historique=historique),
+    )
+
+
+@app.get("/studio/profil", response_class=HTMLResponse)
+async def studio_profil(request: Request, enregistre: bool = False):
+    return templates.TemplateResponse(
+        request, "studio/profil.html",
+        _contexte_app("profil", auth=bool(config.PASSWORD), enregistre=enregistre),
+    )
+
+
+@app.post("/studio/profil", response_class=HTMLResponse)
+async def studio_profil_envoi(request: Request, nom: str = Form(""),
+                              email: str = Form("")):
+    account.mettre_a_jour_profil(nom, email)
+    return RedirectResponse("/studio/profil?enregistre=true", status_code=303)
+
+
+@app.get("/studio/parametres", response_class=HTMLResponse)
+async def studio_parametres(request: Request):
+    manquants = media.ensure_tools()
+    encodeur = media.detect_encoder() if not manquants else None
+    try:
+        import yt_dlp  # noqa: F401
+
+        ytdlp = True
+    except ImportError:
+        ytdlp = False
+
+    etat = [
+        ("ffmpeg", "présent" if "ffmpeg" not in manquants else "absent",
+         "ffmpeg" not in manquants),
+        ("Encodeur", f"{encodeur.name}"
+         + (" (matériel)" if encodeur and encodeur.hardware else "")
+         if encodeur else "indisponible", bool(encodeur)),
+        ("yt-dlp", "présent" if ytdlp else "absent", ytdlp),
+        ("Transcription", "disponible" if transcribe.available()
+         else "non installée", transcribe.available()),
+        ("Clé API Claude", "configurée" if scriptgen.api_key_available()
+         else "absente — mode manuel", scriptgen.api_key_available()),
+        ("Musiques", f"{len(pipeline.list_music())} fichier(s)", True),
+    ]
+    variables = [
+        ("FLAMBEE_PASSWORD", "protège l'accès dès que l'outil sort de la machine"),
+        ("FLAMBEE_HOST", "0.0.0.0 pour ouvrir au réseau local"),
+        ("ANTHROPIC_API_KEY", "génération du script en un clic"),
+        ("FLAMBEE_COOKIES_FROM_BROWSER", "pour les vidéos qui exigent une connexion"),
+        ("FLAMBEE_WHISPER_MODEL", f"modèle de transcription (actuel : {transcribe.MODEL_NAME})"),
+        ("FLAMBEE_ENCODER", "force un encodeur vidéo précis"),
+    ]
+    return templates.TemplateResponse(
+        request, "studio/parametres.html",
+        _contexte_app("parametres", etat=etat, variables=variables,
+                      dossiers={"sortie": str(config.OUTPUT_DIR),
+                                "travail": str(config.WORK_DIR),
+                                "musiques": str(config.MUSIC_DIR)}),
+    )
+
+
+# --- Script Viral ---------------------------------------------------------
+@app.get("/studio/script-viral", response_class=HTMLResponse)
+async def studio_script(request: Request):
+    return templates.TemplateResponse(
+        request, "studio/script_viral.html",
+        _contexte_app("script", transcription_disponible=transcribe.available()),
+    )
+
+
+@app.post("/studio/script-viral", response_class=HTMLResponse)
+async def studio_script_envoi(
+    request: Request,
+    url: str = Form(""),
+    fichier: UploadFile | None = File(None),
+):
+    """Transcrit une vidéo, depuis un lien ou un fichier importé."""
+    compte = account.charger()
+    contexte = {"transcription_disponible": transcribe.available(), "url": url}
+
+    def echec(message: str, code: int = 400):
+        return templates.TemplateResponse(
+            request, "studio/script_viral.html",
+            _contexte_app("script", erreur=message, **contexte),
+            status_code=code,
+        )
+
+    if not compte.pro:
+        return echec("Cette rubrique demande la formule Créateur.", 402)
+    if not transcribe.available():
+        return echec("Le moteur de transcription n'est pas installé.", 503)
+
+    dossier = config.WORK_DIR / ".transcriptions"
+    dossier.mkdir(parents=True, exist_ok=True)
+    source: Path | None = None
+
+    try:
+        if fichier is not None and fichier.filename:
+            suffixe = Path(fichier.filename).suffix.lower()
+            if suffixe not in voicestudio.EXTENSIONS:
+                return echec(f"Format non reconnu : {fichier.filename}")
+            source = dossier / f"import{suffixe}"
+            if await _stream_to_disk(fichier, source) == 0:
+                return echec("Fichier vide.")
+        elif url.strip():
+            liens = downloader.normalize_urls(url)
+            if not liens:
+                return echec("Ce lien ne semble pas valide.")
+            resultat = await asyncio.to_thread(
+                downloader.download_one, liens[0], dossier, 1
+            )
+            if not resultat.ok:
+                return echec(resultat.error or "Téléchargement impossible.")
+            source = Path(resultat.path)
+        else:
+            return echec("Donne un lien ou choisis un fichier.")
+
+        audio = await asyncio.to_thread(
+            transcribe.ensure_audio, source, dossier / "audio.wav"
+        )
+        transcription = await asyncio.to_thread(transcribe.transcribe, audio)
+    except (media.MediaError, transcribe.TranscriptionError) as exc:
+        return echec(str(exc), 500)
+    finally:
+        if source and source.exists() and source.parent == dossier:
+            source.unlink(missing_ok=True)
+
+    account.noter("transcription", url or (fichier.filename if fichier else ""))
+    jeton = hashlib.sha256(transcription.text.encode("utf-8")).hexdigest()[:12]
+    (dossier / f"{jeton}.txt").write_text(transcription.text, encoding="utf-8")
+
+    return templates.TemplateResponse(
+        request, "studio/script_viral.html",
+        _contexte_app("script", **contexte, resultat={
+            "texte": transcription.text,
+            "mots": len(transcription.words),
+            "langue": transcription.language or "inconnue",
+            "duree": f"{transcription.duration:.0f} s",
+            "jeton": jeton,
+        }),
+    )
+
+
+# --- Voice Studio ---------------------------------------------------------
+@app.get("/studio/voix", response_class=HTMLResponse)
+async def studio_voix(request: Request):
+    infos = voicestudio.charger()
+    voix = None
+    if infos:
+        voix = {"nom": infos.get("nom", "voix.wav"),
+                "duree": f"{infos.get('duree', 0):.0f} s",
+                "mots": len(infos.get("mots", []))}
+    return templates.TemplateResponse(request, "studio/voix.html",
+                                      _contexte_app("voix", voix=voix))
+
+
+@app.post("/studio/voix", response_class=HTMLResponse)
+async def studio_voix_envoi(request: Request, fichier: UploadFile = File(...)):
+    compte = account.charger()
+
+    def echec(message: str, code: int = 400):
+        return templates.TemplateResponse(
+            request, "studio/voix.html",
+            _contexte_app("voix", voix=None, erreur=message), status_code=code,
+        )
+
+    if not compte.pro:
+        return echec("Cette rubrique demande la formule Créateur.", 402)
+    if not transcribe.available():
+        return echec("Le moteur de transcription n'est pas installé.", 503)
+
+    suffixe = Path(fichier.filename or "").suffix.lower()
+    if suffixe not in voicestudio.EXTENSIONS:
+        return echec(f"Format non reconnu : {fichier.filename}")
+
+    brut = voicestudio.dossier() / f"import{suffixe}"
+    try:
+        if await _stream_to_disk(fichier, brut) == 0:
+            return echec("Fichier vide.")
+        await asyncio.to_thread(voicestudio.enregistrer, brut,
+                                fichier.filename or "enregistrement")
+    except (media.MediaError, transcribe.TranscriptionError, ValueError) as exc:
+        return echec(str(exc), 500)
+    finally:
+        brut.unlink(missing_ok=True)
+
+    account.noter("voix", fichier.filename or "")
+    return RedirectResponse("/studio/voix", status_code=303)
+
+
+@app.get("/studio/voix/fichier")
+async def studio_voix_fichier():
+    chemin = voicestudio.chemin_audio()
+    if not chemin.exists():
+        raise HTTPException(status_code=404, detail="Aucune voix importée.")
+    return FileResponse(chemin, media_type="audio/wav")
+
+
+@app.post("/studio/voix/supprimer")
+async def studio_voix_supprimer():
+    voicestudio.supprimer()
+    return RedirectResponse("/studio/voix", status_code=303)
 
 
 # --- Environnement --------------------------------------------------------
@@ -275,12 +557,18 @@ async def health():
 
 @app.get("/api/voices")
 async def voices(refresh: bool = False):
-    if not refresh:
-        return {"voices": config.FRENCH_VOICES, "default": config.DEFAULT_VOICE}
-    try:
-        listed = await asyncio.wait_for(voice.list_voices("fr"), timeout=12)
-    except Exception:                      # réseau indisponible : liste locale
-        listed = config.FRENCH_VOICES
+    if refresh:
+        try:
+            listed = await asyncio.wait_for(voice.list_voices("fr"), timeout=12)
+        except Exception:                  # réseau indisponible : liste locale
+            listed = config.FRENCH_VOICES
+    else:
+        listed = list(config.FRENCH_VOICES)
+
+    # La voix importée passe en tête : c'est celle qu'on veut quand on l'a.
+    if voicestudio.charger():
+        listed = [{"id": voicestudio.VOICE_ID, "label": "Ma voix (importée)"},
+                  *listed]
     return {"voices": listed, "default": config.DEFAULT_VOICE}
 
 
@@ -543,7 +831,18 @@ async def save_script(project_id: str, body: ScriptIn):
 async def render(project_id: str, body: RenderIn | None = None):
     project = _get(project_id)
     _require_idle(project)
-    if not project.script.strip():
+
+    # Le quota se vérifie en premier : inutile de contrôler le projet si le
+    # rendu ne peut de toute façon pas partir.
+    fast = bool(body and body.fast)
+    if not fast and not account.charger().peut_rendre():
+        raise HTTPException(
+            status_code=402,
+            detail="Crédits épuisés pour ce mois-ci. Les aperçus restent "
+                   "illimités, et la page Abonnement permet de changer de formule.",
+        )
+
+    if not project.script.strip() and project.settings.voice != voicestudio.VOICE_ID:
         raise HTTPException(status_code=400, detail="Valide d'abord un script.")
     if not project.ready_sources:
         raise HTTPException(status_code=400, detail="Aucune vidéo source prête.")
@@ -551,7 +850,6 @@ async def render(project_id: str, body: RenderIn | None = None):
         project.hook_index = (
             project.recommended_hook or project.ready_sources[0].index
         )
-    fast = bool(body and body.fast)
     _start_job(project, "render", "Aperçu en préparation…" if fast else "Préparation…")
     _spawn_render(project, fast=fast)
     return _project_payload(project)

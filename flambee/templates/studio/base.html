@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Flambée">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>{% block title %}Flambée{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/app-shell.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+</head>
+<body class="app">
+
+<header class="barre">
+  <button class="tiroir-bouton" id="tiroir-bouton" aria-label="Menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <a class="barre-marque" href="/studio"><span class="flame">🔥</span> Flambée</a>
+  <div class="barre-droite">
+    <a class="jauge" href="/studio/credits" title="Crédits restants ce mois-ci">
+      <span class="jauge-valeur">{{ credits.restants if credits.restants is not none else '∞' }}</span>
+      <span class="jauge-mot">crédits</span>
+    </a>
+    <a class="avatar" href="/studio/profil" title="Profil">{{ profil.initiales }}</a>
+  </div>
+</header>
+
+<div class="coque">
+  <aside class="tiroir" id="tiroir">
+    <nav>
+      <a class="entree creer {% if rubrique == 'creer' %}active{% endif %}" href="/studio">
+        <span class="icone">＋</span> Créer
+      </a>
+
+      <p class="groupe">Outils</p>
+      <a class="entree {% if rubrique == 'script' %}active{% endif %}" href="/studio/script-viral">
+        <span class="icone">📄</span> Script Viral
+        {% if not plan_actuel.pro %}<span class="ecusson">PRO</span>{% endif %}
+      </a>
+      <a class="entree {% if rubrique == 'voix' %}active{% endif %}" href="/studio/voix">
+        <span class="icone">🎙️</span> Voice Studio
+        {% if not plan_actuel.pro %}<span class="ecusson">PRO</span>{% endif %}
+      </a>
+      <a class="entree {% if rubrique == 'creations' %}active{% endif %}" href="/studio/creations">
+        <span class="icone">🎞️</span> Mes créations
+      </a>
+
+      <p class="groupe">Apprendre</p>
+      <a class="entree {% if rubrique == 'tutoriel' %}active{% endif %}" href="/studio/tutoriel">
+        <span class="icone">📖</span> Tutoriel
+      </a>
+      <a class="entree {% if rubrique == 'communaute' %}active{% endif %}" href="/studio/communaute">
+        <span class="icone">🫂</span> Communauté
+      </a>
+
+      <p class="groupe">Compte</p>
+      <a class="entree {% if rubrique == 'abonnement' %}active{% endif %}" href="/studio/abonnement">
+        <span class="icone">💳</span> Abonnement
+      </a>
+      <a class="entree {% if rubrique == 'credits' %}active{% endif %}" href="/studio/credits">
+        <span class="icone">🪙</span> Crédits
+      </a>
+      <a class="entree {% if rubrique == 'parametres' %}active{% endif %}" href="/studio/parametres">
+        <span class="icone">⚙️</span> Paramètres
+      </a>
+      <a class="entree {% if rubrique == 'profil' %}active{% endif %}" href="/studio/profil">
+        <span class="icone">👤</span> Profil
+      </a>
+    </nav>
+
+    <div class="tiroir-pied">
+      <div class="plan-actuel">
+        <span class="plan-nom">{{ plan_actuel.name }}</span>
+        <span class="plan-detail">{{ plan_actuel.videos }}</span>
+      </div>
+      {% if not plan_actuel.pro %}
+      <a href="/studio/abonnement" class="button primary petit">Passer au supérieur</a>
+      {% endif %}
+      <a href="/" class="lien-site">← Retour au site</a>
+    </div>
+  </aside>
+
+  <div class="voile" id="voile"></div>
+
+  <main class="contenu">
+    {% block contenu %}{% endblock %}
+  </main>
+</div>
+
+<script src="/static/app-shell.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

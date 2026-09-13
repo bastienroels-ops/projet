@@ -1,0 +1,46 @@
+{% extends "studio/base.html" %}
+{% block title %}Paramètres — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Les <em>réglages</em></h1></div>
+  <p class="page-accroche">L'état de la machine et les dépendances du montage.</p>
+
+  <div class="carte">
+    <h2>Moteur</h2>
+    <div class="lignes">
+      {% for cle, valeur, bon in etat %}
+      <div class="ligne">
+        <span class="ligne-cle">{{ cle }}</span>
+        <span class="ligne-valeur" style="color:{{ 'var(--ok)' if bon else 'var(--alert)' }}">{{ valeur }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="carte">
+    <h2>Dossiers</h2>
+    <div class="lignes">
+      <div class="ligne"><span class="ligne-cle">Rendus</span>
+        <span class="ligne-valeur"><code>{{ dossiers.sortie }}</code></span></div>
+      <div class="ligne"><span class="ligne-cle">Travail</span>
+        <span class="ligne-valeur"><code>{{ dossiers.travail }}</code></span></div>
+      <div class="ligne"><span class="ligne-cle">Musiques</span>
+        <span class="ligne-valeur"><code>{{ dossiers.musiques }}</code></span></div>
+    </div>
+  </div>
+
+  <div class="carte">
+    <h2>Variables d'environnement</h2>
+    <p>Ces réglages se définissent au lancement, pas depuis l'interface :
+      ils conditionnent le démarrage du serveur.</p>
+    <div class="lignes">
+      {% for nom, description in variables %}
+      <div class="ligne">
+        <span class="ligne-cle">{{ nom }}</span>
+        <span class="ligne-valeur">{{ description }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

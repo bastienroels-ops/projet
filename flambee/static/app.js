@@ -311,13 +311,18 @@ async function loadHealth() {
   const h = await api("/api/health");
   const tag = (label, ok) => `<span class="tag ${ok ? "ok" : "ko"}">${label}</span>`;
   applyScriptMode(h.anthropic_key);
-  $("#health").innerHTML =
-    tag("ffmpeg", h.ffmpeg) + tag("yt-dlp", h.yt_dlp) +
-    tag(h.anthropic_key ? "clé Claude" : "script manuel", true) +
-    tag(`${h.music_count} musique(s)`, true) +
-    (h.auth ? tag("protégé", true) : "");
+  // Le bandeau d'état n'existe que sur l'ancienne page ; l'application le
+  // remplace par la rubrique Paramètres.
+  const bandeau = $("#health");
+  if (bandeau) {
+    bandeau.innerHTML =
+      tag("ffmpeg", h.ffmpeg) + tag("yt-dlp", h.yt_dlp) +
+      tag(h.anthropic_key ? "clé Claude" : "script manuel", true) +
+      tag(`${h.music_count} musique(s)`, true) +
+      (h.auth ? tag("protégé", true) : "");
+  }
   if (!h.ffmpeg || !h.yt_dlp) {
-    alertBox("Dépendances manquantes : installe ffmpeg et `pip install -r requirements.txt`.");
+    alertBox("Dépendances manquantes — va voir la rubrique Paramètres.");
   }
 }
 
