@@ -1396,6 +1396,11 @@ async def page_introuvable(request: Request, _exc):
 
 @app.exception_handler(500)
 async def erreur_serveur(request: Request, _exc):
+    # « L'incident est enregistré côté serveur » n'est vrai que si on l'écrit.
+    # Starlette relaie bien l'exception au serveur, mais derrière un tunnel
+    # Colab cette trace se perd : une ligne explicite, préfixée, se retrouve
+    # dans le journal même quand tout le reste défile.
+    log.exception("ERREUR 500 sur %s %s", request.method, request.url.path)
     if request.url.path.startswith("/api/"):
         return JSONResponse(status_code=500,
                             content={"detail": "Erreur interne."})

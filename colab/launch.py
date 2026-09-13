@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 import urllib.request
+from collections import deque
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -220,6 +221,35 @@ def start_tunnel(binary: Path, port: int, timeout: float = 90.0):
     return process, url
 
 
+# Les dernières lignes du serveur, gardées pour les afficher en cas d'échec.
+_JOURNAL: deque[str] = deque(maxlen=300)
+
+
+def relayer(process: subprocess.Popen, etiquette: str = "serveur") -> None:
+    """Recopie la sortie du serveur dans la cellule, ligne par ligne.
+
+    Deux raisons, et la seconde est la plus grave. D'abord, sans cela une
+    erreur 500 s'affiche dans le navigateur sans que personne ne puisse en
+    connaître la cause : la trace part dans un tuyau que rien ne lit. Ensuite,
+    ce tuyau a un fond — environ 64 ko — et quand il est plein le serveur se
+    bloque en essayant d'y écrire. L'application cesse alors de répondre, sans
+    s'être arrêtée, et tout échoue en même temps : la page comme ses styles.
+    """
+    def boucle() -> None:
+        for ligne in iter(process.stdout.readline, ""):   # type: ignore[union-attr]
+            ligne = ligne.rstrip()
+            if not ligne:
+                continue
+            _JOURNAL.append(ligne)
+            log(f"  [{etiquette}] {ligne}")
+    threading.Thread(target=boucle, daemon=True).start()
+
+
+def journal_recent(lignes: int = 40) -> str:
+    """Les dernières lignes vues, pour un message d'échec qui dit quelque chose."""
+    return "\n".join(list(_JOURNAL)[-lignes:])
+
+
 def _drain(process: subprocess.Popen) -> None:
     for _ in iter(process.stdout.readline, ""):  # type: ignore[union-attr]
         if process.poll() is not None:
@@ -375,10 +405,12 @@ def start_all(
         os.environ["FLAMBEE_SIGNUP"] = "ferme"
 
     server = start_server(port, password, username, anthropic_key)
+    # Le relais démarre avant l'attente : c'est pendant le démarrage que les
+    # erreurs les plus utiles apparaissent, et il ne faut pas les manquer.
+    relayer(server)
     if not wait_for_server(port):
-        output = (server.stdout.read() if server.stdout else "")[-2000:]
         server.terminate()
-        raise RuntimeError(f"Le serveur n'a pas démarré :\n{output}")
+        raise RuntimeError(f"Le serveur n'a pas démarré :\n{journal_recent()}")
 
     if not tunnel:
         return server, None, None, password

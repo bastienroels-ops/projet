@@ -216,3 +216,52 @@ def test_le_tunnel_est_rouvert_sil_tombe(monkeypatch, capsys):
     sortie = capsys.readouterr().out
     assert "https://nouvelle-adresse.trycloudflare.com" in sortie
     assert "adresse a changé" in sortie
+
+
+def test_la_sortie_du_serveur_est_relayee():
+    """Le tuyau du serveur doit être vidé, et son contenu remonté.
+
+    Sans cela, deux pannes se cumulent : une erreur 500 s'affiche dans le
+    navigateur sans que sa cause soit lisible nulle part, et le tuyau finit
+    par se remplir — environ 64 ko — ce qui bloque le serveur en écriture.
+    L'application cesse alors de répondre sans s'être arrêtée, et tout échoue
+    d'un coup, la page comme ses styles.
+
+    On écrit ici bien au-delà de cette limite : sans relais, le processus
+    resterait bloqué et n'atteindrait jamais sa dernière ligne.
+    """
+    import subprocess
+    import sys
+    import time
+
+    programme = (
+        "import sys\n"
+        "for i in range(4000):\n"
+        "    print('ligne de journal numero %d' % i)\n"
+        "print('TERMINE')\n"
+    )
+    processus = subprocess.Popen(
+        [sys.executable, "-c", programme],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    launch.relayer(processus, "essai")
+
+    fin = time.time() + 30
+    while processus.poll() is None and time.time() < fin:
+        time.sleep(0.1)
+
+    assert processus.poll() == 0, "le processus est resté bloqué sur son tuyau"
+    assert "TERMINE" in launch.journal_recent(), \
+        "la dernière ligne n'a pas été relayée"
+
+
+def test_le_demarrage_relaie_avant_d_attendre():
+    """Les erreurs les plus utiles surviennent pendant le démarrage.
+
+    Si le relais ne partait qu'après `wait_for_server`, un serveur qui échoue
+    à démarrer n'aurait rien écrit de lisible dans la cellule.
+    """
+    source = (ROOT / "colab" / "launch.py").read_text(encoding="utf-8")
+    debut = source.index("def start_all(")
+    corps = source[debut:source.index("def keep_alive(")]
+    assert corps.index("relayer(server)") < corps.index("wait_for_server(port)"), \
+        "le relais doit démarrer avant l'attente"
