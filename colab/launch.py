@@ -286,15 +286,27 @@ def start_all(
     *,
     anthropic_key: str = "",
     tunnel: bool = True,
+    transcription: bool = True,
 ) -> tuple[subprocess.Popen, subprocess.Popen | None, str | None, str]:
     """Prépare l'environnement, démarre le serveur et (au besoin) le tunnel.
 
     Retourne (serveur, tunnel, adresse publique, mot de passe). L'adresse vaut
     None si le tunnel n'a pas pu s'ouvrir : le serveur tourne quand même, et
     reste joignable par le lien de secours de Colab.
+
+    Le moteur de transcription est installé ici, et non dans le carnet : la
+    cellule que l'on a sous les yeux dans son navigateur peut dater d'une
+    version antérieure — Colab la garde en mémoire — alors que ce fichier, lui,
+    vient d'être récupéré. Le faire à cet endroit garantit que Script Viral et
+    Voice Studio fonctionnent même avec une vieille cellule.
     """
     ensure_ffmpeg()
     ensure_dependencies()
+    if transcription:
+        try:
+            ensure_transcription()
+        except Exception as exc:        # jamais bloquant : le reste doit tourner
+            log(f"⚠️  Moteur de transcription : {exc}")
     password = password or generate_password()
 
     server = start_server(port, password, username, anthropic_key)
