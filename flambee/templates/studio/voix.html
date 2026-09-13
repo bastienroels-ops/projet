@@ -9,13 +9,13 @@
 
   {% if not plan_actuel.pro %}
   <div class="carte verrou">
-    <div class="verrou-rond">🔒</div>
+    <div class="verrou-rond">{{ icone("cadenas", taille=26) }}</div>
     <h2>Disponible à partir de <em>Créateur</em></h2>
     <p>Ta voix change tout : c'est elle qui distingue une vidéo automatisée d'une
       vidéo qui t'appartient.</p>
     <ul class="verrou-liste">
-      <li>⭐ <span><b>Créateur</b> — voix importées illimitées</span></li>
-      <li>💎 <span><b>Studio</b> — plusieurs voix enregistrées, une par marque</span></li>
+      <li>{{ icone("etoile") }} <span><b>Créateur</b> — voix importées illimitées</span></li>
+      <li>{{ icone("diamant") }} <span><b>Studio</b> — plusieurs voix enregistrées, une par marque</span></li>
     </ul>
     <a href="/studio/abonnement" class="button primary grand">Voir les formules</a>
   </div>

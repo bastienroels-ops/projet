@@ -15,7 +15,7 @@
   <title>{% block title %}Flambée{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/app-shell.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
 <body class="app">
 
@@ -23,7 +23,7 @@
   <button class="tiroir-bouton" id="tiroir-bouton" aria-label="Menu" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
-  <a class="barre-marque" href="/studio"><span class="flame">🔥</span> Flambée</a>
+  <a class="barre-marque" href="/studio">{{ icone("flamme", classe="flamme") }} Flambée</a>
   <div class="barre-droite">
     <a class="jauge" href="/studio/credits" title="Crédits restants ce mois-ci">
       <span class="jauge-valeur">{{ credits.restants if credits.restants is not none else '∞' }}</span>
@@ -37,42 +37,42 @@
   <aside class="tiroir" id="tiroir">
     <nav>
       <a class="entree creer {% if rubrique == 'creer' %}active{% endif %}" href="/studio">
-        <span class="icone">＋</span> Créer
+        {{ icone("plus") }} Créer
       </a>
 
       <p class="groupe">Outils</p>
       <a class="entree {% if rubrique == 'script' %}active{% endif %}" href="/studio/script-viral">
-        <span class="icone">📄</span> Script Viral
+        {{ icone("document") }} Script Viral
         {% if not plan_actuel.pro %}<span class="ecusson">PRO</span>{% endif %}
       </a>
       <a class="entree {% if rubrique == 'voix' %}active{% endif %}" href="/studio/voix">
-        <span class="icone">🎙️</span> Voice Studio
+        {{ icone("micro") }} Voice Studio
         {% if not plan_actuel.pro %}<span class="ecusson">PRO</span>{% endif %}
       </a>
       <a class="entree {% if rubrique == 'creations' %}active{% endif %}" href="/studio/creations">
-        <span class="icone">🎞️</span> Mes créations
+        {{ icone("film") }} Mes créations
       </a>
 
       <p class="groupe">Apprendre</p>
       <a class="entree {% if rubrique == 'tutoriel' %}active{% endif %}" href="/studio/tutoriel">
-        <span class="icone">📖</span> Tutoriel
+        {{ icone("livre") }} Tutoriel
       </a>
       <a class="entree {% if rubrique == 'communaute' %}active{% endif %}" href="/studio/communaute">
-        <span class="icone">🫂</span> Communauté
+        {{ icone("communaute") }} Communauté
       </a>
 
       <p class="groupe">Compte</p>
       <a class="entree {% if rubrique == 'abonnement' %}active{% endif %}" href="/studio/abonnement">
-        <span class="icone">💳</span> Abonnement
+        {{ icone("carte") }} Abonnement
       </a>
       <a class="entree {% if rubrique == 'credits' %}active{% endif %}" href="/studio/credits">
-        <span class="icone">🪙</span> Crédits
+        {{ icone("jeton") }} Crédits
       </a>
       <a class="entree {% if rubrique == 'parametres' %}active{% endif %}" href="/studio/parametres">
-        <span class="icone">⚙️</span> Paramètres
+        {{ icone("reglages") }} Paramètres
       </a>
       <a class="entree {% if rubrique == 'profil' %}active{% endif %}" href="/studio/profil">
-        <span class="icone">👤</span> Profil
+        {{ icone("profil") }} Profil
       </a>
     </nav>
 

@@ -92,28 +92,28 @@ PLANS: list[Plan] = [
 class Feature:
     title: str
     body: str
-    icon: str
+    icon: str          # nom d'une icône de `icones.py`, pas un emoji
 
 
 FEATURES: list[Feature] = [
     Feature("Les coupes tombent juste", "Les changements de plan de chaque source "
             "sont détectés, et le montage y cale ses coupes. Rien n'est tranché au "
-            "milieu d'un geste.", "✂️"),
+            "milieu d'un geste.", "ciseaux"),
     Feature("L'accroche est notée", "Les trois premières secondes de chaque source "
             "sont mesurées — mouvement, énergie sonore, popularité — et la plus "
-            "percutante t'est proposée en tête.", "⚡"),
+            "percutante t'est proposée en tête.", "eclair"),
     Feature("Des sous-titres au mot près", "Le minutage vient de la synthèse vocale "
             "elle-même : chaque mot s'allume quand il est prononcé. Six styles, du "
-            "plus viral au plus sobre.", "✍️"),
+            "plus viral au plus sobre.", "sous-titres"),
     Feature("Un son de vraie production", "Voix normalisée aux standards de "
             "diffusion, musique qui s'efface d'elle-même sous la parole, limiteur "
-            "en sortie.", "🎚️"),
+            "en sortie.", "curseurs"),
     Feature("Un seul encodage", "Découpe, recadrage, montage, sous-titres et mixage "
             "tiennent dans une seule passe : c'est plus rapide, et l'image ne "
-            "subit aucune perte de génération.", "⚙️"),
+            "subit aucune perte de génération.", "engrenage"),
     Feature("Vertical par construction", "Tout est pensé pour le 9:16 : recadrage "
             "centré, masquage des sous-titres d'origine, léger travelling sur les "
-            "plans fixes.", "📱"),
+            "plans fixes.", "telephone"),
 ]
 
 

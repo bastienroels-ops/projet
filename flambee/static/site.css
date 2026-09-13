@@ -177,7 +177,15 @@ body.site { padding: 0; }
   transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s;
 }
 .atout:hover { transform: translateY(-4px); border-color: var(--hairline-2); }
-.atout-icone { font-size: 26px; display: block; margin-bottom: 16px; }
+/* L'icône d'un atout : posée dans un jeton discret plutôt que nue, pour lui
+   donner un point d'appui et aligner toutes les cartes sur la même hauteur. */
+.atout-icone {
+  display: grid; place-items: center;
+  width: 42px; height: 42px; margin-bottom: 18px;
+  border-radius: 12px; color: var(--ember-2);
+  background: rgba(255, 122, 47, .10);
+  border: 1px solid rgba(255, 122, 47, .18);
+}
 .atout h3 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
 .atout p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
 

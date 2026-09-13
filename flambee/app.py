@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from . import (__version__, account, config, downloader, media, pipeline,
                plans, samples, scriptgen, site, transcribe, users, voice,
                voicestudio)
-from . import courriel
+from . import courriel, icones
 from .auth import (fermer_session, install_auth, ouvrir_session,
                    requete_securisee, utilisateur_courant)
 from .project import Project, store
@@ -38,6 +38,10 @@ app = FastAPI(title="Flambée", version=__version__, docs_url="/api/docs")
 install_auth(app)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
+# Le jeu d'icônes est accessible partout : {{ icone("micro") }}. Les emoji
+# qu'il remplace appartenaient au système d'exploitation du visiteur, pas au
+# site — trois appareils, trois dessins, trois poids visuels.
+templates.env.globals["icone"] = icones.icone
 
 
 # --- Modèles de requête ---------------------------------------------------

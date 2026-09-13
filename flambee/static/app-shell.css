@@ -77,10 +77,10 @@ body.fige { overflow: hidden; }
   font-size: 14.5px; font-weight: 500;
   transition: background .2s, color .2s;
 }
-.entree .icone { font-size: 15px; width: 19px; text-align: center; flex: none; }
+.entree .icone { width: 19px; height: 19px; flex: none; opacity: .82; }
 .entree:hover { background: var(--surface-2); color: var(--text); }
 .entree.active { background: var(--surface-2); color: var(--text); }
-.entree.active .icone { filter: drop-shadow(0 0 8px rgba(255, 122, 47, .6)); }
+.entree.active .icone { opacity: 1; color: var(--ember-2); }
 
 .entree.creer {
   margin-bottom: 10px;
@@ -89,7 +89,7 @@ body.fige { overflow: hidden; }
   box-shadow: 0 8px 22px -12px rgba(255, 122, 47, .9);
 }
 .entree.creer:hover { background: linear-gradient(135deg, #ffc163, #ff8a45); color: #170d05; }
-.entree.creer .icone { font-size: 17px; }
+.entree.creer .icone { opacity: 1; width: 17px; height: 17px; }
 
 .ecusson {
   margin-left: auto; padding: 3px 8px; border-radius: 999px;

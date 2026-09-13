@@ -110,7 +110,7 @@
   <div class="atouts-grille">
     {% for f in features %}
     <article class="atout">
-      <span class="atout-icone">{{ f.icon }}</span>
+      <span class="atout-icone">{{ icone(f.icon, taille=22) }}</span>
       <h3>{{ f.title }}</h3>
       <p>{{ f.body }}</p>
     </article>

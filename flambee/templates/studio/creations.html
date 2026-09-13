@@ -31,7 +31,7 @@
                data-src="{{ projet.viewing_url }}"></video>
         <span class="creation-jouer" aria-hidden="true">▶</span>
         {% else %}
-        <div class="vide">🎬</div>
+        <div class="vide">{{ icone("film", taille=26) }}</div>
         <span class="creation-etat">En cours</span>
         {% endif %}
       </div>
@@ -44,7 +44,7 @@
   </div>
   {% else %}
   <div class="vide-etat">
-    <span class="grand">🎬</span>
+    <span class="grand">{{ icone("film", taille=34) }}</span>
     Aucune création pour l'instant.
     <div class="row" style="justify-content:center">
       <a href="/studio" class="button primary">Créer ma première vidéo</a>

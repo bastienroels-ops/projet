@@ -126,8 +126,8 @@ html::after {
   font-size: 27px; font-weight: 400; letter-spacing: .01em;
   white-space: nowrap;
 }
-.brand .flame {
-  font-size: 21px;
+.brand .flamme, .barre-marque .flamme {
+  width: 22px; height: 22px; color: var(--ember);
   filter: drop-shadow(0 0 14px rgba(255, 122, 47, .75));
   animation: vacille 3.5s ease-in-out infinite;
 }
@@ -749,3 +749,8 @@ body::after {
   .aurore span { animation: none; }
   .progression { transition: none; }
 }
+
+/* Les icônes du jeu maison : elles suivent la couleur du texte et ne doivent
+   jamais se déformer quand la place manque. */
+.icone { flex: none; display: block; }
+.icone.flamme { color: var(--ember); }

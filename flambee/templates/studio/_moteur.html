@@ -2,7 +2,7 @@
    Il dit la vraie raison — absent, ou installé mais hors d'état — et propose à
    l'administrateur de lancer l'installation sans quitter la page. #}
 <div class="carte verrou">
-  <div class="verrou-rond">⚙️</div>
+  <div class="verrou-rond">{{ icone("engrenage", taille=26) }}</div>
 
   {% if moteur.installation.etat == 'encours' %}
   <h2>Installation en cours</h2>
