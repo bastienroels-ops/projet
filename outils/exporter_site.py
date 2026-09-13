@@ -129,21 +129,106 @@ def reecrire(html: str, adresses: dict[str, str], atelier: str, prefixe: str) ->
         for lien in LIENS_ATELIER:
             html = re.sub(rf'href="{lien}(["?])', rf'href="{base}{lien}\1', html)
     else:
-        # Vitrine seule : ces adresses n'existent pas ici. Plutôt qu'un 404 au
-        # premier clic, les boutons descendent à l'essayage — on montre le
-        # produit au lieu de mener nulle part.
+        # Vitrine seule : ces adresses n'existent pas ici, et les promesses
+        # qui y mènent non plus. Les boutons descendent à l'essayage — on
+        # montre le produit au lieu de mener nulle part — et le texte cesse
+        # d'annoncer des comptes que personne ne peut créer.
         #
-        # L'ancre doit être absolue. L'essayage ne vit que sur l'accueil :
-        # « #essayage » depuis /tarifs cherche une ancre absente de la page et
-        # ne fait donc rien — un bouton mort, ce qui est pire que le 404 qu'on
-        # voulait éviter. « /#essayage » ramène à l'accueil, puis descend.
-        for lien in LIENS_ATELIER:
-            html = re.sub(rf'href="{lien}[^"]*"', 'href="/#essayage"', html)
+        # L'ancre est absolue : l'essayage ne vit que sur l'accueil, et
+        # « #essayage » depuis /tarifs cherche une ancre absente de la page,
+        # donc ne fait rien — un bouton mort, pire que le 404 qu'on évitait.
+        html = _en_vitrine(html)
     if prefixe:
         # `poster` et `data-src` portent aussi des adresses de médias : les
         # oublier laisserait les clips pointer à la racine du domaine.
         html = re.sub(r'\b(href|src|poster|data-src)="/(?!/)',
                       rf'\1="{prefixe}/', html)
+    return html
+
+
+# Les liens de compte, dans une page servie par l'application.
+_ANCRE_ATELIER = re.compile(
+    r'<a\s+([^>]*?)href="(/(?:inscription|connexion|studio|mot-de-passe-oublie)'
+    r'[^"]*)"([^>]*?)>(.*?)</a>', re.S)
+_CLASSE = re.compile(r'class="([^"]*)"')
+
+# Ce que la vitrine seule ne peut pas tenir. Chaque phrase promet un compte,
+# un essai ou un abonnement : sans atelier derrière, ce sont des promesses en
+# l'air, et c'est la première impression qu'on laisse aux gens à qui on donne
+# l'adresse.
+_PROMESSES = {
+    "Essai gratuit — aucune carte bancaire demandée.":
+        "Tout ce qui est ci-dessous est calculé par l'outil lui-même.",
+    # Un produit que personne n'a encore pu acheter n'a pas de formule
+    # « la plus choisie » : le ruban invente une preuve sociale.
+    '<span class="ruban">Le plus choisi</span>': "",
+    # Les titres et l'accroche des tarifs, qui invitent à commencer.
+    "<h2>Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>":
+        "<h2>Les formules prévues, <em>et ce qu'elles contiendront</em>.</h2>",
+    "<h1>Un prix par <em>rythme de publication</em>.</h1>":
+        "<h1>Les prix prévus, par <em>rythme de publication</em>.</h1>",
+    # Jusque dans l'aperçu partagé : c'est la première ligne que verra
+    # quelqu'un à qui l'adresse est envoyée par message.
+    "Trois formules, de l'essai gratuit au studio. Résiliable à tout moment.":
+        "Les trois formules prévues pour Flambée. Aucune n'est encore ouverte.",
+    "Oui, à tout moment et sans justification. L'accès reste ouvert "
+    "jusqu'à la fin de la période déjà réglée.":
+        "Les abonnements ne sont pas encore ouverts. Le jour où ils le seront, "
+        "l'arrêt se fera à tout moment et sans justification, l'accès restant "
+        "ouvert jusqu'à la fin de la période réglée.",
+}
+
+_AVIS_TARIFS = (
+    '<p class="tarifs-avis">Ces formules ne sont pas encore ouvertes : aucune '
+    'inscription n\'est possible pour l\'instant. Les montants indiqués sont '
+    'ceux prévus, pas des tarifs en vigueur.</p>\n<div class="tarifs-grille">')
+
+_APPEL = (
+    '<section class="appel">\n'
+    "  <h2>Flambée n'est pas encore <em>ouverte</em>.</h2>\n"
+    '  <p>Le montage fonctionne, la voix et les sous-titres aussi : tout ce que\n'
+    '     montre cette page sort du moteur lui-même, pas d\'une maquette. Il\n'
+    "     manque le serveur qui accueillera les comptes.</p>\n"
+    '  <a href="/#essayage" class="button primary grand">Voir la démonstration</a>\n'
+    '  <p class="appel-note">Aucune inscription n\'est ouverte pour l\'instant.</p>\n'
+    "</section>")
+
+
+def _en_vitrine(html: str) -> str:
+    """Rend la page honnête quand il n'y a pas d'atelier derrière.
+
+    Les gabarits ne connaissent pas ce mode, et c'est voulu : le jour où
+    l'application tourne quelque part, l'export reçoit `--atelier`, cette
+    fonction n'est pas appelée, et les vrais boutons reviennent d'eux-mêmes.
+    """
+    def remplacer(m):
+        avant, apres, texte = m.group(1), m.group(3), m.group(4)
+        # Le bouton d'une formule invite à la choisir. Aucune n'étant ouverte,
+        # il ne se remplace pas non plus : trois boutons identiques sous trois
+        # prix différents feraient croire à un choix qui n'existe pas. La
+        # carte se contente alors de décrire ce que la formule contiendra.
+        if "formule=" in m.group(2):
+            return ""
+        classes = _CLASSE.search(avant + apres)
+        if classes and "button" in classes.group(1):
+            return (f'<a href="/#essayage" class="{classes.group(1)}">'
+                    f"Voir la démonstration</a>")
+        # Un lien de navigation vers une page qui n'existe pas ne se remplace
+        # pas : il s'enlève. « Connexion » sans rien derrière n'aide personne.
+        return ""
+
+    html = _ANCRE_ATELIER.sub(remplacer, html)
+    # L'accroche des tarifs tient sur deux lignes dans le gabarit : on la
+    # reconnaît à son début plutôt qu'à sa mise en forme, qui peut bouger.
+    html = re.sub(
+        r'<p class="section-accroche">Commence gratuitement\..*?</p>',
+        '<p class="section-accroche">Voici les formules prévues pour Flambée, '
+        "et ce que chacune contiendra. Aucune n'est ouverte pour l'instant.</p>",
+        html, flags=re.S)
+    for promesse, honnete in _PROMESSES.items():
+        html = html.replace(promesse, honnete)
+    html = html.replace('<div class="tarifs-grille">', _AVIS_TARIFS, 1)
+    html = re.sub(r'<section class="appel">.*?</section>', _APPEL, html, flags=re.S)
     return html
 
 

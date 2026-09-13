@@ -290,6 +290,15 @@ body.site { padding: 0; }
   .duel-choix, .duel-verdict, .duel-jauge i, .duel-badge { transition: none; }
 }
 
+/* L'avis de la vitrine : posé par l'export quand aucun atelier ne répond.
+   Il doit se lire avant les prix, pas après. */
+.tarifs-avis {
+  max-width: 62ch; margin: 0 0 30px; padding: 14px 18px;
+  border: 1px solid var(--hairline-2); border-radius: 14px;
+  background: var(--surface);
+  font-size: 14.5px; line-height: 1.6; color: var(--text-soft);
+}
+
 /* --------------------------------------------------------------- Étapes --- */
 .etapes {
   list-style: none; padding: 0; margin: 46px 0 0;

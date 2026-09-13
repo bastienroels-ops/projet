@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_module
 import re
 import sys
 from pathlib import Path
@@ -65,12 +66,39 @@ def test_les_liens_de_compte_pointent_vers_l_atelier():
 def test_sans_atelier_les_boutons_menent_a_l_essayage():
     """Publiée seule, la vitrine n'a pas de page d'inscription : un bouton qui
     mène à un 404 est pire qu'un bouton qui montre le produit."""
-    html = ('<a href="/inscription">Créer</a>'
-            '<a href="/inscription?formule=createur">Choisir</a>'
-            '<a href="/connexion">Entrer</a>')
+    html = '<a href="/inscription" class="button primary">Créer un compte</a>'
     rendu = exporter_site.reecrire(html, MEDIAS, "", "")
-    assert rendu.count('href="/#essayage"') == 3
-    assert "/inscription" not in rendu and "/connexion" not in rendu
+    assert rendu.count('href="/#essayage"') == 1
+    assert "Voir la démonstration" in rendu
+    assert "/inscription" not in rendu
+    # Les classes sont conservées : la vedette reste la vedette.
+    assert 'class="button primary"' in rendu
+
+
+def test_sans_atelier_les_formules_perdent_leur_bouton():
+    """Trois boutons identiques sous trois prix feraient croire à un choix.
+
+    Le bouton d'une formule invite à la prendre. Aucune n'étant ouverte, il ne
+    se remplace pas : la carte se contente de décrire ce que la formule
+    contiendra, et l'appel unique vit ailleurs sur la page.
+    """
+    rendu = exporter_site.reecrire(
+        '<article class="tarif"><a href="/inscription?formule=createur"'
+        ' class="button primary">Choisir</a></article>', MEDIAS, "", "")
+    assert rendu == '<article class="tarif"></article>' 
+
+
+def test_sans_atelier_les_liens_de_navigation_disparaissent():
+    """« Connexion » dans un menu, sans rien derrière, n'aide personne.
+
+    Un bouton se remplace — il y a une démonstration à montrer à la place.
+    Un lien de menu, lui, s'enlève : le transformer en « Voir la démonstration »
+    ferait un menu qui répète trois fois la même chose.
+    """
+    rendu = exporter_site.reecrire(
+        '<nav><a href="/connexion">Connexion</a>'
+        '<a href="/studio">Ouvrir l\'atelier</a></nav>', MEDIAS, "", "")
+    assert rendu == "<nav></nav>"
 
 
 def test_les_reglages_cloudflare_sont_ecrits(tmp_path):
@@ -206,7 +234,8 @@ def test_les_boutons_de_compte_menent_a_une_ancre_qui_existe():
     pire que l'erreur 404 qu'on cherchait à éviter.
     """
     html = exporter_site.reecrire(
-        '<a href="/inscription">Créer un compte</a>', MEDIAS, "", "")
+        '<a href="/inscription" class="button">Créer un compte</a>',
+        MEDIAS, "", "")
     assert 'href="/#essayage"' in html
 
 
@@ -219,3 +248,42 @@ def test_aucune_page_publiee_ne_pointe_vers_une_ancre_absente():
             assert f'id="{ancre}"' in html, (
                 f"{fichier.relative_to(EXPORT)} pointe vers #{ancre}, "
                 f"qui n'existe pas sur cette page")
+
+
+# Ce qu'une vitrine sans atelier n'a pas le droit de dire. Chaque phrase promet
+# un compte, un essai ou un abonnement à quelqu'un qui ne pourra rien obtenir —
+# et c'est la première impression laissée aux gens à qui on donne l'adresse.
+PROMESSES_INTERDITES = (
+    "Créer un compte", "Créer mon compte", "Créer ma première vidéo",
+    "carte bancaire", "Essai gratuit", "Le plus choisi", "Ouvrir l'atelier",
+    "Commence gratuitement", "Résiliable à tout moment",
+)
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_la_vitrine_ne_promet_pas_de_compte():
+    """Aucune page publiée ne doit annoncer ce que la vitrine ne peut pas tenir.
+
+    Si ce test tombe après une modification des gabarits, ce n'est pas lui
+    qu'il faut assouplir : c'est `_en_vitrine` dans l'exportateur qui ne
+    connaît pas encore la nouvelle formulation.
+    """
+    for fichier in sorted(EXPORT.rglob("*.html")):
+        texte = html_module.unescape(fichier.read_text(encoding="utf-8"))
+        for promesse in PROMESSES_INTERDITES:
+            assert promesse not in texte, (
+                f"{fichier.relative_to(EXPORT)} promet « {promesse} » alors "
+                f"qu'aucune inscription n'est possible")
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_les_prix_publies_sont_annonces_comme_a_venir():
+    """Les montants restent affichés, mais jamais comme des tarifs en vigueur."""
+    for page in ("index.html", "tarifs/index.html"):
+        texte = (EXPORT / page).read_text(encoding="utf-8")
+        if "tarifs-grille" not in texte:
+            continue
+        avis = texte.index('class="tarifs-avis"')
+        assert avis < texte.index("tarifs-grille"), \
+            f"{page} : l'avis doit précéder les prix, pas les suivre"
+        assert "ne sont pas encore ouvertes" in texte, f"{page} : avis absent"
