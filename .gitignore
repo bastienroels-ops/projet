@@ -9,3 +9,7 @@ work/
 output/
 assets/music/*
 !assets/music/.gitkeep
+
+# Les rendus et la base des comptes d'une session Colab, écrits à côté du
+# dépôt quand le carnet tourne hors de /content.
+flambee-data/

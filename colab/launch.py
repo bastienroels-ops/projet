@@ -258,6 +258,56 @@ def etat_transcription() -> str:
     return "absente — bouton « Installer le moteur » dans l'application"
 
 
+# Le compte créé au démarrage, lu par `banner()`.
+# Passer par une variable plutôt que par la valeur de retour de `start_all()`
+# est délibéré : Colab garde en mémoire la cellule affichée dans le navigateur,
+# qui peut dater d'une version antérieure. Changer la signature casserait ces
+# carnets-là, alors que ce fichier, lui, vient d'être récupéré.
+_COMPTE: str | None = None
+
+COMPTE_COLAB = "moi@flambee.local"
+
+
+def ouvrir_un_compte(password: str) -> str | None:
+    """Crée le compte de la session et retourne son adresse.
+
+    Sur une machine Colab, tout est effacé à la fin : remplir un formulaire
+    d'inscription à chaque démarrage n'ajoute aucune sécurité — l'accès est
+    déjà fermé par le mot de passe du tunnel — et fait une corvée de plus
+    avant de pouvoir travailler. Le compte reçoit le même mot de passe que le
+    tunnel : il n'y a ainsi qu'un secret à retenir, et il tient déjà dans
+    l'encadré.
+
+    Étant le premier compte, il est celui de l'administrateur : crédits
+    illimités et toutes les rubriques ouvertes.
+    """
+    dossier = data_dir() / "work"
+    os.environ["FLAMBEE_WORK_DIR"] = str(dossier)
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    try:
+        from flambee import config, users
+    except Exception as exc:                       # jamais bloquant
+        log(f"⚠️  Compte automatique impossible : {exc}")
+        return None
+
+    if config.WORK_DIR != dossier:
+        # `flambee.config` lit le dossier à l'import : s'il a été importé plus
+        # tôt, il pointe ailleurs et le compte irait dans une autre base que
+        # celle du serveur. Mieux vaut ne rien faire que créer un compte
+        # fantôme et afficher des identifiants qui ne mènent nulle part.
+        log("⚠️  Dossier de travail déjà fixé ailleurs : inscription manuelle.")
+        return None
+
+    try:
+        if users.par_email(COMPTE_COLAB) is None:
+            users.creer(COMPTE_COLAB, password, nom="Toi")
+        return COMPTE_COLAB
+    except Exception as exc:
+        log(f"⚠️  Compte automatique impossible : {exc}")
+        return None
+
+
 def banner(url: str, username: str, password: str) -> str:
     line = "═" * 54
     return "\n".join([
@@ -272,6 +322,13 @@ def banner(url: str, username: str, password: str) -> str:
         "  Ouvre l'adresse dans Safari, saisis l'identifiant et le mot de",
         "  passe, puis Partager → Sur l'écran d'accueil.",
         "",
+    ] + ([
+        "  Ton compte est déjà créé — rien à remplir. Sur la page,",
+        "  touche « Connexion » et saisis :",
+        f"  {'Adresse':<15}{_COMPTE}",
+        f"  {'Mot de passe':<15}{password}   (le même)",
+        "",
+    ] if _COMPTE else []) + [
         "  ⚠️  Laisse cet onglet Colab ouvert : il fait tourner le serveur.",
         "  ⚠️  Télécharge tes vidéos avant la fin de la session Colab,",
         "      sinon elles sont perdues avec la machine.",
@@ -308,6 +365,14 @@ def start_all(
         except Exception as exc:        # jamais bloquant : le reste doit tourner
             log(f"⚠️  Moteur de transcription : {exc}")
     password = password or generate_password()
+
+    # Le compte est créé avant le serveur : celui-ci démarre alors avec les
+    # inscriptions fermées, et l'adresse publique du tunnel ne permet à
+    # personne d'ouvrir un compte sur ta machine.
+    global _COMPTE
+    _COMPTE = ouvrir_un_compte(password)
+    if _COMPTE:
+        os.environ["FLAMBEE_SIGNUP"] = "ferme"
 
     server = start_server(port, password, username, anthropic_key)
     if not wait_for_server(port):
