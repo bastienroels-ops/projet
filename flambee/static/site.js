@@ -278,3 +278,112 @@ if (entete) {
     chiffres.forEach((c) => oeil.observe(c));
   }
 })();
+
+
+/* 8. La convergence.
+      Trois sources qui se rejoignent en une vidéo verticale, au rythme du
+      défilement. Tout passe par des transformations : ni largeur, ni position,
+      ni marge ne changent, donc le navigateur n'a jamais à recalculer la mise
+      en page — c'est ce qui garde le mouvement fluide. */
+(() => {
+  const section = document.getElementById("convergence");
+  if (!section) return;
+
+  const sources = [...section.querySelectorAll(".source")];
+  const montage = section.querySelector(".montage");
+  const legende = document.getElementById("scene3d-legende");
+  if (!sources.length || !montage) return;
+
+  /* Position de départ de chaque source : en éventail, inclinée, en retrait.
+     L'arrivée est commune — le centre — d'où la convergence. */
+  const DEPARTS = [
+    { x: -230, y: -40, z: -180, ry: 26,  rz: -7 },
+    { x:    0, y:  34, z:   40, ry: 0,   rz:  2 },
+    { x:  232, y: -26, z: -210, ry: -27, rz:  8 },
+  ];
+
+  const RECITS = [
+    "Deux à cinq vidéos sur une même thématique.",
+    "Les premières secondes de chacune sont notées : la plus percutante ouvre.",
+    "Un seul fil, vertical, sous-titré au mot près.",
+  ];
+
+  const sobre = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const doux = (t) => t * t * (3 - 2 * t);        // accélère puis décélère
+  const entre = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+
+  let dernierRecit = -1;
+
+  const plateau = section.querySelector(".scene3d-plateau");
+
+  /* L'écart de départ suit la largeur disponible : à 360 px, un éventail
+     calibré pour un écran de bureau envoie les sources entièrement hors du
+     cadre, et la scène commence sur du vide. */
+  function etendue() {
+    const large = plateau ? plateau.clientWidth : 620;
+    return Math.min(1, Math.max(0.42, large / 620));
+  }
+
+  function poser(avance) {
+    const ampleur = etendue();
+    sources.forEach((source, i) => {
+      const depart = DEPARTS[i];
+      /* Chaque source part avec un léger décalage : elles ne se rangent pas
+         d'un bloc, ce qui serait mécanique. */
+      const t = doux(entre(avance, 0.08 + i * 0.06, 0.72 + i * 0.05));
+      const x = depart.x * ampleur * (1 - t);
+      const y = depart.y * (1 - t);
+      const z = depart.z * (1 - t) - 60 * t;
+      const ry = depart.ry * (1 - t);
+      const rz = depart.rz * (1 - t);
+      const echelle = 1 - 0.22 * t;
+      source.style.transform =
+        `translate(-50%, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, `
+        + `${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg) `
+        + `rotateZ(${rz.toFixed(2)}deg) scale(${echelle.toFixed(3)})`;
+      // Elles s'effacent en fin de course : c'est le montage qui reste.
+      source.style.opacity = String((1 - entre(avance, 0.58 + i * 0.04, 0.86)).toFixed(3));
+    });
+
+    const m = doux(entre(avance, 0.42, 0.92));
+    montage.style.transform =
+      `translate(-50%, -50%) translate3d(0, 0, ${(120 * m).toFixed(1)}px) `
+      + `scale(${(0.72 + 0.28 * m).toFixed(3)})`;
+    montage.style.opacity = m.toFixed(3);
+
+    if (legende) {
+      const index = avance < 0.34 ? 0 : avance < 0.7 ? 1 : 2;
+      if (index !== dernierRecit) {
+        dernierRecit = index;
+        legende.textContent = RECITS[index];
+      }
+    }
+  }
+
+  if (sobre) {                 // pas de récit : on montre l'aboutissement
+    poser(1);
+    return;
+  }
+
+  let enAttente = false;
+  function suivre() {
+    const cadre = section.getBoundingClientRect();
+    const course = Math.max(1, cadre.height - window.innerHeight);
+    const avance = Math.min(1, Math.max(0, -cadre.top / course));
+    poser(avance);
+    enAttente = false;
+  }
+
+  /* Le calcul est reporté à la prochaine image : un écouteur de défilement qui
+     écrit des styles à chaque événement fait travailler le navigateur deux
+     fois pour la même image. */
+  function planifier() {
+    if (enAttente) return;
+    enAttente = true;
+    requestAnimationFrame(suivre);
+  }
+
+  poser(0);
+  window.addEventListener("scroll", planifier, { passive: true });
+  window.addEventListener("resize", planifier, { passive: true });
+})();

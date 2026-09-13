@@ -754,3 +754,18 @@ body::after {
    jamais se déformer quand la place manque. */
 .icone { flex: none; display: block; }
 .icone.flamme { color: var(--ember); }
+
+/* Le fond WebGL. Il occupe l'écran entier, sous tout le reste, et se retire
+   du flux : aucune interaction, aucune sélection, aucun défilement. */
+.braises {
+  position: fixed; inset: 0; z-index: -2;
+  width: 100%; height: 100%;
+  display: block; pointer-events: none;
+  /* Il apparaît en fondu : un champ qui surgit d'un coup au chargement fait
+     sursauter, là où une montée d'une seconde passe pour un allumage. */
+  opacity: 0; transition: opacity 1.1s ease-out;
+}
+.braises-actives .braises { opacity: 1; }
+/* Les halos CSS ne servent que de secours : dès que le shader tourne, ils
+   feraient double emploi et alourdiraient la composition. */
+.braises-actives .aurore { opacity: 0; transition: opacity .8s; }

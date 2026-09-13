@@ -29,6 +29,10 @@
 
 {# Deux halos qui dérivent derrière la page, et la barre de lecture. Purement
    décoratifs : masqués aux lecteurs d'écran. #}
+{# Le fond : un shader de braises, et deux halos CSS en secours. Les halos
+   s'effacent dès que le rendu WebGL a pris la main — sans quoi la page
+   resterait vide sur un navigateur qui le refuse. #}
+<canvas class="braises" id="braises" aria-hidden="true"></canvas>
 <div class="aurore" aria-hidden="true"><span></span><span></span></div>
 <div class="progression" id="progression" aria-hidden="true"></div>
 
@@ -86,6 +90,7 @@
   </div>
 </footer>
 
+<script src="/static/braises.js" defer></script>
 <script src="/static/site.js"></script>
 </body>
 </html>

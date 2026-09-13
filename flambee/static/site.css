@@ -52,6 +52,18 @@ body.site { padding: 0; }
   align-items: center; gap: 60px;
   max-width: 1180px; margin: 0 auto; padding: 90px 36px 70px;
 }
+/* Un voile sous la colonne de texte. Le fond animé est beau, mais un titre se
+   lit sur un appui, pas sur des volutes : le voile est dense à gauche, là où
+   se trouve la copie, et s'efface vers le visuel pour ne pas l'éteindre. */
+.hero::before {
+  /* Débord vertical seulement : 60 px de chaque côté élargissaient la
+     page de 60 px, et le dégradé s'estompe déjà de lui-même. */
+  content: ""; position: absolute; inset: -40px 0; pointer-events: none;
+  background: radial-gradient(112% 96% at 6% 50%,
+              rgba(8, 9, 12, .92) 0%, rgba(8, 9, 12, .78) 30%,
+              rgba(8, 9, 12, .34) 58%, transparent 78%);
+}
+.hero > * { position: relative; }
 .hero h1 {
   font-family: var(--serif); font-weight: 400;
   font-size: clamp(46px, 6.4vw, 82px); line-height: 1.02;
@@ -532,4 +544,126 @@ input[type=email]:focus, input[type=password]:focus {
 }
 @media (prefers-reduced-motion: reduce) {
   .essayage.charge .essayage-scene::after { animation: none; opacity: .6; }
+}
+
+/* ============================================================ Convergence ===
+   Trois sources qui se rejoignent en une vidéo verticale. Le conteneur est
+   haut, la scène y reste collée : ce qu'on fait défiler n'est pas la page,
+   c'est le temps du récit. Tout est piloté par une seule variable, --avance,
+   posée par le script entre 0 et 1.
+   ========================================================================= */
+.convergence { height: 260vh; position: relative; }
+.convergence-piste {
+  position: sticky; top: 0; height: 100vh;
+  display: grid; place-items: center; overflow: hidden;
+}
+.scene3d {
+  width: min(1180px, 100%); padding: 0 36px;
+  display: grid; grid-template-columns: .85fr 1.15fr;
+  align-items: center; gap: 40px;
+}
+.scene3d-texte h2 {
+  font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.6vw, 58px);
+  line-height: 1.06; letter-spacing: -.015em; margin: 12px 0 20px;
+}
+.scene3d-texte h2 em { font-style: italic; color: var(--gold); }
+.scene3d-legende {
+  font-size: 16px; color: var(--text-soft); line-height: 1.6; max-width: 34ch;
+  min-height: 3.2em;          /* la hauteur ne saute pas quand le texte change */
+}
+
+/* Le plateau : c'est lui qui porte la perspective. Sans profondeur déclarée
+   ici, les rotations des enfants restent plates. */
+.scene3d-plateau {
+  position: relative; height: min(64vh, 520px);
+  perspective: 1400px; perspective-origin: 50% 46%;
+  transform-style: preserve-3d;
+}
+
+.source, .montage {
+  position: absolute; top: 50%; left: 50%;
+  will-change: transform, opacity;
+}
+
+/* Les trois sources : format vertical, fond de braise, posées en éventail.
+   Chacune interpole entre sa position d'origine et le centre. */
+.source {
+  width: 168px; aspect-ratio: 9 / 16;
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background:
+    radial-gradient(120% 80% at 30% 12%, rgba(255,255,255,.10), transparent 60%),
+    linear-gradient(165deg, var(--teinte-a), var(--teinte-b));
+  box-shadow: 0 34px 70px -30px rgba(0, 0, 0, .95);
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 12px;
+}
+.source-1 { --teinte-a: #3b2a53; --teinte-b: #12131c; }
+.source-2 { --teinte-a: #5a3418; --teinte-b: #16120f; }
+.source-3 { --teinte-a: #14364a; --teinte-b: #0f1419; }
+
+.source-etiquette {
+  align-self: flex-start;
+  padding: 4px 9px; border-radius: 999px;
+  background: rgba(8, 9, 12, .62); backdrop-filter: blur(8px);
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+/* La note d'accroche : une jauge, parce qu'un chiffre seul ne se compare pas
+   d'un coup d'œil. */
+.source-note {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.source-note i {
+  flex: 1; height: 3px; border-radius: 2px;
+  background: rgba(255, 255, 255, .16); position: relative;
+}
+.source-note i::after {
+  content: ""; position: absolute; inset: 0 auto 0 0;
+  width: calc(var(--part) * 100%); border-radius: 2px;
+  background: linear-gradient(90deg, var(--ember-2), var(--ember));
+}
+
+/* Le résultat : le même format, mais net, éclairé, et seul au centre. */
+.montage { width: 196px; }
+.montage-cadre {
+  position: relative; aspect-ratio: 9 / 16;
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(255, 155, 74, .35);
+  background: linear-gradient(170deg, #2a1a10, #0a0b10 62%);
+  box-shadow: 0 48px 90px -34px rgba(255, 122, 47, .55),
+              0 0 0 1px rgba(255, 255, 255, .06);
+}
+.montage-bande {
+  position: absolute; inset: 0;
+  background: radial-gradient(90% 58% at 50% 26%,
+              rgba(255, 150, 60, .30), transparent 72%);
+}
+.montage-soustitre {
+  position: absolute; inset: auto 12px 42px; text-align: center;
+  font: 700 13px/1.25 var(--sans); letter-spacing: -.01em;
+  color: #fff; text-shadow: 0 2px 10px rgba(0, 0, 0, .85);
+}
+.montage-soustitre b { color: var(--gold); }
+.montage-etiquette {
+  display: block; margin-top: 14px; text-align: center;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+@media (max-width: 900px) {
+  .convergence { height: 240vh; }
+  .scene3d { grid-template-columns: 1fr; gap: 26px; text-align: center; }
+  .scene3d-legende { margin-inline: auto; }
+  .scene3d-plateau { height: min(46vh, 380px); }
+  .source { width: 116px; }
+  .montage { width: 136px; }
+}
+
+/* Sans mouvement : on montre l'état d'arrivée, qui est le propos. */
+@media (prefers-reduced-motion: reduce) {
+  .convergence { height: auto; }
+  .convergence-piste { position: static; height: auto; padding: 80px 0; }
 }
