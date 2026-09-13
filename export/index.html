@@ -21,6 +21,11 @@
   <meta name="twitter:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
   <meta name="twitter:image" content="http://testserver/api/demo/poster">
   <link rel="canonical" href="http://testserver/">
+  
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="/static/fonts/InstrumentSerif-Regular.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="/static/fonts/Inter-Regular.woff2">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/site.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
@@ -89,17 +94,60 @@
 </section>
 
 
-<section class="convergence" id="convergence" aria-labelledby="convergence-titre">
-  <div class="convergence-piste">
-    <div class="scene3d">
-      <div class="scene3d-texte">
-        <p class="eyebrow">Ce qui se passe</p>
-        <h2 id="convergence-titre">Trois sources éparses,<br><em>un seul fil</em>.</h2>
-        <p class="scene3d-legende" id="scene3d-legende">Deux à cinq vidéos sur
-          une même thématique.</p>
+
+<section class="sequence" id="sequence" aria-labelledby="sequence-titre">
+  <div class="sequence-piste">
+    <div class="sequence-cadre">
+
+      <div class="sequence-texte">
+        <p class="eyebrow">Comment ça marche</p>
+        <h2 id="sequence-titre">Cinq étapes,<br><em>pas une de plus</em>.</h2>
+        <ol class="sequence-liste">
+          
+          <li data-acte="0" class="actif">
+            <span class="sequence-numero">01</span>
+            <div>
+              <b>Tu donnes la matière</b>
+              <span>Deux à cinq liens sur une même thématique, ou des vidéos déjà sur ton téléphone.</span>
+            </div>
+          </li>
+          
+          <li data-acte="1">
+            <span class="sequence-numero">02</span>
+            <div>
+              <b>Tu choisis l&#39;accroche</b>
+              <span>Les premières secondes de chaque source, côte à côte, classées par impact.</span>
+            </div>
+          </li>
+          
+          <li data-acte="2">
+            <span class="sequence-numero">03</span>
+            <div>
+              <b>Tu poses le style</b>
+              <span>Voix, sous-titres, musique, travelling. Un aperçu montre le rendu exact.</span>
+            </div>
+          </li>
+          
+          <li data-acte="3">
+            <span class="sequence-numero">04</span>
+            <div>
+              <b>Tu valides le script</b>
+              <span>Sujet et consignes suffisent. Le texte reste éditable jusqu&#39;au bout.</span>
+            </div>
+          </li>
+          
+          <li data-acte="4">
+            <span class="sequence-numero">05</span>
+            <div>
+              <b>Tu récupères le fichier</b>
+              <span>Un .mp4 vertical, sous-titré, mixé, prêt à publier.</span>
+            </div>
+          </li>
+          
+        </ol>
       </div>
 
-      <div class="scene3d-plateau" aria-hidden="true">
+      <div class="sequence-plateau" aria-hidden="true">
         <article class="source source-1">
           <span class="source-etiquette">Source 1</span>
           <span class="source-note"><i style="--part:.62"></i>62</span>
@@ -107,6 +155,7 @@
         <article class="source source-2">
           <span class="source-etiquette">Source 2</span>
           <span class="source-note"><i style="--part:.91"></i>91</span>
+          <span class="source-retenue">Accroche retenue</span>
         </article>
         <article class="source source-3">
           <span class="source-etiquette">Source 3</span>
@@ -116,51 +165,17 @@
         <div class="montage">
           <div class="montage-cadre">
             <div class="montage-bande"></div>
+            <div class="montage-script">
+              <span></span><span></span><span></span>
+            </div>
             <span class="montage-soustitre">personne <b>ne connaît</b></span>
           </div>
           <span class="montage-etiquette">1080 × 1920 · prêt à publier</span>
         </div>
       </div>
+
     </div>
   </div>
-</section>
-
-<section class="section" id="etapes">
-  <p class="eyebrow">Comment ça marche</p>
-  <h2>Cinq étapes, <em>pas une de plus</em>.</h2>
-  <ol class="etapes">
-    
-    <li>
-      <span class="etape-numero">01</span>
-      <h3>Tu donnes la matière</h3>
-      <p>Deux à cinq liens sur une même thématique, ou des vidéos déjà sur ton téléphone.</p>
-    </li>
-    
-    <li>
-      <span class="etape-numero">02</span>
-      <h3>Tu choisis l&#39;accroche</h3>
-      <p>Les premières secondes de chaque source, côte à côte, classées par impact.</p>
-    </li>
-    
-    <li>
-      <span class="etape-numero">03</span>
-      <h3>Tu poses le style</h3>
-      <p>Voix, sous-titres, musique, travelling. Un aperçu montre le rendu exact.</p>
-    </li>
-    
-    <li>
-      <span class="etape-numero">04</span>
-      <h3>Tu valides le script</h3>
-      <p>Sujet et consignes suffisent. Le texte reste éditable jusqu&#39;au bout.</p>
-    </li>
-    
-    <li>
-      <span class="etape-numero">05</span>
-      <h3>Tu récupères le fichier</h3>
-      <p>Un .mp4 vertical, sous-titré, mixé, prêt à publier.</p>
-    </li>
-    
-  </ol>
 </section>
 
 <section class="section" id="styles">

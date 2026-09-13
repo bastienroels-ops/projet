@@ -43,17 +43,32 @@
 {# La convergence. Le titre annonce « trois vidéos, une vidéo » ; cette
    section le montre au lieu de le dire. Le conteneur est haut et la scène y
    reste collée : le défilement devient le temps du récit. #}
-<section class="convergence" id="convergence" aria-labelledby="convergence-titre">
-  <div class="convergence-piste">
-    <div class="scene3d">
-      <div class="scene3d-texte">
-        <p class="eyebrow">Ce qui se passe</p>
-        <h2 id="convergence-titre">Trois sources éparses,<br><em>un seul fil</em>.</h2>
-        <p class="scene3d-legende" id="scene3d-legende">Deux à cinq vidéos sur
-          une même thématique.</p>
+{# La séquence. Cinq actes, un seul décor : le conteneur est haut, la scène y
+   reste collée, et le défilement devient le temps du récit. Elle remplace à la
+   fois l'ancienne liste « Cinq étapes » — une énumération numérotée pour la
+   partie la plus importante du site — et la convergence, qui racontait la même
+   chose une seconde fois. #}
+<section class="sequence" id="sequence" aria-labelledby="sequence-titre">
+  <div class="sequence-piste">
+    <div class="sequence-cadre">
+
+      <div class="sequence-texte">
+        <p class="eyebrow">Comment ça marche</p>
+        <h2 id="sequence-titre">Cinq étapes,<br><em>pas une de plus</em>.</h2>
+        <ol class="sequence-liste">
+          {% for etape in steps %}
+          <li data-acte="{{ loop.index0 }}"{% if loop.first %} class="actif"{% endif %}>
+            <span class="sequence-numero">{{ etape.number }}</span>
+            <div>
+              <b>{{ etape.title }}</b>
+              <span>{{ etape.body }}</span>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
       </div>
 
-      <div class="scene3d-plateau" aria-hidden="true">
+      <div class="sequence-plateau" aria-hidden="true">
         <article class="source source-1">
           <span class="source-etiquette">Source 1</span>
           <span class="source-note"><i style="--part:.62"></i>62</span>
@@ -61,6 +76,7 @@
         <article class="source source-2">
           <span class="source-etiquette">Source 2</span>
           <span class="source-note"><i style="--part:.91"></i>91</span>
+          <span class="source-retenue">Accroche retenue</span>
         </article>
         <article class="source source-3">
           <span class="source-etiquette">Source 3</span>
@@ -70,27 +86,17 @@
         <div class="montage">
           <div class="montage-cadre">
             <div class="montage-bande"></div>
+            <div class="montage-script">
+              <span></span><span></span><span></span>
+            </div>
             <span class="montage-soustitre">personne <b>ne connaît</b></span>
           </div>
           <span class="montage-etiquette">1080 × 1920 · prêt à publier</span>
         </div>
       </div>
+
     </div>
   </div>
-</section>
-
-<section class="section" id="etapes">
-  <p class="eyebrow">Comment ça marche</p>
-  <h2>Cinq étapes, <em>pas une de plus</em>.</h2>
-  <ol class="etapes">
-    {% for etape in steps %}
-    <li>
-      <span class="etape-numero">{{ etape.number }}</span>
-      <h3>{{ etape.title }}</h3>
-      <p>{{ etape.body }}</p>
-    </li>
-    {% endfor %}
-  </ol>
 </section>
 
 <section class="section" id="styles">

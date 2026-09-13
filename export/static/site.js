@@ -308,88 +308,130 @@ if (entete) {
 })();
 
 
-/* 8. La convergence.
-      Trois sources qui se rejoignent en une vidéo verticale, au rythme du
-      défilement. Tout passe par des transformations : ni largeur, ni position,
-      ni marge ne changent, donc le navigateur n'a jamais à recalculer la mise
-      en page — c'est ce qui garde le mouvement fluide. */
+/* 8. La séquence.
+      Cinq actes dans un seul décor : les sources arrivent, la meilleure
+      accroche est retenue, le style se pose, le script s'écrit, le fichier
+      sort. Le défilement sert d'horloge.
+
+      Chaque carte est décrite par une position à chaque acte ; le script
+      interpole entre les deux positions qui encadrent l'instant courant. Cette
+      forme se relit et s'étend — ajouter un acte, c'est ajouter une ligne —
+      là où une suite de conditions imbriquées deviendrait illisible au
+      troisième. */
 (() => {
-  const section = document.getElementById("convergence");
+  const section = document.getElementById("sequence");
   if (!section) return;
 
+  const plateau = section.querySelector(".sequence-plateau");
   const sources = [...section.querySelectorAll(".source")];
   const montage = section.querySelector(".montage");
-  const legende = document.getElementById("scene3d-legende");
-  if (!sources.length || !montage) return;
+  const etapes = [...section.querySelectorAll(".sequence-liste li")];
+  if (!plateau || !montage || sources.length !== 3) return;
 
-  /* Position de départ de chaque source : en éventail, inclinée, en retrait.
-     L'arrivée est commune — le centre — d'où la convergence. */
-  const DEPARTS = [
-    { x: -230, y: -40, z: -180, ry: 26,  rz: -7 },
-    { x:    0, y:  34, z:   40, ry: 0,   rz:  2 },
-    { x:  232, y: -26, z: -210, ry: -27, rz:  8 },
+  // Bornes des cinq actes, en fraction de la course totale.
+  const ACTES = [0, 0.20, 0.40, 0.60, 0.80, 1];
+
+  /* Une position par acte, pour chacune des trois sources.
+     x, y en pixels ; z en profondeur ; ry, rz en degrés ; e = échelle ;
+     o = opacité. */
+  const POSES = [
+    [ // Source 1 — la moins bien notée : elle s'efface après le choix.
+      { x: -236, y: -42, z: -190, ry:  26, rz: -7, e: 1,    o: 1 },
+      { x: -210, y:   0, z:  -40, ry:  10, rz:  0, e: .92,  o: 1 },
+      { x: -250, y:  20, z: -220, ry:  22, rz: -4, e: .78,  o: .28 },
+      { x: -270, y:  40, z: -320, ry:  26, rz: -6, e: .68,  o: 0 },
+      { x: -270, y:  40, z: -320, ry:  26, rz: -6, e: .68,  o: 0 },
+    ],
+    [ // Source 2 — la mieux notée : elle devient le montage.
+      { x:    0, y:  36, z:   40, ry:   0, rz:  2, e: 1,    o: 1 },
+      { x:    0, y:   0, z:   60, ry:   0, rz:  0, e: 1,    o: 1 },
+      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 1 },
+      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 0 },
+      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 0 },
+    ],
+    [ // Source 3
+      { x:  238, y: -28, z: -220, ry: -27, rz:  8, e: 1,    o: 1 },
+      { x:  210, y:   0, z:  -40, ry: -10, rz:  0, e: .92,  o: 1 },
+      { x:  250, y:  20, z: -240, ry: -22, rz:  5, e: .78,  o: .28 },
+      { x:  270, y:  40, z: -330, ry: -26, rz:  7, e: .68,  o: 0 },
+      { x:  270, y:  40, z: -330, ry: -26, rz:  7, e: .68,  o: 0 },
+    ],
   ];
 
-  const RECITS = [
-    "Deux à cinq vidéos sur une même thématique.",
-    "Les premières secondes de chacune sont notées : la plus percutante ouvre.",
-    "Un seul fil, vertical, sous-titré au mot près.",
+  // Le montage n'apparaît qu'au quatrième acte, à la place de la source 2.
+  const MONTAGE = [
+    { z: 0,   e: .70, o: 0 },
+    { z: 0,   e: .70, o: 0 },
+    { z: 20,  e: .82, o: 0 },
+    { z: 120, e: 1,   o: 1 },
+    { z: 130, e: 1.04, o: 1 },
   ];
 
-  const sobre = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const doux = (t) => t * t * (3 - 2 * t);        // accélère puis décélère
+  const doux = (t) => t * t * (3 - 2 * t);
   const entre = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+  const melange = (a, b, t) => a + (b - a) * t;
 
-  let dernierRecit = -1;
-
-  const plateau = section.querySelector(".scene3d-plateau");
-
-  /* L'écart de départ suit la largeur disponible : à 360 px, un éventail
-     calibré pour un écran de bureau envoie les sources entièrement hors du
-     cadre, et la scène commence sur du vide. */
-  function etendue() {
-    const large = plateau ? plateau.clientWidth : 620;
-    return Math.min(1, Math.max(0.42, large / 620));
+  /* L'écart latéral suit la largeur disponible : à 360 px, un éventail calibré
+     pour un écran de bureau envoie les cartes hors du cadre, et la scène
+     commence sur du vide. */
+  function ampleur() {
+    return Math.min(1, Math.max(0.40, plateau.clientWidth / 620));
   }
 
+  /* Où en est-on ? Retourne l'acte courant et l'avancée dans cet acte. */
+  function situer(avance) {
+    for (let i = 0; i < ACTES.length - 1; i++) {
+      if (avance < ACTES[i + 1] || i === ACTES.length - 2) {
+        return { acte: i, part: doux(entre(avance, ACTES[i], ACTES[i + 1])) };
+      }
+    }
+    return { acte: 0, part: 0 };
+  }
+
+  let acteAffiche = -1;
+
   function poser(avance) {
-    const ampleur = etendue();
+    const { acte, part } = situer(avance);
+    const large = ampleur();
+
     sources.forEach((source, i) => {
-      const depart = DEPARTS[i];
-      /* Chaque source part avec un léger décalage : elles ne se rangent pas
-         d'un bloc, ce qui serait mécanique. */
-      const t = doux(entre(avance, 0.08 + i * 0.06, 0.72 + i * 0.05));
-      const x = depart.x * ampleur * (1 - t);
-      const y = depart.y * (1 - t);
-      const z = depart.z * (1 - t) - 60 * t;
-      const ry = depart.ry * (1 - t);
-      const rz = depart.rz * (1 - t);
-      const echelle = 1 - 0.22 * t;
+      const de = POSES[i][acte];
+      const vers = POSES[i][Math.min(acte + 1, POSES[i].length - 1)];
+      const x = melange(de.x, vers.x, part) * large;
+      const y = melange(de.y, vers.y, part);
+      const z = melange(de.z, vers.z, part);
+      const ry = melange(de.ry, vers.ry, part);
+      const rz = melange(de.rz, vers.rz, part);
+      const e = melange(de.e, vers.e, part);
       source.style.transform =
         `translate(-50%, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, `
         + `${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg) `
-        + `rotateZ(${rz.toFixed(2)}deg) scale(${echelle.toFixed(3)})`;
-      // Elles s'effacent en fin de course : c'est le montage qui reste.
-      source.style.opacity = String((1 - entre(avance, 0.58 + i * 0.04, 0.86)).toFixed(3));
+        + `rotateZ(${rz.toFixed(2)}deg) scale(${e.toFixed(3)})`;
+      source.style.opacity = melange(de.o, vers.o, part).toFixed(3);
     });
 
-    const m = doux(entre(avance, 0.42, 0.92));
+    const de = MONTAGE[acte];
+    const vers = MONTAGE[Math.min(acte + 1, MONTAGE.length - 1)];
     montage.style.transform =
-      `translate(-50%, -50%) translate3d(0, 0, ${(120 * m).toFixed(1)}px) `
-      + `scale(${(0.72 + 0.28 * m).toFixed(3)})`;
-    montage.style.opacity = m.toFixed(3);
+      `translate(-50%, -50%) translate3d(0, 0, `
+      + `${melange(de.z, vers.z, part).toFixed(1)}px) `
+      + `scale(${melange(de.e, vers.e, part).toFixed(3)})`;
+    montage.style.opacity = melange(de.o, vers.o, part).toFixed(3);
 
-    if (legende) {
-      const index = avance < 0.34 ? 0 : avance < 0.7 ? 1 : 2;
-      if (index !== dernierRecit) {
-        dernierRecit = index;
-        legende.textContent = RECITS[index];
-      }
+    if (acte !== acteAffiche) {
+      acteAffiche = acte;
+      /* Une classe sur la section pilote tout ce qui n'a pas à être interpolé
+         image par image : notes, verdict, lignes de script, sous-titre. Le CSS
+         s'en charge, avec ses propres transitions. */
+      section.className = section.className.replace(/\bacte-\d\b/g, "").trim()
+        + ` acte-${acte}`;
+      etapes.forEach((li, i) => li.classList.toggle("actif", i === acte));
     }
   }
 
-  if (sobre) {                 // pas de récit : on montre l'aboutissement
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     poser(1);
+    etapes.forEach((li) => li.classList.add("actif"));
     return;
   }
 
@@ -397,14 +439,13 @@ if (entete) {
   function suivre() {
     const cadre = section.getBoundingClientRect();
     const course = Math.max(1, cadre.height - window.innerHeight);
-    const avance = Math.min(1, Math.max(0, -cadre.top / course));
-    poser(avance);
+    poser(Math.min(1, Math.max(0, -cadre.top / course)));
     enAttente = false;
   }
 
-  /* Le calcul est reporté à la prochaine image : un écouteur de défilement qui
-     écrit des styles à chaque événement fait travailler le navigateur deux
-     fois pour la même image. */
+  /* Le calcul est reporté à la prochaine image : un écouteur qui écrit des
+     styles à chaque événement de défilement fait travailler le navigateur
+     deux fois pour la même image. */
   function planifier() {
     if (enAttente) return;
     enAttente = true;
