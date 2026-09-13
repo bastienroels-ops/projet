@@ -55,7 +55,9 @@ def empreintes_ressources(dossier: Path) -> dict[str, str]:
     """
     table: dict[str, str] = {}
     for fichier in sorted(dossier.glob("*")):
-        if fichier.suffix not in (".css", ".js"):
+        # Le manifeste rejoint les feuilles et les scripts : il porte le même
+        # cache d'un an, et un nom fixe l'y figerait aussi longtemps.
+        if fichier.suffix not in (".css", ".js", ".webmanifest"):
             continue
         empreinte = hashlib.sha256(fichier.read_bytes()).hexdigest()[:10]
         table[f"/static/{fichier.name}"] = (

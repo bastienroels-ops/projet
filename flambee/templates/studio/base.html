@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#08090c">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Flambée">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  {# Ajouté à l'écran d'accueil, le site s'ouvre en plein écran avec sa propre
+     icône. iOS ignore le manifeste et lit `apple-touch-icon` ; Android fait
+     l'inverse. Les deux sont donc là. #}
+  <link rel="apple-touch-icon" href="/static/icone-180.png">
+  <link rel="manifest" href="/static/manifest.webmanifest">
   {# Pendant l'installation du moteur, la page se recharge seule : pas de
      JavaScript à maintenir pour une attente de deux minutes. #}
   {% if moteur is defined and moteur.installation.etat == 'encours' %}

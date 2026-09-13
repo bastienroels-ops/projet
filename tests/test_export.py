@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as html_module
+import json
 import re
 import sys
 from pathlib import Path
@@ -245,7 +246,7 @@ def test_aucune_ressource_ne_traine_sous_son_ancien_nom():
     attendus = {Path(v).name
                 for v in exporter_site.empreintes_ressources(SOURCE_STATIQUE).values()}
     trouves = {f.name for f in (EXPORT / "static").glob("*")
-               if f.suffix in (".css", ".js")}
+               if f.suffix in (".css", ".js", ".webmanifest")}
     assert trouves == attendus, f"en trop : {trouves - attendus}"
 
 
@@ -348,3 +349,29 @@ def test_l_essayage_publie_laisse_taper_sa_phrase():
         assert (EXPORT / "fonts" / police).exists(), f"{police} non publiée"
     # Les polices sont sous licence OFL : leur redistribution l'exige.
     assert (EXPORT / "fonts" / "LICENCES.md").exists(), "licences non publiées"
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_le_site_s_installe_sur_l_ecran_d_accueil():
+    """Ajouté à l'écran d'accueil, le site doit avoir son icône et son nom.
+
+    iOS ignore le manifeste et lit `apple-touch-icon` ; Android fait l'inverse.
+    Il faut donc les deux, et les fichiers qu'ils désignent doivent exister —
+    sans quoi l'icône est une capture floue de la page, ce qui ne ressemble
+    plus à une application du tout.
+    """
+    page = (EXPORT / "index.html").read_text(encoding="utf-8")
+    assert 'rel="apple-touch-icon"' in page
+    assert 'name="apple-mobile-web-app-title"' in page
+    assert 'content="standalone"' not in page  # le mode vit dans le manifeste
+
+    manifeste = re.search(r'rel="manifest" href="([^"]+)"', page)
+    assert manifeste, "aucun manifeste déclaré"
+    fichier = EXPORT / manifeste.group(1).lstrip("/")
+    assert fichier.exists(), f"{fichier.name} déclaré mais absent"
+
+    contenu = json.loads(fichier.read_text(encoding="utf-8"))
+    assert contenu["display"] == "standalone", "le site s'ouvrirait dans Safari"
+    for icone in contenu["icons"]:
+        assert (EXPORT / icone["src"].lstrip("/")).exists(), icone["src"]
+    assert (EXPORT / "static" / "icone-180.png").exists(), "icône iOS absente"
