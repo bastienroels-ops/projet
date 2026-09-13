@@ -150,13 +150,27 @@
      3× sur un écran dense coûterait neuf fois plus de pixels pour un gain
      invisible. */
   const DENSITE = Math.min(window.devicePixelRatio || 1, 1.5);
-  const ECHELLE = 0.72;
+
+  /* La qualité se règle d'elle-même. Ce champ coûte en pixels : quinze
+     évaluations de bruit pour chacun. Sur une carte graphique correcte c'est
+     gratuit, sur un téléphone d'entrée de gamme ou un rendu logiciel c'est
+     ruineux — et deviner à la place de la machine donne soit une image pauvre
+     partout, soit une page qui rame chez ceux qui ont le moins de puissance.
+     On mesure donc, et on ajuste. */
+  const PALIERS = [0.30, 0.42, 0.56, 0.72];
+  let palier = 2;                       // on démarre au milieu, puis on cherche
+
+  /* Trente images par seconde suffisent : ces volutes bougent lentement, et
+     l'œil ne fait pas la différence. C'est la moitié du travail en moins,
+     sans rien perdre à l'écran. */
+  const PERIODE = 1000 / 30;
 
   let largeur = 0, hauteur = 0;
-  function redimensionner() {
-    const l = Math.max(1, Math.round(toile.clientWidth * DENSITE * ECHELLE));
-    const h = Math.max(1, Math.round(toile.clientHeight * DENSITE * ECHELLE));
-    if (l === largeur && h === hauteur) return;
+  function redimensionner(force) {
+    const echelle = PALIERS[palier];
+    const l = Math.max(1, Math.round(toile.clientWidth * DENSITE * echelle));
+    const h = Math.max(1, Math.round(toile.clientHeight * DENSITE * echelle));
+    if (!force && l === largeur && h === hauteur) return;
     largeur = toile.width = l;
     hauteur = toile.height = h;
     gl.viewport(0, 0, largeur, hauteur);
@@ -186,14 +200,49 @@
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  /* Ce qu'on mesure, c'est l'écart entre deux images du navigateur — pas le
+     temps passé dans notre fonction. Un appel WebGL rend la main aussitôt et
+     laisse la carte travailler après : chronométrer `drawArrays` donne zéro
+     milliseconde, même quand la page est à genoux. L'écart entre deux images,
+     lui, dit la vérité.
+
+     Moyenne glissante : une image isolée peut être lente parce que le
+     navigateur décodait une police au même instant. */
+  let intervalle = 16.7;
+  let dernierePeinture = 0;
+  let derniereImage = 0;
+  let echantillons = 0;
+
+  function ajuster() {
+    // On laisse passer quelques images : les premières portent le coût de la
+    // compilation du nuanceur et du premier envoi à la carte.
+    if (++echantillons < 30) return;
+    if (intervalle > 22 && palier > 0) {            // sous 45 images/s
+      palier--; echantillons = 0; redimensionner(true);
+    } else if (intervalle < 15 && palier < PALIERS.length - 1) {
+      palier++; echantillons = 0; redimensionner(true);
+    }
+  }
+
   function boucle(instant) {
     if (!visible) { image = 0; return; }
-    peindre(instant);
+    if (derniereImage) {
+      intervalle = intervalle * 0.88 + (instant - derniereImage) * 0.12;
+    }
+    derniereImage = instant;
+
+    if (instant - dernierePeinture >= PERIODE) {
+      peindre(instant);
+      dernierePeinture = instant;
+      ajuster();
+    }
     image = requestAnimationFrame(boucle);
   }
 
   function demarrer() {
     if (image || !visible) return;
+    derniereImage = 0;            // l'écart avec la dernière image d'avant la
+                                  // pause ne veut rien dire
     debut = performance.now() - 8000;   // on entre dans un champ déjà formé
     image = requestAnimationFrame(boucle);
   }
