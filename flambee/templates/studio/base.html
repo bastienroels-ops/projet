@@ -7,6 +7,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Flambée">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  {# Pendant l'installation du moteur, la page se recharge seule : pas de
+     JavaScript à maintenir pour une attente de deux minutes. #}
+  {% if moteur is defined and moteur.installation.etat == 'encours' %}
+  <meta http-equiv="refresh" content="5">
+  {% endif %}
   <title>{% block title %}Flambée{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/app-shell.css">

@@ -76,6 +76,42 @@ def ensure_dependencies() -> None:
         )
 
 
+def ensure_transcription() -> bool:
+    """Installe puis vérifie le moteur de transcription. Retourne sa disponibilité.
+
+    L'appel à pip était auparavant lancé avec `check=False` : un échec passait
+    inaperçu, et la panne n'apparaissait que plus tard dans l'application, sous
+    la forme d'un « moteur absent » sans explication. On installe donc ici en
+    vérifiant le résultat par un import réel, et l'on dit ce qui a manqué.
+    """
+    ensure_dependencies()
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from flambee import transcribe
+
+    if transcribe.available():
+        log(f"→ Transcription : {transcribe.moteur_actif()} déjà en place.")
+        return True
+
+    log("→ Installation du moteur de transcription (une à trois minutes)…")
+    ok, journal = transcribe.installer()
+    if ok:
+        log(f"→ Transcription : {transcribe.moteur_actif()} prêt.")
+        return True
+
+    log("")
+    log("⚠️  Le moteur de transcription n'a pas pu être installé.")
+    log("    Script Viral et Voice Studio resteront verrouillés ; le reste")
+    log("    de Flambée fonctionne normalement.")
+    log("    Tu peux réessayer depuis l'application : la page de ces rubriques")
+    log("    propose un bouton « Installer le moteur ».")
+    log("    Détail des tentatives :")
+    for ligne in journal.splitlines():
+        log(f"      {ligne}")
+    log("")
+    return False
+
+
 def ensure_cloudflared(destination: Path) -> Path:
     """Télécharge le binaire du tunnel s'il n'est pas déjà là."""
     existing = shutil.which("cloudflared")

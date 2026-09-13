@@ -1,0 +1,50 @@
+{# Bloc affiché quand la transcription n'est pas utilisable.
+   Il dit la vraie raison — absent, ou installé mais hors d'état — et propose à
+   l'administrateur de lancer l'installation sans quitter la page. #}
+<div class="carte verrou">
+  <div class="verrou-rond">⚙️</div>
+
+  {% if moteur.installation.etat == 'encours' %}
+  <h2>Installation en cours</h2>
+  <p>Le moteur se télécharge et s'installe. Compte une à trois minutes — cette
+    page se rafraîchit toute seule.</p>
+  <p class="attente"><span class="point"></span><span class="point"></span><span class="point"></span></p>
+
+  {% elif moteur.installation.etat == 'fini' and not moteur.installation.ok %}
+  <h2>L'installation a échoué</h2>
+  <p>Aucune des méthodes n'a abouti. Le détail ci-dessous dit à quoi elles se
+    sont heurtées.</p>
+  <pre class="journal">{{ moteur.installation.journal }}</pre>
+  {% if moteur.installable %}
+  <form method="post" action="/studio/moteur?suite={{ suite_moteur }}">
+    <button class="ghost" type="submit">Réessayer</button>
+  </form>
+  {% endif %}
+
+  {% elif moteur.raison == 'absent' %}
+  <h2>Moteur de transcription absent</h2>
+  <p>Cette rubrique s'appuie sur un moteur de reconnaissance vocale qui n'est
+    pas encore installé sur cette machine.</p>
+  {% if moteur.installable %}
+  <form method="post" action="/studio/moteur?suite={{ suite_moteur }}">
+    <button class="primary grand" type="submit">Installer le moteur</button>
+  </form>
+  <p class="note">Une à trois minutes, une seule fois. Rien à taper.</p>
+  {% else %}
+  <p><code>pip install -r requirements-optional.txt</code></p>
+  {% endif %}
+
+  {% else %}
+  <h2>Moteur installé, mais hors d'état</h2>
+  <p>Le paquet est bien présent : c'est son chargement qui échoue. C'est
+    presque toujours un conflit de versions entre bibliothèques.</p>
+  <pre class="journal">{{ moteur.raison }}</pre>
+  {% if moteur.installable %}
+  <form method="post" action="/studio/moteur?suite={{ suite_moteur }}">
+    <button class="primary grand" type="submit">Réparer l'installation</button>
+  </form>
+  <p class="note">Les binaires seront réinstallés ; à défaut, un second moteur
+    sera essayé.</p>
+  {% endif %}
+  {% endif %}
+</div>

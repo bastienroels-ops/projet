@@ -19,6 +19,10 @@
     </ul>
     <a href="/studio/abonnement" class="button primary grand">Voir les formules</a>
   </div>
+  {% elif not moteur.disponible %}
+  {% with suite_moteur = '/studio/voix' %}
+    {% include "studio/_moteur.html" %}
+  {% endwith %}
   {% else %}
 
   {% if voix %}

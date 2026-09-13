@@ -228,6 +228,18 @@ def par_email(email: str) -> Utilisateur | None:
     return _depuis_ligne(ligne) if ligne else None
 
 
+def proprietaire() -> Utilisateur | None:
+    """Le compte administrateur : le premier créé, donc le plus petit identifiant."""
+    ligne = connexion().execute(
+        "SELECT * FROM utilisateurs ORDER BY id LIMIT 1").fetchone()
+    return _depuis_ligne(ligne) if ligne else None
+
+
+def est_proprietaire(utilisateur: Utilisateur) -> bool:
+    patron = proprietaire()
+    return patron is not None and patron.id == utilisateur.id
+
+
 def compter() -> int:
     return connexion().execute("SELECT COUNT(*) AS n FROM utilisateurs").fetchone()["n"]
 

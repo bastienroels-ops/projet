@@ -19,14 +19,10 @@
     </ul>
     <a href="/studio/abonnement" class="button primary grand">Voir les formules</a>
   </div>
-  {% elif not transcription_disponible %}
-  <div class="carte verrou">
-    <div class="verrou-rond">⚙️</div>
-    <h2>Moteur de transcription absent</h2>
-    <p>Cette rubrique s'appuie sur <code>faster-whisper</code>, qui n'est pas
-      installé. Une seule commande suffit :</p>
-    <p><code>pip install -r requirements-optional.txt</code></p>
-  </div>
+  {% elif not moteur.disponible %}
+  {% with suite_moteur = '/studio/script-viral' %}
+    {% include "studio/_moteur.html" %}
+  {% endwith %}
   {% else %}
   <div class="carte">
     <form method="post" action="/studio/script-viral" class="formulaire"

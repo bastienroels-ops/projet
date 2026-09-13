@@ -396,6 +396,50 @@ async def confidentialite(request: Request):
 
 
 # --- L'application --------------------------------------------------------
+# --- Moteur de transcription ----------------------------------------------
+# L'installation depuis l'interface évite d'avoir à rejoindre un terminal, ce
+# qui n'est pas toujours possible — sur Colab, la cellule qui fait tourner le
+# serveur monopolise le carnet. Elle est réservée au compte administrateur et
+# n'installe qu'une liste de paquets figée, jamais un nom fourni par la requête.
+_installation: dict = {"etat": "repos", "ok": False, "journal": ""}
+
+
+def installation_autorisee() -> bool:
+    return os.environ.get("FLAMBEE_INSTALL_MOTEUR", "1").strip().lower() \
+        not in ("0", "non", "false")
+
+
+def _etat_moteur(compte) -> dict:
+    return {
+        "disponible": transcribe.available(),
+        "nom": transcribe.moteur_actif(),
+        "raison": transcribe.raison_indisponible(),
+        "installable": (installation_autorisee()
+                        and users.est_proprietaire(compte)),
+        "installation": dict(_installation),
+    }
+
+
+def _installer_moteur() -> None:
+    ok, journal = transcribe.installer()
+    _installation.update(etat="fini", ok=ok, journal=journal)
+
+
+@app.post("/studio/moteur")
+async def studio_moteur(request: Request):
+    """Installe un moteur de transcription, à la demande de l'administrateur."""
+    compte = _utilisateur(request)
+    suite = _suite_sure(request.query_params.get("suite", "")) or "/studio/script-viral"
+
+    if not installation_autorisee() or not users.est_proprietaire(compte):
+        raise HTTPException(status_code=403,
+                            detail="Réservé au compte administrateur.")
+    if _installation["etat"] != "encours":
+        _installation.update(etat="encours", ok=False, journal="")
+        threading.Thread(target=_installer_moteur, daemon=True).start()
+    return RedirectResponse(suite, status_code=303)
+
+
 def _contexte_app(rubrique: str, request: Request, **extra) -> dict:
     """Contexte commun à toutes les pages de l'application connectée."""
     compte = _utilisateur(request)
@@ -409,6 +453,7 @@ def _contexte_app(rubrique: str, request: Request, **extra) -> dict:
         "plans": plans.PLANS,
         "steps": plans.STEPS,
         "version": __version__,
+        "moteur": _etat_moteur(compte),
         **extra,
     }
 
@@ -573,7 +618,7 @@ async def studio_parametres(request: Request):
 async def studio_script(request: Request):
     return templates.TemplateResponse(
         request, "studio/script_viral.html",
-        _contexte_app("script", request, transcription_disponible=transcribe.available()),
+        _contexte_app("script", request),
     )
 
 
@@ -585,7 +630,7 @@ async def studio_script_envoi(
 ):
     """Transcrit une vidéo, depuis un lien ou un fichier importé."""
     compte = _utilisateur(request)
-    contexte = {"transcription_disponible": transcribe.available(), "url": url}
+    contexte = {"url": url}
 
     def echec(message: str, code: int = 400):
         return templates.TemplateResponse(
@@ -597,7 +642,7 @@ async def studio_script_envoi(
     if not account.est_pro(compte):
         return echec("Cette rubrique demande la formule Créateur.", 402)
     if not transcribe.available():
-        return echec("Le moteur de transcription n'est pas installé.", 503)
+        return echec(f"Moteur de transcription indisponible : {transcribe.raison_indisponible()}.", 503)
 
     dossier = compte.dossier / "transcriptions"
     dossier.mkdir(parents=True, exist_ok=True)
@@ -677,7 +722,7 @@ async def studio_voix_envoi(request: Request, fichier: UploadFile = File(...)):
     if not account.est_pro(compte):
         return echec("Cette rubrique demande la formule Créateur.", 402)
     if not transcribe.available():
-        return echec("Le moteur de transcription n'est pas installé.", 503)
+        return echec(f"Moteur de transcription indisponible : {transcribe.raison_indisponible()}.", 503)
 
     suffixe = Path(fichier.filename or "").suffix.lower()
     if suffixe not in voicestudio.EXTENSIONS:
