@@ -117,11 +117,20 @@ body::after {
   50%      { transform: scale(1.14) translateY(3%); opacity: 1; }
 }
 
-/* Un grain de pellicule très fin : il casse le lissé des aplats sombres et
-   donne de la matière. Trop discret pour se remarquer, assez pour se sentir. */
+/* Un grain de pellicule très fin : il casse le lissé des aplats sombres, et
+   avec lui les bandes de dégradé que produisent les écrans 8 bits. Trop
+   discret pour se remarquer, assez pour se sentir.
+
+   Il est porté par `html` et non par `body` : `body::after` sert déjà à la
+   seconde braise du fond. Une deuxième version de ce grain a longtemps vécu
+   là-bas, sur le même sélecteur qu'elle ; les deux règles se mélangeaient, si
+   bien que le grain héritait du `blur(90px)`, du `border-radius: 50%` et de
+   l'animation de la braise — il n'était plus un grain mais un rond flou qui
+   respirait — et que la braise du bas, elle, avait disparu. Un défaut
+   invisible à la lecture du fichier : chacune des deux règles est correcte. */
 html::after {
   content: ""; position: fixed; inset: 0; z-index: 3;
-  pointer-events: none; opacity: .04; mix-blend-mode: overlay;
+  pointer-events: none; opacity: .05; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -721,22 +730,6 @@ code {
    noir : sans elles, un fond sombre est un aplat, pas une image.
    ========================================================================== */
 
-/* Le grain. Un bruit fixe, très faible, appliqué au-dessus de tout : il casse
-   les bandes de dégradé que produisent les écrans 8 bits et donne au noir une
-   texture de pellicule. Le motif est en SVG embarqué — aucun fichier à
-   charger, aucun appel réseau. */
-/* Porté par `html`, pas par `body` : `body::after` sert déjà à la seconde
-   braise du fond. Les deux règles portaient le même sélecteur et se
-   mélangeaient — le grain héritait du `blur(90px)`, du `border-radius: 50%`
-   et de l'animation de la braise, c'est-à-dire qu'il n'était plus un grain
-   mais un rond flou qui respirait, et que la braise du bas avait disparu.
-   Un défaut invisible en lecture : chacune des deux règles est correcte. */
-html::after {
-  content: ""; position: fixed; inset: 0; z-index: 9999;
-  pointer-events: none; opacity: .055; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b)'/%3E%3C/svg%3E");
-}
-
 /* Le vignettage. Une image sombre sans lui reste un rectangle : c'est
    l'assombrissement des bords qui fait qu'on regarde le milieu. Posé
    au-dessus du fond et sous le contenu, il ne touche jamais le texte. */
@@ -844,11 +837,11 @@ html::after {
    elles occupaient toute la page derrière le texte. Un fond qui se voit plus
    que ce qu'il porte n'est plus un fond.
 
-   Deux corrections, pas une. Baisser la seule opacité du champ l'aurait
-   éteint partout, y compris là où il fonctionne ; épaissir les seules
-   surfaces aurait laissé les pages sans carte — les questions, les mentions
-   légales — aussi chargées. */
-.braises-actives .braises { opacity: .52; }
+   La correction est en deux endroits. Ici, les surfaces deviennent opaques :
+   une carte doit couvrir ce qu'elle recouvre. Et dans `braises.js`, le champ
+   est dosé page par page — l'accueil à plein, les pages de lecture au tiers.
+   Ce dosage n'est pas réglable d'ici : le script pose l'opacité en attribut
+   de style, qui l'emporte sur toute règle de cette feuille. */
 
 /* Les cartes reposent sur un fond opaque, pas sur un voile. La teinte reste
    celle de l'encre : la carte a l'air découpée dans la page, ce qu'elle est,

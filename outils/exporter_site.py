@@ -142,6 +142,7 @@ def fabriquer_medias(destination: Path) -> dict[str, str]:
     # Le fond nu : l'aperçu du navigateur y pose le texte du visiteur.
     print("→ Fond de l'essayage…", flush=True)
     shutil.copy2(samples.build_backdrop(), destination / "fond.mp4")
+    shutil.copy2(samples.backdrop_poster(), destination / "fond.jpg")
 
     # Les polices des sous-titres, pour que le navigateur dessine avec les
     # mêmes que ffmpeg. Elles sont toutes sous licence OFL, qui autorise leur
@@ -189,7 +190,7 @@ def reecrire(html: str, adresses: dict[str, str], atelier: str, prefixe: str) ->
     html = re.sub(
         r'<video id="essayage-video"[^>]*>',
         '<video id="essayage-video" muted loop autoplay playsinline '
-        'preload="auto" src="/media/fond.mp4">',
+        'preload="auto" poster="/media/fond.jpg" src="/media/fond.mp4">',
         html, count=1)
 
     if atelier:

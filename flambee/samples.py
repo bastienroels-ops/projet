@@ -412,6 +412,10 @@ class Moment:
     mer_claire: tuple[int, int, int]    # la mer près de l'horizon
     mer_sombre: tuple[int, int, int]    # au premier plan
     horizon: float = HORIZON            # hauteur de la ligne de mer
+    # Largeur du dégradé au bord du disque, en fraction de son rayon. À 0,08
+    # l'astre a un bord net, comme un soleil vu à l'œil nu. Beaucoup plus haut,
+    # il n'a plus de bord du tout : ce n'est plus un disque mais une lueur.
+    nettete: float = 0.08
 
 
 # Le couchant de la page d'accueil. Les valeurs d'origine : la vidéo du
@@ -461,13 +465,25 @@ NUIT = Moment(
 # trois quarts, pour que le chemin d'argent tombe sous le texte plutôt que de
 # le traverser. Recadré depuis NUIT, le bandeau coupait la lune au bord haut
 # et faisait passer la ligne de mer au milieu de la phrase.
-NUIT_BANDEAU = replace(NUIT, astre=(0.5, 0.30, 0.048), horizon=0.74)
+# La lune est haute — plus haute qu'un cadrage naturel ne la mettrait. C'est
+# voulu : le bandeau est cadré par son bord supérieur, et à mi-hauteur le
+# disque venait se poser en plein sur le titre. Un disque net garde son bord,
+# contrairement au soleil du bandeau voisin : une lune sans bord n'est plus
+# une lune. On le déplace donc au lieu de l'effacer.
+NUIT_BANDEAU = replace(NUIT, astre=(0.5, 0.175, 0.046), horizon=0.74)
 
-# Même raisonnement pour le couchant : l'astre revient au centre, un peu plus
-# bas, pour que la citation se pose dans sa lueur. Décentré comme dans le plan
-# d'origine, son disque venait couper la première ligne de la phrase — et
-# assombrir assez pour l'effacer, c'était renoncer à l'image.
-COUCHANT_BANDEAU = replace(COUCHANT, astre=(0.5, 0.615, 0.115), horizon=0.66)
+# Même raisonnement pour le couchant, avec une difficulté de plus. Un disque
+# net finit toujours par croiser une ligne de la citation — quelle que soit sa
+# place, et d'autant plus que le bandeau est recadré très différemment d'un
+# écran à l'autre : 4,8:1 sur un ordinateur, 1,6:1 sur un téléphone. Son arête
+# se lit alors comme un défaut de l'image, pas comme un astre.
+#
+# On le pose donc sur l'horizon, tout en bas, et on adoucit son bord jusqu'à
+# ce qu'il n'en ait plus : il ne reste qu'une lueur, étagée du haut vers le
+# bas et uniforme de gauche à droite. Une composition pareille survit à toutes
+# les découpes, là où un motif centré perdrait son sujet à la première.
+COUCHANT_BANDEAU = replace(COUCHANT, astre=(0.5, 0.80, 0.16), horizon=0.82,
+                           nettete=1.6, halo=0.85)
 
 
 def _couche(r: str, g: str, b: str, a: str, largeur: int, hauteur: int,
@@ -523,7 +539,8 @@ def sunset_filter(width: int, height: int, duration: float,
         f"{ar_r}",
         f"{ar_g}-70*min(1\\,{d}/3)",
         f"{ar_b}-160*min(1\\,{d}/2.2)",
-        f"255*max(clip((1.05-{d})/0.08\\,0\\,1)\\,{moment.halo}*exp(-{d}/5))",
+        f"255*max(clip((1.05-{d})/{moment.nettete}\\,0\\,1)\\,"
+        f"{moment.halo}*exp(-{d}/5))",
     )
 
     # Les nuages : des bandes fines, ondulées lentement, dont l'épaisseur
@@ -680,6 +697,29 @@ def sample_poster(preset: str) -> Path:
                 "-frames:v", "1", "-q:v", "4", str(poster)], timeout=120)
         if not poster.exists():
             raise MediaError(f"Affiche manquante pour le style {preset}.")
+        return poster
+
+
+def backdrop_poster() -> Path:
+    """Première image du fond de l'essayage, servie en affiche.
+
+    Publié en pages statiques, le lecteur de l'essayage perd son affiche : le
+    site s'y sert d'un fond fixe au lieu des six échantillons. Sans affiche, la
+    bande reste noire tant que la vidéo n'est pas arrivée, et le navigateur y
+    peint tout de même la phrase du visiteur — du texte blanc flottant sur du
+    noir, qui a l'air d'un rendu manqué plutôt que d'un chargement.
+    """
+    clip = build_backdrop()
+    poster = clip.with_suffix(".jpg")
+    if poster.exists() and poster.stat().st_size > 500:
+        return poster
+    with _lock_for("fond-poster"):
+        if poster.exists() and poster.stat().st_size > 500:
+            return poster
+        ffmpeg(["-ss", "0.5", "-i", str(clip), "-frames:v", "1",
+                "-q:v", "4", str(poster)], timeout=120)
+        if not poster.exists():
+            raise MediaError("Affiche du fond de l'essayage absente.")
         return poster
 
 

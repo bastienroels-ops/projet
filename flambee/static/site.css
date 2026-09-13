@@ -142,21 +142,40 @@ body.site { padding: 0; }
 }
 
 /* ------------------------------------------------------------- Sections --- */
-.bande {
-  border-block: 1px solid var(--hairline);
-  background: rgba(255, 255, 255, .015);
-  padding: 40px 36px; text-align: center;
-}
-.bande p {
-  font-family: var(--serif); font-size: clamp(21px, 3vw, 30px);
-  font-style: italic; color: var(--text-soft); margin: 0;
-}
+/* La citation pleine largeur. Sa mise en scène — l'image, les voiles, la
+   hauteur — est plus bas, avec celle du dernier appel : les deux bandeaux
+   partagent leur construction, et les séparer ici les ferait diverger.
+   Ne reste donc ici que ce qui n'appartient qu'à elle. */
+.bande { text-align: center; }
+.bande p { font-family: var(--serif); font-style: italic; margin: 0; }
 
 .section {
   position: relative; z-index: 1;
   max-width: 1120px; margin: 0 auto; padding: 92px 36px;
 }
 .section-premiere { padding-top: 72px; }
+/* Un appui sous le titre des pages intérieures. L'accueil a le voile de son
+   premier écran ; ailleurs, le titre se posait directement sur le champ de
+   braises, qui est au plus vif en haut de page. Comme le voile de l'accueil,
+   celui-ci va d'un bord de la fenêtre à l'autre pour n'avoir aucune arête. */
+.section-premiere::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -72px auto auto; left: 50%; width: 100vw; height: 460px;
+  translate: -50% 0;
+  background: radial-gradient(72% 100% at 30% 28%,
+              rgba(10, 7, 5, .92) 0%, rgba(10, 7, 5, .78) 38%,
+              rgba(10, 7, 5, .34) 66%, transparent 86%);
+}
+@media (max-width: 760px) {
+  /* En une colonne, le titre prend toute la largeur : le voile doit la
+     couvrir aussi, sinon sa dernière ligne retombe sur les volutes. */
+  .section-premiere::before {
+    height: 400px;
+    background: radial-gradient(96% 100% at 50% 26%,
+                rgba(10, 7, 5, .92) 0%, rgba(10, 7, 5, .80) 44%,
+                rgba(10, 7, 5, .34) 72%, transparent 92%);
+  }
+}
 .section.etroit { max-width: 700px; }
 .section h1 {
   font-family: var(--serif); font-weight: 400;
@@ -348,27 +367,14 @@ body.site { padding: 0; }
 }
 
 /* Les surfaces prennent la lumière du haut : une arête claire d'un pixel
-   suffit à leur donner une épaisseur qu'une bordure uniforme ne donne pas. */
-.atout, .duel-choix, .essayage, .tarif, .chiffres-grille > div {
+   suffit à leur donner une épaisseur qu'une bordure uniforme ne donne pas.
+   Seules les surfaces qui en sont vraiment une : posée sur un bloc
+   transparent, l'arête dessinerait un trait clair sans rien dessous. */
+.duel-choix, .tarif {
   box-shadow: var(--lueur);
-}
-.atout {
-  background:
-    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
-    linear-gradient(180deg, var(--ink-3), var(--ink-2));
-}
-.atout:hover {
-  border-color: rgba(185, 140, 74, .38);
-  box-shadow: var(--lueur-forte), 0 22px 50px -28px rgba(0, 0, 0, .9);
 }
 
 /* Les chiffres : de l'or en relief plutôt qu'un dégradé plat. */
-.chiffres {
-  background:
-    radial-gradient(120% 140% at 50% 0%, rgba(255, 122, 47, .055), transparent 70%),
-    rgba(255, 236, 214, .014);
-  border-block-color: rgba(185, 140, 74, .22);
-}
 
 /* --------------------------------------------------------------- Étapes --- */
 .etapes {
@@ -389,13 +395,24 @@ body.site { padding: 0; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
   gap: 22px; margin-top: 46px;
 }
+/* Fond opaque, pas translucide : derrière ces cartes tourne un champ de
+   braises, et un voile le laissait monter à travers le texte — très visible
+   sur /fonctionnalites, où elles occupent la page entière. */
 .atout {
   padding: 30px;
   border: 1px solid var(--hairline); border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
-  transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s;
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--lueur);
+  transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s,
+              box-shadow .3s;
 }
-.atout:hover { transform: translateY(-4px); border-color: var(--hairline-2); }
+.atout:hover {
+  transform: translateY(-4px);
+  border-color: rgba(185, 140, 74, .38);
+  box-shadow: var(--lueur-forte), 0 22px 50px -28px rgba(0, 0, 0, .9);
+}
 /* L'icône d'un atout : posée dans un jeton discret plutôt que nue, pour lui
    donner un point d'appui et aligner toutes les cartes sur la même hauteur. */
 .atout-icone {
@@ -544,13 +561,17 @@ body.site { padding: 0; }
   .site-header { padding: 14px 18px; }
   .site-header .brand { font-size: 22px; }
   .menu-bouton { display: flex; }
+  /* Le panneau est opaque, pas voilé. Un fond translucide posé sous un
+     en-tête qui filtre déjà son arrière-plan laissait le titre de la page
+     transparaître au travers des entrées du menu : on lisait deux textes
+     superposés. Et un menu doit de toute façon couvrir ce qu'il recouvre. */
   .site-nav {
     position: absolute; top: 100%; left: 0; right: 0;
     flex-direction: column; align-items: stretch; gap: 0;
     padding: 10px 18px 22px;
-    background: rgba(10, 7, 5, .97);
-    backdrop-filter: blur(22px);
-    border-bottom: 1px solid var(--hairline);
+    background: var(--ink-2);
+    border-bottom: 1px solid rgba(185, 140, 74, .24);
+    box-shadow: 0 26px 50px -26px rgba(0, 0, 0, .95);
     display: none;
   }
   .site-nav.ouvert { display: flex; }
@@ -564,11 +585,16 @@ body.site { padding: 0; }
 }
 
 /* ------------------------------------------------- Formulaires de compte --- */
+/* Opaque, comme les autres cartes : un formulaire dont on voit les flammes
+   monter derrière les champs n'inspire pas la confiance qu'on demande à
+   quelqu'un qui va y taper son adresse et son mot de passe. */
 .carte-formulaire {
   margin-top: 30px; padding: 32px;
   border: 1px solid var(--hairline); border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
-  box-shadow: var(--shadow);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur);
 }
 .carte-formulaire .formulaire { margin-top: 0; }
 .carte-formulaire .button,
@@ -617,8 +643,10 @@ input[type=email]:focus, input[type=password]:focus {
 
 /* ------------------------------------------------------------- Chiffres --- */
 .chiffres {
-  border-block: 1px solid var(--hairline);
-  background: rgba(255, 255, 255, .012);
+  border-block: 1px solid rgba(185, 140, 74, .22);
+  background:
+    radial-gradient(120% 140% at 50% 0%, rgba(255, 122, 47, .055), transparent 70%),
+    rgba(255, 236, 214, .014);
   padding: 44px 36px;
 }
 .chiffres-grille {
@@ -1011,30 +1039,19 @@ input[type=email]:focus, input[type=password]:focus {
     linear-gradient(90deg, var(--ink), transparent 18%,
                     transparent 82%, var(--ink));
 }
-/* Le couchant est une image claire : il lui faut un voile dense pour que le
-   texte tienne dessus. La nuit est déjà presque noire — le même voile
-   l'effaçait complètement, et il ne restait qu'un rectangle sombre où l'on
-   devinait une lune. Les deux bandeaux ne peuvent donc pas partager leurs
-   valeurs, seulement leur construction. */
-.bande {
-  /* Beaucoup plus dense que le bandeau de nuit, et volontairement. Le
-     couchant est vif : sous un voile moyen il ne s'efface pas, il tourne au
-     brun, et le disque du soleil vient se poser derrière la phrase comme une
-     tache. Noyé, il redevient ce qu'on lui demande ici — une lueur au fond,
-     pas une image à regarder. */
-  --voile-centre: .46; --voile-haut: .48;
-  --voile-milieu: .52; --voile-bas: .74;
-}
-.appel {
-  --voile-centre: .26; --voile-haut: .22;
-  --voile-milieu: .26; --voile-bas: .52;
-}
-
+/* Le couchant est une image claire : il lui faut un voile plus dense que la
+   nuit, déjà presque noire, que les mêmes valeurs effaçaient complètement —
+   il n'en restait qu'un rectangle sombre où l'on devinait une lune. Les deux
+   bandeaux partagent leur construction, jamais leurs valeurs. */
 .bande {
   --bandeau: url('/static/vues/bandeau-couchant.jpg');
+  --voile-centre: .30; --voile-haut: .40;
+  --voile-milieu: .44; --voile-bas: .66;
   border-block: 1px solid rgba(185, 140, 74, .22);
   min-height: var(--bandeau-h);
-  background-position: center 60%;
+  /* Cadré par le bas : le soleil et la ligne de mer y sont, et la citation
+     occupe le ciel au-dessus, quelle que soit la découpe. */
+  background-position: center bottom;
   display: grid; place-items: center;
   padding: 64px 36px;
 }
@@ -1048,6 +1065,8 @@ input[type=email]:focus, input[type=password]:focus {
 
 .appel {
   --bandeau: url('/static/vues/bandeau-nuit.jpg');
+  --voile-centre: .26; --voile-haut: .22;
+  --voile-milieu: .26; --voile-bas: .52;
   --bandeau-h: 340px;
   min-height: var(--bandeau-h);
   /* Cadré par le haut : la lune est haute dans l'image, et tout autre

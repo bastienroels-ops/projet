@@ -279,13 +279,25 @@
   /* Le feu appartient à l'accroche. Laissé à pleine intensité sur toute la
      page, il concurrence chaque section, nuit à la lecture, et cesse de faire
      de l'effet — un éblouissement permanent n'est plus un éblouissement. Il
-     retombe donc à l'état de braise dès qu'on descend. */
+     retombe donc à l'état de braise dès qu'on descend.
+
+     Le plafond dépend de la page. L'accueil s'ouvre sur un premier écran
+     presque sans texte, où le champ est le décor ; les tarifs, les questions,
+     un formulaire commencent tout de suite par de la lecture, et le même
+     champ passe alors derrière chaque ligne. Ces pages sont aussi courtes :
+     on y reste près du haut, là où l'atténuation au défilement n'a encore
+     rien atténué.
+
+     Le dosage vit ici et non dans la feuille de style : l'opacité est posée
+     en attribut par ce script, et une règle CSS n'aurait aucun effet. */
   const RESIDU = 0.14;
+  const PLAFOND = document.body.classList.contains("page-accueil") ? 1 : 0.34;
   let opacite = -1;
   function doser() {
     const course = Math.max(1, window.innerHeight * 0.9);
     const part = Math.min(1, window.scrollY / course);
-    const valeur = Math.round((1 - (1 - RESIDU) * part) * 100) / 100;
+    const plancher = Math.min(RESIDU, PLAFOND);
+    const valeur = Math.round((PLAFOND - (PLAFOND - plancher) * part) * 100) / 100;
     if (valeur !== opacite) {
       opacite = valeur;
       toile.style.opacity = String(valeur);

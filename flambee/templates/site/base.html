@@ -43,7 +43,9 @@
   <link rel="stylesheet" href="/static/site.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
-<body class="site">
+{# La page est nommée sur le corps : le champ de braises brûle à plein sur
+   l'accueil, où il est le décor, et se retire sur les pages de lecture. #}
+<body class="site page-{{ page|default('autre') }}">
 
 {# Deux halos qui dérivent derrière la page, et la barre de lecture. Purement
    décoratifs : masqués aux lecteurs d'écran. #}
