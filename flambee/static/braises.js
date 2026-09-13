@@ -84,16 +84,24 @@
                          u_souris * vec2(u_taille.x / u_taille.y, 1.0));
       f += 0.16 * exp(-d * 4.2);
 
-      // Palette : encre profonde, brun de braise, orange, or.
-      vec3 encre  = vec3(0.031, 0.035, 0.047);
-      vec3 braise = vec3(0.204, 0.086, 0.043);
-      vec3 feu    = vec3(0.847, 0.333, 0.106);
-      vec3 or     = vec3(1.000, 0.729, 0.376);
+      /* Palette : encre de nuit, bleu profond, indigo, violet clair. `feu` et
+         `eclat` sont exactement l'accent et sa variante claire de la feuille
+         de style ; `nuit` est volontairement plus sombre que le token
+         correspondant, parce qu'un fond doit rester derrière — à la valeur du
+         bouton, le champ remonterait au premier plan.
+
+         Ces valeurs sont recopiées : un nuanceur ne lit pas les variables
+         CSS. C'est le seul endroit du projet où la couleur du site est écrite
+         deux fois, et un test le vérifie. */
+      vec3 encre  = vec3(0.027, 0.027, 0.047);
+      vec3 nuit   = vec3(0.106, 0.086, 0.267);
+      vec3 feu    = vec3(0.424, 0.361, 0.906);
+      vec3 eclat  = vec3(0.655, 0.545, 0.980);
 
       vec3 couleur = encre;
-      couleur = mix(couleur, braise, smoothstep(0.34, 0.72, f));
-      couleur = mix(couleur, feu,    smoothstep(0.66, 0.94, f) * 0.50);
-      couleur = mix(couleur, or,     smoothstep(0.88, 1.04, f) * 0.30);
+      couleur = mix(couleur, nuit,  smoothstep(0.34, 0.72, f));
+      couleur = mix(couleur, feu,   smoothstep(0.66, 0.94, f) * 0.50);
+      couleur = mix(couleur, eclat, smoothstep(0.88, 1.04, f) * 0.30);
 
       // Vignette : ramène l'œil au centre et protège la lisibilité des bords.
       float vignette = smoothstep(1.32, 0.28, length(uv - 0.5) * 1.42);

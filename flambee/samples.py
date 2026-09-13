@@ -30,9 +30,9 @@ OUT_WIDTH = 540
 # Le fond : six aplats de couleur agrandis puis fondus. Le dégradé de maille
 # obtenu a de la profondeur, là où le filtre `gradients` de ffmpeg donne un
 # lavis terne. Clair en haut, sombre en bas : le texte y ressort toujours.
-BACKDROP_COLORS = ("0x5a3418", "0x1d2c4e",
-                   "0x8a4514", "0x141c2c",
-                   "0x0b0d13", "0x0a0b10")
+BACKDROP_COLORS = ("0x3b2b8f", "0x1b1f4e",
+                   "0x5a44b8", "0x14152c",
+                   "0x0a0a14", "0x07070c")
 
 
 def backdrop_inputs(duration: float) -> list[str]:
@@ -412,51 +412,63 @@ class Moment:
     mer_claire: tuple[int, int, int]    # la mer près de l'horizon
     mer_sombre: tuple[int, int, int]    # au premier plan
     horizon: float = HORIZON            # hauteur de la ligne de mer
+    # De combien le vert et le bleu retombent en s'éloignant du cœur. C'est
+    # ce couple qui décide de la couleur du halo, et donc de l'heure : faire
+    # chuter le bleu deux fois plus que le vert donne l'orange d'un soleil
+    # couchant ; ne presque pas le faire chuter donne le violet d'un
+    # crépuscule. Le blanc du cœur, lui, ne change pas — un astre est blanc.
+    astre_chute: tuple[int, int] = (70, 160)
     # Largeur du dégradé au bord du disque, en fraction de son rayon. À 0,08
     # l'astre a un bord net, comme un soleil vu à l'œil nu. Beaucoup plus haut,
     # il n'a plus de bord du tout : ce n'est plus un disque mais une lueur.
     nettete: float = 0.08
 
 
-# Le couchant de la page d'accueil. Les valeurs d'origine : la vidéo du
-# téléphone, en haut du site, sort de ce moment-là.
+# Le crépuscule de la page d'accueil — c'est de ce moment que sort la vidéo
+# du téléphone, en haut du site. Le soleil vient de passer sous l'horizon : il
+# n'en reste que la traîne, qui va du bleu de nuit au violet et à l'indigo.
+# C'est la seule heure du jour où le ciel a exactement la couleur de la
+# marque, et elle n'a rien d'orange.
 COUCHANT = Moment(
-    ciel=("0x0d1230", "0x2a2050", "0x7d3355", "0xd65f34", "0xf59b3c", "0xffd27a"),
+    ciel=("0x05060f", "0x140f33", "0x2c1d62", "0x513793", "0x7a60c6", "0xa48ada"),
     astre=(0.37, 0.578, 0.135),
-    astre_couleur=(255, 248, 214),
+    astre_couleur=(236, 230, 255),
+    astre_chute=(78, 6),
     halo=0.62,
-    nuages=(190, 150, 192),
-    collines=(26, 21, 48),
-    mer_claire=(216, 152, 100),
-    mer_sombre=(18, 16, 44),
+    nuages=(150, 138, 208),
+    collines=(16, 14, 36),
+    mer_claire=(126, 108, 190),
+    mer_sombre=(9, 9, 26),
 )
 
 # L'aube : le soleil n'a pas encore chauffé le ciel. Bleus froids, rose pâle,
 # et une mer d'étain. Le contraste avec le couchant tient à cela — la même
 # lumière, mais qui n'a pas encore pris.
 AUBE = Moment(
-    ciel=("0x101c3e", "0x24365f", "0x4a5580", "0x9a7391", "0xe0a08c", "0xf7ceb0"),
+    ciel=("0x0a1030", "0x1a2352", "0x3b4382", "0x6f5ca8", "0xa78bd8", "0xd4c4f2"),
     astre=(0.68, 0.596, 0.068),
-    astre_couleur=(255, 250, 236),
+    astre_couleur=(252, 250, 255),
+    astre_chute=(46, 4),
     halo=0.40,
-    nuages=(158, 176, 208),
-    collines=(22, 28, 52),
-    mer_claire=(150, 158, 176),
-    mer_sombre=(14, 20, 40),
+    nuages=(150, 160, 208),
+    collines=(16, 20, 46),
+    mer_claire=(132, 140, 178),
+    mer_sombre=(10, 12, 32),
 )
 
 # La nuit : plus d'astre bas, une lune haute et petite, et le chemin d'argent
 # qu'elle laisse sur l'eau. Presque aucune chaleur — la braise du site en
 # ressort d'autant mieux quand elle revient.
 NUIT = Moment(
-    ciel=("0x05070f", "0x080d1f", "0x0d1730", "0x142442", "0x1d3355", "0x2b4a6b"),
+    ciel=("0x04050e", "0x080a1f", "0x0e1134", "0x161a4c", "0x20255f", "0x2e3478"),
     astre=(0.72, 0.235, 0.043),
-    astre_couleur=(248, 250, 255),
+    astre_couleur=(248, 248, 255),
+    astre_chute=(30, 2),
     halo=0.30,
-    nuages=(92, 108, 140),
-    collines=(8, 10, 22),
-    mer_claire=(46, 66, 92),
-    mer_sombre=(5, 7, 16),
+    nuages=(96, 100, 150),
+    collines=(7, 8, 22),
+    mer_claire=(48, 54, 104),
+    mer_sombre=(4, 4, 14),
 )
 
 
@@ -535,10 +547,11 @@ def sunset_filter(width: int, height: int, duration: float,
     ar_r, ar_g, ar_b = moment.astre_couleur
     d = (f"(pow((X/W-{ax})/{ar}\\,2)"
          f"+pow((Y/H-{ay})/{ar * rapport:.4f}\\,2))")
+    chute_v, chute_b = moment.astre_chute
     soleil = peindre(
         f"{ar_r}",
-        f"{ar_g}-70*min(1\\,{d}/3)",
-        f"{ar_b}-160*min(1\\,{d}/2.2)",
+        f"{ar_g}-{chute_v}*min(1\\,{d}/3)",
+        f"{ar_b}-{chute_b}*min(1\\,{d}/2.2)",
         f"255*max(clip((1.05-{d})/{moment.nettete}\\,0\\,1)\\,"
         f"{moment.halo}*exp(-{d}/5))",
     )

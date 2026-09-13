@@ -11,7 +11,7 @@ body.site { padding: 0; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 24px; padding: 18px 36px;
   border-bottom: 1px solid var(--hairline);
-  background: rgba(10, 7, 5, .72);
+  background: rgba(7, 7, 12, .72);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
 }
@@ -26,10 +26,10 @@ body.site { padding: 0; }
   transition: color .2s;
 }
 .site-nav a:hover { color: var(--text); }
-.site-nav a.courant { color: var(--ember-2); }
+.site-nav a.courant { color: var(--flamme-claire); }
 /* `.site-nav a` est plus spécifique que `.primary` : sans cette règle, le
    bouton hérite du gris de la navigation et devient illisible sur l'orange. */
-.site-nav a.button.primary { color: #180d05; }
+.site-nav a.button.primary { color: var(--sur-flamme); }
 .site-nav a.button.ghost { color: var(--text); }
 .button.petit { padding: 10px 20px; font-size: 13.5px; }
 .button.grand { padding: 16px 32px; font-size: 15.5px; }
@@ -65,8 +65,8 @@ body.site { padding: 0; }
   content: ""; position: absolute; inset: -40px auto; top: -40px; bottom: -40px;
   left: 50%; width: 100vw; translate: -50% 0; pointer-events: none;
   background: radial-gradient(58% 96% at 22% 50%,
-              rgba(10, 7, 5, .92) 0%, rgba(10, 7, 5, .78) 34%,
-              rgba(10, 7, 5, .34) 62%, transparent 82%);
+              rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .78) 34%,
+              rgba(7, 7, 12, .34) 62%, transparent 82%);
 }
 .hero > * { position: relative; }
 /* La taille est bornée à 74 px, pas à 82 : la troisième ligne — « Une vidéo
@@ -78,7 +78,7 @@ body.site { padding: 0; }
   font-size: clamp(44px, 5.6vw, 74px); line-height: 1.04;
   letter-spacing: -.025em; margin: 0 0 24px;
 }
-.hero h1 em { font-style: italic; color: var(--gold); }
+.hero h1 em { font-style: italic; color: var(--eclat); }
 .hero-accroche {
   font-size: 18px; line-height: 1.65; color: var(--text-soft);
   max-width: 46ch; margin: 0 0 34px;
@@ -97,7 +97,7 @@ body.site { padding: 0; }
   display: flex; align-items: center; gap: 9px;
   padding: 10px 15px; border-radius: 999px;
   border: 1px solid var(--hairline-2);
-  background: rgba(22, 16, 12, .88);
+  background: rgba(16, 16, 26, .88);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .95);
   font-size: 12.5px; font-weight: 500; color: var(--text);
@@ -106,7 +106,7 @@ body.site { padding: 0; }
 }
 .jeton-point {
   width: 6px; height: 6px; border-radius: 50%;
-  background: var(--ember); box-shadow: 0 0 10px var(--ember);
+  background: var(--flamme); box-shadow: 0 0 10px var(--flamme);
 }
 /* Le jeton du bas désigne les sous-titres : il se place sous eux, dans la
    bande vide du cadre. Le sortir entièrement du téléphone élargissait la page
@@ -120,12 +120,12 @@ body.site { padding: 0; }
 .telephone {
   position: relative; width: 272px; padding: 11px;
   border-radius: 40px;
-  background: linear-gradient(160deg, #3a3029 0%, #1a1511 18%,
-                              #0e0b09 55%, #241d17 88%, #4a3b2a 100%);
+  background: linear-gradient(160deg, #33324a 0%, #16161f 18%,
+                              #08080d 55%, #1d1c2c 88%, #454263 100%);
   box-shadow: 0 44px 90px -34px rgba(0, 0, 0, .95),
-              inset 0 1px 0 rgba(255, 226, 178, .28),
-              0 0 0 1px rgba(185, 140, 74, .30),
-              0 0 90px -26px rgba(255, 122, 47, .55);
+              inset 0 1px 0 rgb(var(--os-rvb) / .28),
+              0 0 0 1px rgb(var(--laiton-rvb) / .30),
+              0 0 90px -26px rgb(var(--flamme-rvb) / .55);
   animation: flotte 7s ease-in-out infinite;
 }
 @keyframes flotte {
@@ -134,7 +134,7 @@ body.site { padding: 0; }
 }
 .telephone video {
   display: block; width: 100%; aspect-ratio: 9 / 16;
-  border-radius: 30px; background: #0a0705; object-fit: cover;
+  border-radius: 30px; background: #07070c; object-fit: cover;
 }
 .telephone-reflet {
   position: absolute; inset: 11px; border-radius: 30px; pointer-events: none;
@@ -163,8 +163,8 @@ body.site { padding: 0; }
   inset: -72px auto auto; left: 50%; width: 100vw; height: 460px;
   translate: -50% 0;
   background: radial-gradient(72% 100% at 30% 28%,
-              rgba(10, 7, 5, .92) 0%, rgba(10, 7, 5, .78) 38%,
-              rgba(10, 7, 5, .34) 66%, transparent 86%);
+              rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .78) 38%,
+              rgba(7, 7, 12, .34) 66%, transparent 86%);
 }
 @media (max-width: 760px) {
   /* En une colonne, le titre prend toute la largeur : le voile doit la
@@ -172,8 +172,8 @@ body.site { padding: 0; }
   .section-premiere::before {
     height: 400px;
     background: radial-gradient(96% 100% at 50% 26%,
-                rgba(10, 7, 5, .92) 0%, rgba(10, 7, 5, .80) 44%,
-                rgba(10, 7, 5, .34) 72%, transparent 92%);
+                rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .80) 44%,
+                rgba(7, 7, 12, .34) 72%, transparent 92%);
   }
 }
 .section.etroit { max-width: 700px; }
@@ -182,7 +182,7 @@ body.site { padding: 0; }
   font-size: clamp(38px, 5.4vw, 62px); line-height: 1.06;
   letter-spacing: -.02em; margin: 0 0 20px;
 }
-.section h1 em, .section h2 em, .appel h2 em { font-style: italic; color: var(--gold); }
+.section h1 em, .section h2 em, .appel h2 em { font-style: italic; color: var(--eclat); }
 .section h2 {
   font-family: var(--serif); font-weight: 400;
   font-size: clamp(31px, 4.2vw, 46px); line-height: 1.1;
@@ -249,12 +249,12 @@ body.site { padding: 0; }
 }
 .duel-manche.jouee .duel-badge { opacity: 1; transform: none; }
 .duel-manche.jouee .gagnante .duel-badge {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  border-color: transparent; color: #170d05;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  border-color: transparent; color: var(--sur-flamme);
 }
 .duel-manche.jouee .gagnante {
-  border-color: rgba(255, 155, 74, .45);
-  background: linear-gradient(165deg, rgba(255, 122, 47, .10), var(--surface));
+  border-color: rgb(var(--flamme-claire-rvb) / .45);
+  background: linear-gradient(165deg, rgb(var(--flamme-rvb) / .10), var(--surface));
 }
 /* Ce qu'on a choisi reste visible, même quand c'était la mauvaise. */
 .duel-manche.jouee .choisi::after {
@@ -284,14 +284,14 @@ body.site { padding: 0; }
 .duel-jauge i {
   position: absolute; inset: 0 auto 0 0; border-radius: 2px;
   width: calc(var(--part) * 100%);
-  background: linear-gradient(90deg, var(--ember-2), var(--ember));
+  background: linear-gradient(90deg, var(--flamme-claire), var(--flamme));
   transform: scaleX(0); transform-origin: left;
   transition: transform .7s .1s cubic-bezier(.16, 1, .3, 1);
 }
 .duel-manche.jouee .duel-jauge i { transform: scaleX(1); }
 .duel-verdict b {
   font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
-  color: var(--ember-2);
+  color: var(--flamme-claire);
 }
 .duel-verdict em {
   grid-column: 1 / -1; margin-top: 10px;
@@ -303,8 +303,8 @@ body.site { padding: 0; }
   margin: 30px 0 0; min-height: 26px;
   font-size: 16px; color: var(--text-soft);
 }
-.duel-bilan b { color: var(--gold); font-weight: 600; }
-.duel-bilan a { color: var(--ember-2); }
+.duel-bilan b { color: var(--eclat); font-weight: 600; }
+.duel-bilan a { color: var(--flamme-claire); }
 .duel-final { margin: 18px 0 0; }
 .duel-final[hidden] { display: none; }
 
@@ -354,7 +354,7 @@ body.site { padding: 0; }
   content: ""; position: absolute; inset: -10% 0 auto; height: 60%;
   pointer-events: none; z-index: -1;
   background: radial-gradient(70% 100% at 50% 0%,
-              rgba(255, 122, 47, .050), transparent 72%);
+              rgb(var(--flamme-rvb) / .050), transparent 72%);
 }
 /* Un filet de laiton entre les sections, très bas en intensité : il marque la
    coupe sans la souligner, comme un trait de crayon sur un carton. */
@@ -363,7 +363,7 @@ body.site { padding: 0; }
   content: ""; position: absolute; inset: 0 auto auto 50%; translate: -50% 0;
   width: min(520px, 62%); height: 1px;
   background: linear-gradient(90deg, transparent,
-              rgba(185, 140, 74, .34), transparent);
+              rgb(var(--laiton-rvb) / .34), transparent);
 }
 
 /* Les surfaces prennent la lumière du haut : une arête claire d'un pixel
@@ -384,7 +384,7 @@ body.site { padding: 0; }
 }
 .etapes li { position: relative; padding-top: 26px; border-top: 1px solid var(--hairline); }
 .etape-numero {
-  font-family: var(--serif); font-size: 15px; color: var(--ember);
+  font-family: var(--serif); font-size: 15px; color: var(--flamme);
   letter-spacing: .1em;
 }
 .etapes h3 { font-size: 17px; font-weight: 600; margin: 12px 0 8px; }
@@ -402,7 +402,7 @@ body.site { padding: 0; }
   padding: 30px;
   border: 1px solid var(--hairline); border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
     linear-gradient(180deg, var(--ink-3), var(--ink-2));
   box-shadow: var(--lueur);
   transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s,
@@ -410,7 +410,7 @@ body.site { padding: 0; }
 }
 .atout:hover {
   transform: translateY(-4px);
-  border-color: rgba(185, 140, 74, .38);
+  border-color: rgb(var(--laiton-rvb) / .38);
   box-shadow: var(--lueur-forte), 0 22px 50px -28px rgba(0, 0, 0, .9);
 }
 /* L'icône d'un atout : posée dans un jeton discret plutôt que nue, pour lui
@@ -418,9 +418,9 @@ body.site { padding: 0; }
 .atout-icone {
   display: grid; place-items: center;
   width: 42px; height: 42px; margin-bottom: 18px;
-  border-radius: 12px; color: var(--ember-2);
-  background: rgba(255, 122, 47, .10);
-  border: 1px solid rgba(255, 122, 47, .18);
+  border-radius: 12px; color: var(--flamme-claire);
+  background: rgb(var(--flamme-rvb) / .10);
+  border: 1px solid rgb(var(--flamme-rvb) / .18);
 }
 .atout h3 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
 .atout p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
@@ -459,11 +459,11 @@ body.site { padding: 0; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after {
   content: "+"; position: absolute; right: 6px; top: 50%;
-  transform: translateY(-50%); font-size: 22px; color: var(--ember);
+  transform: translateY(-50%); font-size: 22px; color: var(--flamme);
   transition: transform .25s;
 }
 .faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
-.faq summary:hover { color: var(--ember-2); }
+.faq summary:hover { color: var(--flamme-claire); }
 .faq details p {
   margin: 0; padding: 0 40px 26px 0;
   font-size: 15px; color: var(--text-soft); line-height: 1.7;
@@ -474,18 +474,18 @@ body.site { padding: 0; }
 .formulaire .button, .formulaire button { margin-top: 20px; align-self: flex-start; }
 .mention { font-size: 12.5px; color: var(--text-faint); margin: 16px 0 0; line-height: 1.6; }
 .mention a, .texte-legal a, .carte p a {
-  color: var(--ember-2); text-decoration: none;
-  border-bottom: 1px solid rgba(255, 182, 72, .3);
+  color: var(--flamme-claire); text-decoration: none;
+  border-bottom: 1px solid rgb(var(--flamme-claire-rvb) / .3);
 }
-.mention a:hover, .texte-legal a:hover { border-bottom-color: var(--ember-2); }
+.mention a:hover, .texte-legal a:hover { border-bottom-color: var(--flamme-claire); }
 
 .avis {
   padding: 20px 24px; margin: 28px 0;
-  border: 1px solid rgba(232, 200, 122, .3); border-radius: var(--radius-sm);
-  background: rgba(232, 200, 122, .06);
-  color: #e6dcc4; font-size: 14.5px; line-height: 1.65;
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .3); border-radius: var(--radius-sm);
+  background: rgb(var(--flamme-claire-rvb) / .06);
+  color: rgb(var(--os-rvb) / .9); font-size: 14.5px; line-height: 1.65;
 }
-.avis b { color: var(--gold); display: block; margin-bottom: 5px; }
+.avis b { color: var(--eclat); display: block; margin-bottom: 5px; }
 .avis.erreur {
   border-color: rgba(255, 107, 107, .3); background: rgba(255, 107, 107, .07);
   color: #ffb4b4;
@@ -494,7 +494,7 @@ body.site { padding: 0; }
 .texte-legal { margin-top: 34px; }
 .texte-legal h2 {
   font-family: var(--sans); font-size: 15px; font-weight: 600;
-  letter-spacing: .1em; text-transform: uppercase; color: var(--ember);
+  letter-spacing: .1em; text-transform: uppercase; color: var(--flamme);
   margin: 44px 0 14px;
 }
 .texte-legal p { font-size: 15px; color: var(--text-soft); line-height: 1.75; margin: 0 0 14px; }
@@ -533,7 +533,7 @@ body.site { padding: 0; }
   display: block; color: var(--text-soft); text-decoration: none;
   font-size: 14px; margin-bottom: 11px; transition: color .2s;
 }
-.site-footer a:hover { color: var(--ember-2); }
+.site-footer a:hover { color: var(--flamme-claire); }
 .footer-bas {
   display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
   max-width: 1120px; margin: 0 auto; padding-top: 26px;
@@ -570,7 +570,7 @@ body.site { padding: 0; }
     flex-direction: column; align-items: stretch; gap: 0;
     padding: 10px 18px 22px;
     background: var(--ink-2);
-    border-bottom: 1px solid rgba(185, 140, 74, .24);
+    border-bottom: 1px solid rgb(var(--laiton-rvb) / .24);
     box-shadow: 0 26px 50px -26px rgba(0, 0, 0, .95);
     display: none;
   }
@@ -592,7 +592,7 @@ body.site { padding: 0; }
   margin-top: 30px; padding: 32px;
   border: 1px solid var(--hairline); border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
     linear-gradient(180deg, var(--ink-3), var(--ink-2));
   box-shadow: var(--shadow), var(--lueur);
 }
@@ -607,15 +607,15 @@ input[type=email], input[type=password] {
   transition: border-color .2s, box-shadow .2s, background .2s;
 }
 input[type=email]:focus, input[type=password]:focus {
-  outline: none; border-color: rgba(255, 122, 47, .55);
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
   background: rgba(0, 0, 0, .45);
-  box-shadow: 0 0 0 4px rgba(255, 122, 47, .1);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .1);
 }
 .sous-formulaire {
   margin-top: 26px; text-align: center;
   font-size: 14px; color: var(--text-soft);
 }
-.sous-formulaire a { color: var(--ember-2); text-decoration: none; font-weight: 500; }
+.sous-formulaire a { color: var(--flamme-claire); text-decoration: none; font-weight: 500; }
 .sous-formulaire a:hover { text-decoration: underline; }
 .avis.reussite {
   border-color: rgba(95, 214, 164, .3); background: rgba(95, 214, 164, .06);
@@ -633,7 +633,7 @@ input[type=email]:focus, input[type=password]:focus {
 .a-reveler.revele { opacity: 1; transform: none; }
 
 .site-header.pose {
-  background: rgba(10, 7, 5, .9);
+  background: rgba(7, 7, 12, .9);
   box-shadow: 0 1px 0 rgba(255, 255, 255, .05), 0 12px 40px -24px rgba(0, 0, 0, .9);
 }
 
@@ -643,10 +643,10 @@ input[type=email]:focus, input[type=password]:focus {
 
 /* ------------------------------------------------------------- Chiffres --- */
 .chiffres {
-  border-block: 1px solid rgba(185, 140, 74, .22);
+  border-block: 1px solid rgb(var(--laiton-rvb) / .22);
   background:
-    radial-gradient(120% 140% at 50% 0%, rgba(255, 122, 47, .055), transparent 70%),
-    rgba(255, 236, 214, .014);
+    radial-gradient(120% 140% at 50% 0%, rgb(var(--flamme-rvb) / .055), transparent 70%),
+    rgb(var(--os-rvb) / .014);
   padding: 44px 36px;
 }
 .chiffres-grille {
@@ -657,9 +657,9 @@ input[type=email]:focus, input[type=password]:focus {
 .chiffres-grille b {
   display: block; font-family: var(--serif); font-weight: 400;
   font-size: clamp(34px, 4.5vw, 46px); line-height: 1;
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
   -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: var(--ember);
+  -webkit-text-fill-color: transparent; color: var(--flamme);
   margin-bottom: 9px;
 }
 .chiffres-grille span {
@@ -675,7 +675,7 @@ input[type=email]:focus, input[type=password]:focus {
 .franchise > div {
   padding: 28px; border-radius: var(--radius);
   border: 1px solid var(--hairline);
-  border-left: 2px solid rgba(255, 122, 47, .4);
+  border-left: 2px solid rgb(var(--flamme-rvb) / .4);
   background: rgba(0, 0, 0, .22);
 }
 .franchise h3 { font-size: 17px; font-weight: 600; margin: 0 0 10px; }
@@ -700,10 +700,10 @@ input[type=email]:focus, input[type=password]:focus {
 }
 .essayage-champ input::placeholder { color: var(--text-faint); }
 .essayage-champ input:focus {
-  outline: none; border-color: rgba(255, 122, 47, .55);
-  background: rgba(255, 122, 47, .05);
-  box-shadow: 0 0 0 4px rgba(255, 122, 47, .10),
-              0 22px 60px -34px rgba(255, 122, 47, .8);
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
+  background: rgb(var(--flamme-rvb) / .05);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .10),
+              0 22px 60px -34px rgb(var(--flamme-rvb) / .8);
 }
 .essayage-compteur {
   position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
@@ -711,7 +711,7 @@ input[type=email]:focus, input[type=password]:focus {
   color: var(--text-faint); pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
-.essayage-compteur.proche { color: var(--ember-2); }
+.essayage-compteur.proche { color: var(--flamme-claire); }
 
 .essayage-styles {
   display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 24px;
@@ -726,9 +726,9 @@ input[type=email]:focus, input[type=password]:focus {
 .puce:hover { color: var(--text); border-color: rgba(255, 255, 255, .18); }
 .puce:active { transform: scale(.97); }
 .puce.actif {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  border-color: transparent; color: #150d05; font-weight: 650;
-  box-shadow: 0 14px 34px -18px rgba(255, 122, 47, .9);
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  border-color: transparent; color: var(--sur-flamme); font-weight: 650;
+  box-shadow: 0 14px 34px -18px rgb(var(--flamme-rvb) / .9);
 }
 
 /* La scène : un cadre sombre où le clip occupe toute la largeur. Le fond du
@@ -755,7 +755,7 @@ input[type=email]:focus, input[type=password]:focus {
 .essayage-scene video { transition: opacity .35s, filter .35s; }
 .essayage.charge .essayage-scene::after {
   content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--ember), transparent);
+  background: linear-gradient(90deg, transparent, var(--flamme), transparent);
   animation: balayage 1.15s ease-in-out infinite;
 }
 @keyframes balayage {
@@ -804,7 +804,7 @@ input[type=email]:focus, input[type=password]:focus {
   font-family: var(--serif); font-weight: 400; font-size: clamp(32px, 4.2vw, 54px);
   line-height: 1.06; letter-spacing: -.015em; margin: 12px 0 28px;
 }
-.sequence-texte h2 em { font-style: italic; color: var(--gold); }
+.sequence-texte h2 em { font-style: italic; color: var(--eclat); }
 
 /* La liste des étapes : celle en cours s'éclaire, les autres s'effacent sans
    disparaître — on doit voir d'où l'on vient et où l'on va. */
@@ -816,13 +816,13 @@ input[type=email]:focus, input[type=password]:focus {
 }
 .sequence-liste li.actif {
   opacity: 1;
-  background: linear-gradient(90deg, rgba(255,122,47,.10), transparent 76%);
+  background: linear-gradient(90deg, rgb(var(--flamme-rvb) / .10), transparent 76%);
 }
 .sequence-numero {
   font-family: var(--serif); font-size: 17px; color: var(--text-faint);
   transition: color .45s;
 }
-.sequence-liste li.actif .sequence-numero { color: var(--ember-2); }
+.sequence-liste li.actif .sequence-numero { color: var(--flamme-claire); }
 .sequence-liste b {
   display: block; font-size: 15px; font-weight: 600; color: var(--text);
   margin-bottom: 2px;
@@ -873,21 +873,21 @@ input[type=email]:focus, input[type=password]:focus {
 .source::after {
   content: ""; position: absolute; inset: 0; z-index: 0;
   background:
-    linear-gradient(180deg, rgba(6, 5, 4, .62), transparent 26%,
-                    transparent 62%, rgba(6, 5, 4, .78));
+    linear-gradient(180deg, rgba(5, 5, 9, .62), transparent 26%,
+                    transparent 62%, rgba(5, 5, 9, .78));
 }
 .source > * { position: relative; z-index: 1; }
-.source-1 { --teinte-a: #24304e; --teinte-b: #0d1118;
+.source-1 { --teinte-a: #2b2f63; --teinte-b: #0b0c18;
             --vue: url('/static/vues/vue-aube.jpg'); }
-.source-2 { --teinte-a: #5a3418; --teinte-b: #16120f;
+.source-2 { --teinte-a: #4b3785; --teinte-b: #120f1c;
             --vue: url('/static/vues/vue-couchant.jpg'); }
-.source-3 { --teinte-a: #0b1524; --teinte-b: #06080e;
+.source-3 { --teinte-a: #141a4a; --teinte-b: #05050e;
             --vue: url('/static/vues/vue-nuit.jpg'); }
 
 .source-etiquette {
   align-self: flex-start;
   padding: 4px 9px; border-radius: 999px;
-  background: rgba(10, 7, 5, .62); backdrop-filter: blur(8px);
+  background: rgba(7, 7, 12, .62); backdrop-filter: blur(8px);
   font-size: 10px; font-weight: 600; letter-spacing: .08em;
   text-transform: uppercase; color: var(--text-soft);
 }
@@ -908,14 +908,14 @@ input[type=email]:focus, input[type=password]:focus {
 .source-note i::after {
   content: ""; position: absolute; inset: 0 auto 0 0;
   width: calc(var(--part) * 100%); border-radius: 2px;
-  background: linear-gradient(90deg, var(--ember-2), var(--ember));
+  background: linear-gradient(90deg, var(--flamme-claire), var(--flamme));
 }
 /* Le verdict de l'acte 2 : la source la mieux notée ouvre le montage. */
 .source-retenue {
   position: absolute; inset: auto 10px 42px;
   padding: 5px 0; border-radius: 999px; text-align: center;
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  color: #170d05; font-size: 10px; font-weight: 700;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  color: var(--sur-flamme); font-size: 10px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase;
   opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s;
 }
@@ -928,15 +928,15 @@ input[type=email]:focus, input[type=password]:focus {
 .montage-cadre {
   position: relative; aspect-ratio: 9 / 16;
   border-radius: 20px; overflow: hidden;
-  border: 1px solid rgba(255, 155, 74, .35);
-  background: linear-gradient(170deg, #2a1a10, #0a0b10 62%);
-  box-shadow: 0 48px 90px -34px rgba(255, 122, 47, .55),
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .35);
+  background: linear-gradient(170deg, #1d1738, #07070c 62%);
+  box-shadow: 0 48px 90px -34px rgb(var(--flamme-rvb) / .55),
               0 0 0 1px rgba(255, 255, 255, .06);
 }
 .montage-bande {
   position: absolute; inset: 0;
   background: radial-gradient(90% 58% at 50% 26%,
-              rgba(255, 150, 60, .30), transparent 72%);
+              rgb(var(--flamme-claire-rvb) / .30), transparent 72%);
 }
 /* Le script de l'acte 4 : trois lignes qui s'écrivent l'une après l'autre. */
 .montage-script {
@@ -959,7 +959,7 @@ input[type=email]:focus, input[type=password]:focus {
   opacity: 0; transition: opacity .45s;
 }
 .acte-4 .montage-soustitre { opacity: 1; }
-.montage-soustitre b { color: var(--gold); }
+.montage-soustitre b { color: var(--eclat); }
 .montage-etiquette {
   display: block; margin-top: 14px; text-align: center;
   font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
@@ -1027,14 +1027,14 @@ input[type=email]:focus, input[type=password]:focus {
     /* Un assombrissement au centre, sous le texte. L'astre de l'image y tombe
        pile : sans lui, la phrase se lit sur un aplat clair. */
     radial-gradient(58% 74% at 50% 50%,
-                    rgba(10, 7, 5, var(--voile-centre)), transparent 72%),
+                    rgba(7, 7, 12, var(--voile-centre)), transparent 72%),
     /* Le haut et le bas éteignent l'image avant les bords de la section.
        Arrêtés trop tard, la coupe se voyait comme un timbre collé — c'est
        exactement ce que ces voiles doivent éviter. */
     linear-gradient(180deg, var(--ink) 0%,
-                    rgba(10, 7, 5, var(--voile-haut)) 18%,
-                    rgba(10, 7, 5, var(--voile-milieu)) 52%,
-                    rgba(10, 7, 5, var(--voile-bas)) 82%,
+                    rgba(7, 7, 12, var(--voile-haut)) 18%,
+                    rgba(7, 7, 12, var(--voile-milieu)) 52%,
+                    rgba(7, 7, 12, var(--voile-bas)) 82%,
                     var(--ink) 100%),
     linear-gradient(90deg, var(--ink), transparent 18%,
                     transparent 82%, var(--ink));
@@ -1047,7 +1047,7 @@ input[type=email]:focus, input[type=password]:focus {
   --bandeau: url('/static/vues/bandeau-couchant.jpg');
   --voile-centre: .30; --voile-haut: .40;
   --voile-milieu: .44; --voile-bas: .66;
-  border-block: 1px solid rgba(185, 140, 74, .22);
+  border-block: 1px solid rgb(var(--laiton-rvb) / .22);
   min-height: var(--bandeau-h);
   /* Cadré par le bas : le soleil et la ligne de mer y sont, et la citation
      occupe le ciel au-dessus, quelle que soit la découpe. */
@@ -1060,7 +1060,7 @@ input[type=email]:focus, input[type=password]:focus {
   font-size: clamp(25px, 4.2vw, 42px);
   line-height: 1.22; color: var(--text);
   text-wrap: balance;
-  text-shadow: 0 2px 30px rgba(4, 3, 2, .9);
+  text-shadow: 0 2px 30px rgba(3, 3, 7, .9);
 }
 
 .appel {
@@ -1073,7 +1073,7 @@ input[type=email]:focus, input[type=password]:focus {
      cadrage lui coupe le halo au bord supérieur. */
   background-position: center top;
   max-width: none; width: 100%;
-  border-top: 1px solid rgba(185, 140, 74, .22);
+  border-top: 1px solid rgb(var(--laiton-rvb) / .22);
   /* Le texte garde sa largeur de lecture, mais l'image va d'un bord à
      l'autre : les marges deviennent du remplissage plutôt qu'une limite. */
   padding-inline: max(36px, calc((100% - 780px) / 2));
@@ -1090,7 +1090,7 @@ input[type=email]:focus, input[type=password]:focus {
 }
 .section > .eyebrow::before, .sequence-texte > .eyebrow::before {
   content: ""; width: 26px; height: 1px; flex: none;
-  background: linear-gradient(90deg, var(--laiton), rgba(185, 140, 74, .15));
+  background: linear-gradient(90deg, var(--laiton), rgb(var(--laiton-rvb) / .15));
 }
 
 /* Les titres de section respirent davantage, et la phrase d'accroche se
@@ -1119,7 +1119,7 @@ input[type=email]:focus, input[type=password]:focus {
   content: ""; position: absolute; inset: 12% auto 12% 0;
   width: 1px;
   background: linear-gradient(180deg, transparent,
-              rgba(185, 140, 74, .30), transparent);
+              rgb(var(--laiton-rvb) / .30), transparent);
 }
 @media (max-width: 640px) {
   /* En une seule colonne, le filet vertical n'a plus rien à séparer : il
@@ -1127,20 +1127,20 @@ input[type=email]:focus, input[type=password]:focus {
   .chiffres-grille > div + div::before {
     inset: 0 12% auto; width: auto; height: 1px;
     background: linear-gradient(90deg, transparent,
-                rgba(185, 140, 74, .30), transparent);
+                rgb(var(--laiton-rvb) / .30), transparent);
   }
 }
 
 .site-footer {
-  border-top: 1px solid rgba(185, 140, 74, .24);
+  border-top: 1px solid rgb(var(--laiton-rvb) / .24);
   background:
-    linear-gradient(180deg, rgba(255, 122, 47, .035), transparent 40%),
-    rgba(4, 3, 2, .55);
+    linear-gradient(180deg, rgb(var(--flamme-rvb) / .035), transparent 40%),
+    rgba(3, 3, 7, .55);
 }
 .footer-marque .brand { color: var(--text); }
-.footer-marque .brand .flamme { filter: drop-shadow(0 0 12px rgba(255, 122, 47, .55)); }
+.footer-marque .brand .flamme { filter: drop-shadow(0 0 12px rgb(var(--flamme-rvb) / .55)); }
 .site-footer a { transition: color .2s, translate .2s; }
-.site-footer a:not(.brand):hover { color: var(--ember-2); translate: 2px 0; }
+.site-footer a:not(.brand):hover { color: var(--flamme-claire); translate: 2px 0; }
 
 /* ===================================================================
    Le premier écran
@@ -1173,7 +1173,7 @@ input[type=email]:focus, input[type=password]:focus {
     left: 50%; translate: -50% 0; bottom: -56px;
     width: 236px; height: 92px;
     background: radial-gradient(50% 100% at 50% 0%,
-                rgba(255, 150, 74, .30), rgba(255, 122, 47, .07) 46%,
+                rgb(var(--flamme-claire-rvb) / .30), rgb(var(--flamme-rvb) / .07) 46%,
                 transparent 76%);
     filter: blur(12px);
   }
@@ -1183,7 +1183,7 @@ input[type=email]:focus, input[type=password]:focus {
   .telephone-reflet {
     background:
       linear-gradient(145deg, rgba(255, 255, 255, .14), transparent 40%),
-      linear-gradient(76deg, transparent 36%, rgba(255, 236, 214, .10) 46%,
+      linear-gradient(76deg, transparent 36%, rgb(var(--os-rvb) / .10) 46%,
                       transparent 56%);
     background-size: 100% 100%, 300% 100%;
     background-position: 0 0, 78% 0;
@@ -1195,7 +1195,7 @@ input[type=email]:focus, input[type=password]:focus {
   .hero-texte > .eyebrow { display: flex; align-items: center; gap: 12px; }
   .hero-texte > .eyebrow::before {
     content: ""; width: 26px; height: 1px; flex: none;
-    background: linear-gradient(90deg, var(--laiton), rgba(185, 140, 74, .15));
+    background: linear-gradient(90deg, var(--laiton), rgb(var(--laiton-rvb) / .15));
   }
 }
 
@@ -1212,6 +1212,6 @@ input[type=email]:focus, input[type=password]:focus {
   content: ""; position: absolute; inset: -20px -24px; z-index: -1;
   border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(10, 7, 5, .55), rgba(10, 7, 5, .80) 30%,
-                    rgba(10, 7, 5, .86) 100%);
+    linear-gradient(180deg, rgba(7, 7, 12, .55), rgba(7, 7, 12, .80) 30%,
+                    rgba(7, 7, 12, .86) 100%);
 }

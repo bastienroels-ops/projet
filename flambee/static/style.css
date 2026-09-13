@@ -28,31 +28,67 @@
 }
 
 :root {
-  /* Les fonds. Un noir chaud, presque brun — celui d'un atelier la nuit, pas
-     celui d'un tableau de bord. Le gris pur donnait au site l'air d'un outil
-     technique ; la braise n'y trouvait aucun écho. */
-  --ink:        #0a0705;
-  --ink-2:      #120d09;
-  --ink-3:      #1b1410;          /* surface opaque, pour les cartes pleines */
+  /* ------------------------------------------------------------------
+     La couleur du site tient dans les six triplets ci-dessous.
 
-  /* Les voiles. Teintés vers la braise plutôt que blancs : un blanc pur posé
-     sur un fond chaud le refroidit et casse l'unité. */
-  --surface:    rgba(255, 236, 214, .032);
-  --surface-2:  rgba(255, 236, 214, .062);
-  --hairline:   rgba(255, 231, 201, .085);
-  --hairline-2: rgba(255, 231, 201, .17);
+     Ils sont écrits en composantes séparées, et non en `#rrggbb`, pour une
+     raison précise : partout ailleurs dans ces feuilles, l'accent apparaît à
+     des dizaines d'opacités différentes — une lueur à 5 %, un filet à 30 %,
+     une ombre portée à 90 %. Avec une couleur opaque on ne peut pas en
+     dériver une transparente ; il faut la réécrire en entier, et l'accent se
+     retrouve recopié soixante fois en dur. Changer de couleur devient alors
+     une chasse, et il en reste toujours une qui traîne.
+
+     Écrits ainsi, ils se composent : `rgb(var(--flamme-rvb) / .3)`. Changer
+     la couleur du site, c'est changer ces six lignes.
+     ------------------------------------------------------------------ */
+
+  /* La flamme. La plus chaude n'est pas orange : elle est bleue. */
+  --flamme-rvb:        108  92 231;   /* l'accent — indigo */
+  --flamme-claire-rvb: 167 139 250;   /* l'éclat — violet clair */
+  --flamme-nuit-rvb:    59  43 143;   /* le fond des dégradés */
+
+  /* Le laiton reste chaud, et c'est tout l'intérêt : c'est la seule note
+     tiède de la page. Posé sur un fond froid, un filet de métal chaud se voit
+     dix fois mieux que la même ligne en gris. */
+  --laiton-rvb:        185 140  74;
+
+  /* L'os : le blanc du texte et des voiles. Très légèrement bleuté, pour ne
+     pas jaunir sur l'encre froide. */
+  --os-rvb:            232 232 246;
+
+  /* L'ombre interne des surfaces pleines, sous le bouton notamment. */
+  --creux-rvb:          28  20  64;
+
+  /* ------------------------------------------------------------------ */
+
+  /* Ce qui s'écrit *sur* l'accent. Une couleur d'encre convenait à l'orange,
+     qui est clair ; l'indigo est sombre, et il lui faut l'inverse. La règle
+     ne se devine pas au cas par cas : elle vit ici. */
+  --sur-flamme:    #f6f4ff;
+
+  --flamme:        rgb(var(--flamme-rvb));
+  --flamme-claire: rgb(var(--flamme-claire-rvb));
+  --flamme-nuit:   rgb(var(--flamme-nuit-rvb));
+  --laiton:        rgb(var(--laiton-rvb));
+  --eclat:         rgb(var(--flamme-claire-rvb));
+
+  /* Les fonds. Une encre de nuit : bleutée, presque noire. Assez froide pour
+     que l'indigo y paraisse lumineux, assez profonde pour que le laiton y
+     accroche la lumière. */
+  --ink:        #07070c;
+  --ink-2:      #0d0d16;
+  --ink-3:      #15141f;          /* surface opaque, pour les cartes pleines */
+
+  --surface:    rgb(var(--os-rvb) / .032);
+  --surface-2:  rgb(var(--os-rvb) / .062);
+  --hairline:   rgb(var(--os-rvb) / .085);
+  --hairline-2: rgb(var(--os-rvb) / .17);
 
   /* Texte : de l'os, jamais du blanc. */
-  --text:       #f7f0e5;
-  --text-soft:  #b3a897;
-  --text-faint: #74695c;
-
-  /* La braise : l'accent de la marque */
-  --ember:      #ff7a2f;
-  --ember-2:    #ffb648;
-  --ember-deep: #c23c0c;
-  --gold:       #e8c87a;
-  --laiton:     #b98c4a;          /* le métal des filets, plus sourd que l'or */
+  --text:       #f0eef8;
+  --text-soft:  #aaa6bd;
+  --text-faint: #6e6b81;
 
   --ok:         #5fd6a4;
   --alert:      #ff6b6b;
@@ -63,12 +99,12 @@
   /* La lumière vient d'en haut : un filet clair sur l'arête supérieure suffit
      à donner de l'épaisseur à une surface, là où une bordure uniforme la
      laisse plate. */
-  --lueur:      inset 0 1px 0 rgba(255, 231, 201, .10);
-  --lueur-forte: inset 0 1px 0 rgba(255, 240, 220, .20);
+  --lueur:      inset 0 1px 0 rgb(var(--os-rvb) / .10);
+  --lueur-forte: inset 0 1px 0 rgb(var(--os-rvb) / .22);
 
   --shadow:     0 30px 80px -34px rgba(0, 0, 0, .95),
                 0 3px 10px -6px rgba(0, 0, 0, .7);
-  --shadow-lift: 0 34px 76px -30px rgba(255, 122, 47, .42),
+  --shadow-lift: 0 34px 76px -30px rgb(var(--flamme-rvb) / .50),
                 0 4px 12px -6px rgba(0, 0, 0, .6);
 
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -103,13 +139,13 @@ body::after {
 body::before {
   width: 62vw; height: 62vw; max-width: 680px; max-height: 680px;
   top: -22vw; right: -16vw;
-  background: radial-gradient(circle, rgba(255, 122, 47, .30), transparent 68%);
+  background: radial-gradient(circle, rgb(var(--flamme-rvb) / .30), transparent 68%);
   animation: respire 14s ease-in-out infinite;
 }
 body::after {
   width: 52vw; height: 52vw; max-width: 560px; max-height: 560px;
   bottom: -20vw; left: -18vw;
-  background: radial-gradient(circle, rgba(194, 60, 12, .22), transparent 70%);
+  background: radial-gradient(circle, rgb(var(--flamme-nuit-rvb) / .22), transparent 70%);
   animation: respire 19s ease-in-out infinite reverse;
 }
 @keyframes respire {
@@ -140,7 +176,7 @@ html::after {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 22px 30px;
   border-bottom: 1px solid var(--hairline);
-  background: linear-gradient(180deg, rgba(10, 7, 5, .92), rgba(10, 7, 5, .55));
+  background: linear-gradient(180deg, rgba(7, 7, 12, .92), rgba(7, 7, 12, .55));
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
 }
@@ -152,8 +188,8 @@ html::after {
   white-space: nowrap;
 }
 .brand .flamme, .barre-marque .flamme {
-  width: 22px; height: 22px; color: var(--ember);
-  filter: drop-shadow(0 0 14px rgba(255, 122, 47, .75));
+  width: 22px; height: 22px; color: var(--flamme);
+  filter: drop-shadow(0 0 14px rgb(var(--flamme-rvb) / .75));
   animation: vacille 3.5s ease-in-out infinite;
 }
 @keyframes vacille {
@@ -220,9 +256,9 @@ main {
 .step.done { color: var(--text-soft); }
 .step.done b { background: rgba(95, 214, 164, .14); color: var(--ok); }
 .step.active {
-  color: #140c06;
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  box-shadow: 0 8px 24px -10px rgba(255, 122, 47, .8);
+  color: var(--sur-flamme);
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  box-shadow: 0 8px 24px -10px rgb(var(--flamme-rvb) / .8);
 }
 .step.active b { background: rgba(0, 0, 0, .22); color: #140c06; }
 .step:disabled { opacity: .3; cursor: not-allowed; }
@@ -244,7 +280,7 @@ main {
 .panel::before {
   content: ""; position: absolute; inset: 0 0 auto; height: 1px;
   border-radius: var(--radius) var(--radius) 0 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 182, 72, .5), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--flamme-claire-rvb) / .5), transparent);
 }
 @keyframes entree {
   from { opacity: 0; transform: translateY(14px); }
@@ -253,7 +289,7 @@ main {
 
 .eyebrow {
   font-size: 10.5px; font-weight: 600; letter-spacing: .17em;
-  text-transform: uppercase; color: var(--ember);
+  text-transform: uppercase; color: var(--flamme);
   margin: 0 0 12px;
 }
 h2 {
@@ -261,7 +297,7 @@ h2 {
   font-size: clamp(30px, 5vw, 40px); line-height: 1.08;
   letter-spacing: -.015em; margin: 0 0 10px;
 }
-h2 em { font-style: italic; color: var(--gold); }
+h2 em { font-style: italic; color: var(--eclat); }
 .hint { color: var(--text-soft); font-size: 14px; margin: 0 0 24px; max-width: 62ch; }
 .legal {
   color: var(--text-faint); font-size: 11.5px; line-height: 1.6;
@@ -283,9 +319,9 @@ textarea, input[type=text], select {
 textarea::placeholder, input::placeholder { color: var(--text-faint); }
 textarea:focus, input:focus, select:focus {
   outline: none;
-  border-color: rgba(255, 122, 47, .55);
+  border-color: rgb(var(--flamme-rvb) / .55);
   background: rgba(0, 0, 0, .45);
-  box-shadow: 0 0 0 4px rgba(255, 122, 47, .1);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .1);
 }
 select {
   appearance: none; cursor: pointer; padding-right: 42px;
@@ -310,12 +346,12 @@ label.block > span:first-child {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 20px; margin-bottom: 4px;
 }
-.value { float: right; color: var(--gold); letter-spacing: 0; font-weight: 500; }
+.value { float: right; color: var(--eclat); letter-spacing: 0; font-weight: 500; }
 
 input[type=range] {
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 3px; border-radius: 999px; outline: none;
-  background: linear-gradient(90deg, var(--ember), var(--ember-2)) no-repeat,
+  background: linear-gradient(90deg, var(--flamme), var(--flamme-claire)) no-repeat,
               rgba(255, 255, 255, .12);
   background-size: 50% 100%;
 }
@@ -323,12 +359,12 @@ input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 17px; height: 17px; border-radius: 50%;
   background: var(--text); cursor: pointer;
-  border: 3px solid var(--ember);
+  border: 3px solid var(--flamme);
   box-shadow: 0 3px 12px rgba(0, 0, 0, .6);
 }
 input[type=range]::-moz-range-thumb {
   width: 15px; height: 15px; border-radius: 50%;
-  background: var(--text); border: 3px solid var(--ember); cursor: pointer;
+  background: var(--text); border: 3px solid var(--flamme); cursor: pointer;
 }
 
 /* Cases à cocher : une rangée de bascules lisibles au pouce. */
@@ -354,7 +390,7 @@ input[type=range]::-moz-range-thumb {
   transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), background .25s;
 }
 .checks input[type=checkbox]:checked {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
   border-color: transparent;
 }
 .checks input[type=checkbox]:checked::after {
@@ -372,7 +408,7 @@ input[type=range]::-moz-range-thumb {
   width: 270px; flex: none; display: block;
   /* Proportions de l'échantillon : le cadre ne saute pas pendant le chargement. */
   aspect-ratio: 108 / 34;
-  border-radius: 10px; background: #14100c;
+  border-radius: 10px; background: #0f0e18;
   box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .9);
 }
 /* `display: block` ci-dessus l'emporterait sur l'attribut hidden. */
@@ -392,7 +428,7 @@ input[type=range]::-moz-range-thumb {
 .preview.loading video { opacity: .3; }
 .preview.unplayable .preview-note::after {
   content: " — aperçu indisponible ici";
-  color: var(--ember-2);
+  color: var(--flamme-claire);
 }
 
 /* -------------------------------------------------------------- Boutons --- */
@@ -414,43 +450,46 @@ button, .button {
    blanchit et l'orange de la marque n'y est plus. */
 .primary {
   background:
-    linear-gradient(180deg, rgba(255, 252, 244, .14), transparent 34%),
-    linear-gradient(168deg, var(--ember-2) 0%, var(--ember) 46%,
-                    var(--ember-deep) 100%);
-  color: #1a0e04;
+    linear-gradient(180deg, rgb(var(--os-rvb) / .20), transparent 38%),
+    linear-gradient(168deg, var(--flamme) 0%, var(--flamme) 34%,
+                    var(--flamme-nuit) 100%);
+  color: var(--sur-flamme);
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 236, .52),
-    inset 0 -1px 0 rgba(120, 40, 0, .38),
-    0 12px 32px -14px rgba(255, 122, 47, .9);
-  text-shadow: 0 1px 0 rgba(255, 230, 200, .34);
+    inset 0 1px 0 rgb(var(--os-rvb) / .52),
+    inset 0 -1px 0 rgb(var(--creux-rvb) / .38),
+    /* Le halo sous le bouton est plus discret qu'il ne l'était : l'indigo
+       diffuse beaucoup plus que l'orange sur un fond sombre, et la même
+       valeur donnait une auréole de néon plutôt qu'une ombre portée. */
+    0 12px 30px -16px rgb(var(--flamme-rvb) / .65);
+  text-shadow: 0 1px 0 rgb(var(--creux-rvb) / .45);
 }
 .primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 236, .6),
-    inset 0 -1px 0 rgba(120, 40, 0, .35),
+    inset 0 1px 0 rgb(var(--os-rvb) / .6),
+    inset 0 -1px 0 rgb(var(--creux-rvb) / .35),
     var(--shadow-lift);
 }
 .primary:active:not(:disabled) {
   transform: translateY(0) scale(.988);
   box-shadow:
-    inset 0 2px 6px rgba(120, 40, 0, .45),
-    0 4px 14px -8px rgba(255, 122, 47, .7);
+    inset 0 2px 6px rgb(var(--creux-rvb) / .45),
+    0 4px 14px -8px rgb(var(--flamme-rvb) / .7);
 }
 /* Le bouton secondaire reste discret, mais pas éteint : un souffle de braise
    au bas du fond suffit à le rattacher au primaire. Sans lui, les deux
    boutons du premier écran n'ont pas l'air de venir du même endroit. */
 .ghost {
   background:
-    linear-gradient(180deg, rgba(255, 236, 214, .045),
-                    rgba(255, 122, 47, .035));
+    linear-gradient(180deg, rgb(var(--os-rvb) / .045),
+                    rgb(var(--flamme-rvb) / .035));
   color: var(--text-soft);
   border: 1px solid var(--hairline);
   box-shadow: var(--lueur);
 }
 .ghost:hover:not(:disabled) {
   color: var(--text);
-  border-color: rgba(185, 140, 74, .45);       /* le filet chauffe au laiton */
+  border-color: rgb(var(--laiton-rvb) / .45);       /* le filet chauffe au laiton */
   background: var(--surface-2); transform: translateY(-1px);
 }
 button:disabled, .button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
@@ -482,7 +521,7 @@ button.small { padding: 8px 16px; font-size: 12.5px; }
   color: var(--text-faint); font-size: 11.5px; margin-top: 5px;
   letter-spacing: .03em;
 }
-.source .warn { color: var(--ember-2); font-size: 12.5px; margin-top: 8px; }
+.source .warn { color: var(--flamme-claire); font-size: 12.5px; margin-top: 8px; }
 .source .err { color: var(--alert); font-size: 12.5px; margin-top: 8px; }
 
 /* ------------------------------------------------------------ Accroches --- */
@@ -499,10 +538,10 @@ button.small { padding: 8px 16px; font-size: 12.5px; }
               box-shadow .3s;
 }
 .hook:hover { transform: translateY(-4px); border-color: var(--hairline-2); }
-.hook.recommended { border-color: rgba(232, 200, 122, .4); }
+.hook.recommended { border-color: rgb(var(--flamme-claire-rvb) / .4); }
 .hook.selected {
-  border-color: var(--ember);
-  box-shadow: 0 0 0 1px var(--ember), 0 20px 44px -20px rgba(255, 122, 47, .75);
+  border-color: var(--flamme);
+  box-shadow: 0 0 0 1px var(--flamme), 0 20px 44px -20px rgb(var(--flamme-rvb) / .75);
 }
 .hook video {
   width: 100%; aspect-ratio: 9 / 16; object-fit: cover;
@@ -517,10 +556,10 @@ button.small { padding: 8px 16px; font-size: 12.5px; }
 .hook .badge {
   position: absolute; top: 18px; left: 18px; z-index: 2; overflow: hidden;
   padding: 5px 11px; border-radius: 999px;
-  background: linear-gradient(135deg, var(--gold), #d0a94f);
-  color: #170f03; font-size: 9.5px; font-weight: 700;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  color: var(--sur-flamme); font-size: 9.5px; font-weight: 700;
   letter-spacing: .1em; text-transform: uppercase;
-  box-shadow: 0 6px 18px -6px rgba(232, 200, 122, .8);
+  box-shadow: 0 6px 18px -6px rgb(var(--flamme-claire-rvb) / .8);
 }
 /* Un reflet traverse le badge, comme sur du métal poli. */
 .hook .badge::after {
@@ -549,10 +588,10 @@ button.small { padding: 8px 16px; font-size: 12.5px; }
 }
 .job-fill {
   height: 100%; width: 0;
-  background: linear-gradient(90deg, var(--ember-deep), var(--ember), var(--ember-2));
+  background: linear-gradient(90deg, var(--flamme-nuit), var(--flamme), var(--flamme-claire));
   border-radius: 999px;
   transition: width .45s cubic-bezier(.16, 1, .3, 1);
-  box-shadow: 0 0 14px rgba(255, 122, 47, .8);
+  box-shadow: 0 0 14px rgb(var(--flamme-rvb) / .8);
 }
 .job-line {
   display: flex; align-items: center; justify-content: space-between;
@@ -604,7 +643,7 @@ button.small { padding: 8px 16px; font-size: 12.5px; }
   border: 1px solid var(--hairline);
   box-shadow: var(--shadow);
 }
-.result video.preview { border-color: rgba(232, 200, 122, .45); }
+.result video.preview { border-color: rgb(var(--flamme-claire-rvb) / .45); }
 .result-side { flex: 1 1 230px; display: flex; flex-direction: column; gap: 14px; }
 #result-info { font-family: var(--serif); font-size: 22px; margin: 0; line-height: 1.25; }
 
@@ -660,15 +699,15 @@ code {
   display: inline-flex; align-items: center; gap: 8px;
 }
 .bascule-facturation button.actif {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  color: #150d05; font-weight: 600;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  color: var(--sur-flamme); font-weight: 600;
 }
 .remise {
   font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
   padding: 2px 7px; border-radius: 999px;
   background: rgba(95, 214, 164, .16); color: var(--ok);
 }
-.bascule-facturation button.actif .remise { background: rgba(0,0,0,.2); color: #150d05; }
+.bascule-facturation button.actif .remise { background: rgba(0,0,0,.2); color: var(--sur-flamme); }
 
 .tarifs-grille {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
@@ -680,14 +719,14 @@ code {
   background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
 }
 .tarif.vedette {
-  border-color: rgba(255, 122, 47, .45);
-  box-shadow: 0 26px 70px -34px rgba(255, 122, 47, .7);
+  border-color: rgb(var(--flamme-rvb) / .45);
+  box-shadow: 0 26px 70px -34px rgb(var(--flamme-rvb) / .7);
 }
 .ruban {
   position: absolute; top: -11px; left: 30px;
   padding: 5px 13px; border-radius: 999px;
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  color: #150d05; font-size: 10px; font-weight: 700;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  color: var(--sur-flamme); font-size: 10px; font-weight: 700;
   letter-spacing: .1em; text-transform: uppercase;
 }
 .tarif h3 {
@@ -700,7 +739,7 @@ code {
 .tarif-prix span { font-size: 13.5px; color: var(--text-faint); }
 .tarif-volume {
   font-size: 12px; font-weight: 600; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--ember-2); margin: 0 0 26px;
+  text-transform: uppercase; color: var(--flamme-claire); margin: 0 0 26px;
 }
 /* Le lien du site public et le bouton de formulaire de l'atelier :
    même carte, même largeur pleine. */
@@ -716,7 +755,7 @@ code {
 }
 .tarif-liste li::before {
   content: "→"; position: absolute; left: 0; top: 0;
-  color: var(--ember); font-size: 13px;
+  color: var(--flamme); font-size: 13px;
 }
 .tarif-note { margin: 22px 0 0; font-size: 12.5px; color: var(--text-faint); font-style: italic; }
 
@@ -736,13 +775,13 @@ code {
 .vignette {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(120% 92% at 50% 38%, transparent 34%, rgba(4, 3, 2, .66) 100%),
+    radial-gradient(120% 92% at 50% 38%, transparent 34%, rgba(3, 3, 7, .66) 100%),
     /* Le champ de braises monte du bas : c'est là qu'il est le plus vif, et
        là que le texte d'une page sans image lui passe dessus. Le bas du
        vignettage est donc plus lourd que le haut — ce n'est pas symétrique,
        et ça n'a pas à l'être. */
-    linear-gradient(180deg, rgba(4, 3, 2, .55), transparent 16%,
-                    transparent 46%, rgba(4, 3, 2, .58) 100%);
+    linear-gradient(180deg, rgba(3, 3, 7, .55), transparent 16%,
+                    transparent 46%, rgba(3, 3, 7, .58) 100%);
 }
 
 /* L'aurore : deux halos chauds qui dérivent lentement derrière la page. Ils
@@ -759,12 +798,13 @@ code {
 }
 .aurore span:nth-child(1) {
   width: 46vw; height: 46vw; top: -14vw; left: -8vw;
-  background: radial-gradient(circle, rgba(255, 122, 47, .30), transparent 68%);
+  background: radial-gradient(circle, rgb(var(--flamme-rvb) / .30), transparent 68%);
   animation: derive-a 34s ease-in-out infinite alternate;
 }
 .aurore span:nth-child(2) {
   width: 38vw; height: 38vw; top: 8vw; right: -10vw;
-  background: radial-gradient(circle, rgba(120, 90, 255, .17), transparent 68%);
+  background: radial-gradient(circle,
+              rgb(var(--flamme-rvb) / .17), transparent 68%);
   animation: derive-b 41s ease-in-out infinite alternate;
 }
 @keyframes derive-a {
@@ -793,8 +833,8 @@ code {
 .progression {
   position: fixed; top: 0; left: 0; height: 2px; z-index: 60;
   width: var(--avance, 0%);
-  background: linear-gradient(90deg, var(--ember-2), var(--ember));
-  box-shadow: 0 0 14px rgba(255, 122, 47, .6);
+  background: linear-gradient(90deg, var(--flamme-claire), var(--flamme));
+  box-shadow: 0 0 14px rgb(var(--flamme-rvb) / .6);
   transition: width .1s linear;
 }
 
@@ -810,7 +850,7 @@ code {
 /* Les icônes du jeu maison : elles suivent la couleur du texte et ne doivent
    jamais se déformer quand la place manque. */
 .icone { flex: none; display: block; }
-.icone.flamme { color: var(--ember); }
+.icone.flamme { color: var(--flamme); }
 
 /* Le fond WebGL. Il occupe l'écran entier, sous tout le reste, et se retire
    du flux : aucune interaction, aucune sélection, aucun défilement. */
@@ -848,12 +888,12 @@ code {
    au lieu de flotter au-dessus d'un incendie. */
 .tarif, .carte, .carte-formulaire {
   background:
-    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
     linear-gradient(180deg, var(--ink-3), var(--ink-2));
   box-shadow: var(--lueur);
 }
 .tarif.vedette {
   background:
-    linear-gradient(180deg, rgba(255, 150, 74, .10), rgba(255, 122, 47, .022)),
-    linear-gradient(180deg, #241610, var(--ink-2));
+    linear-gradient(180deg, rgb(var(--flamme-claire-rvb) / .10), rgb(var(--flamme-rvb) / .022)),
+    linear-gradient(180deg, #1b1636, var(--ink-2));
 }
