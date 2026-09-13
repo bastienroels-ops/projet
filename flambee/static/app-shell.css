@@ -267,3 +267,9 @@ button.danger, .button.danger {
 button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 .avis.reussite { border-color: rgba(95,214,164,.3); background: rgba(95,214,164,.06); color: #a5ead0; }
 .avis.reussite b { color: var(--ok); }
+
+/* Titre de section dans l'atelier (« Changer de formule »…). */
+.section-titre {
+  font-family: var(--serif); font-weight: 400; font-size: 28px;
+  margin: 34px 0 20px;
+}

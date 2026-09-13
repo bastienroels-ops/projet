@@ -201,73 +201,6 @@ body.site { padding: 0; }
   font-size: 21px; color: var(--text); margin-bottom: 5px;
 }
 
-/* --------------------------------------------------------------- Tarifs --- */
-.bascule-facturation {
-  display: inline-flex; gap: 4px; padding: 5px; margin-bottom: 38px;
-  border: 1px solid var(--hairline); border-radius: 999px;
-  background: var(--surface);
-}
-.bascule-facturation button {
-  padding: 9px 20px; border: none; border-radius: 999px;
-  background: transparent; color: var(--text-soft);
-  font: 500 13.5px var(--sans); cursor: pointer;
-  display: inline-flex; align-items: center; gap: 8px;
-}
-.bascule-facturation button.actif {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  color: #150d05; font-weight: 600;
-}
-.remise {
-  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
-  padding: 2px 7px; border-radius: 999px;
-  background: rgba(95, 214, 164, .16); color: var(--ok);
-}
-.bascule-facturation button.actif .remise { background: rgba(0,0,0,.2); color: #150d05; }
-
-.tarifs-grille {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
-  gap: 22px; align-items: start;
-}
-.tarif {
-  position: relative; padding: 34px 30px;
-  border: 1px solid var(--hairline); border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
-}
-.tarif.vedette {
-  border-color: rgba(255, 122, 47, .45);
-  box-shadow: 0 26px 70px -34px rgba(255, 122, 47, .7);
-}
-.ruban {
-  position: absolute; top: -11px; left: 30px;
-  padding: 5px 13px; border-radius: 999px;
-  background: linear-gradient(135deg, var(--ember-2), var(--ember));
-  color: #150d05; font-size: 10px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
-}
-.tarif h3 {
-  font-family: var(--serif); font-weight: 400; font-size: 28px;
-  margin: 0 0 8px;
-}
-.tarif-accroche { font-size: 14px; color: var(--text-soft); margin: 0 0 24px; min-height: 42px; line-height: 1.55; }
-.tarif-prix { display: flex; align-items: baseline; gap: 9px; margin: 0 0 6px; }
-.tarif-prix b { font-size: 44px; font-weight: 600; letter-spacing: -.03em; }
-.tarif-prix span { font-size: 13.5px; color: var(--text-faint); }
-.tarif-volume {
-  font-size: 12px; font-weight: 600; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--ember-2); margin: 0 0 26px;
-}
-.tarif .button { width: 100%; margin-bottom: 26px; }
-.tarif-liste { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-.tarif-liste li {
-  position: relative; padding-left: 26px;
-  font-size: 14px; color: var(--text-soft); line-height: 1.5;
-}
-.tarif-liste li::before {
-  content: "→"; position: absolute; left: 0; top: 0;
-  color: var(--ember); font-size: 13px;
-}
-.tarif-note { margin: 22px 0 0; font-size: 12.5px; color: var(--text-faint); font-style: italic; }
-
 /* ------------------------------------------------------------------ FAQ --- */
 .faq { margin-top: 36px; border-top: 1px solid var(--hairline); }
 .faq details { border-bottom: 1px solid var(--hairline); }
@@ -398,7 +331,6 @@ body.site { padding: 0; }
   .hero-actions .button { flex: 1 1 100%; }
   .footer-grille { grid-template-columns: 1fr; gap: 30px; }
   .site-footer { padding: 46px 20px 24px; }
-  .tarif { padding: 28px 22px; }
 }
 
 /* ------------------------------------------------- Formulaires de compte --- */
