@@ -158,17 +158,34 @@ write_files:
         CLE=$(head -c 48 /dev/urandom | base64 | tr -d '=+/' | cut -c1-64)
         cat > /opt/flambee/.env <<ENV
       DOMAINE=${DOMAINE}
+      FLAMBEE_BASE_URL=https://${DOMAINE}
       FLAMBEE_SECRET_KEY=${CLE}
       ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       FLAMBEE_SIGNUP=ouvert
+      FLAMBEE_INVITE_CODE=
+      FLAMBEE_PLAN_PROPRIETAIRE=studio
+      FLAMBEE_INSTALL_MOTEUR=1
       FLAMBEE_NICE=5
       FLAMBEE_WHISPER_MODEL=base
       FLAMBEE_MAX_UPLOAD_MB=600
+      # Courriel de réinitialisation de mot de passe. Laissé vide, le lien
+      # est écrit dans le journal (docker compose logs flambee) et la page
+      # le dit à l'utilisateur : personne ne reste bloqué sans explication.
+      FLAMBEE_SMTP_HOTE=
+      FLAMBEE_SMTP_PORT=587
+      FLAMBEE_SMTP_UTILISATEUR=
+      FLAMBEE_SMTP_MOT_DE_PASSE=
+      FLAMBEE_SMTP_EXPEDITEUR=
       ENV
         chmod 600 /opt/flambee/.env
       else
-        # Au redémarrage, l'adresse publique peut avoir changé.
+        # Au redémarrage, l'adresse publique peut avoir changé. Les liens de
+        # réinitialisation la portent : ils doivent suivre.
         sed -i "s|^DOMAINE=.*|DOMAINE=${DOMAINE}|" /opt/flambee/.env
+        sed -i "s|^FLAMBEE_BASE_URL=.*|FLAMBEE_BASE_URL=https://${DOMAINE}|" \
+          /opt/flambee/.env
+        grep -q "^FLAMBEE_BASE_URL=" /opt/flambee/.env \
+          || echo "FLAMBEE_BASE_URL=https://${DOMAINE}" >> /opt/flambee/.env
       fi
 
       # --- 6. Démarrage ---------------------------------------------------

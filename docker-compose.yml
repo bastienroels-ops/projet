@@ -11,11 +11,19 @@ services:
   flambee:
     build: .
     restart: unless-stopped
+    # Tout ce qui est écrit dans .env entre dans le conteneur. Énumérer les
+    # variables une à une laissait dehors celles qu'on oubliait d'ajouter ici
+    # après les avoir documentées : les réglages SMTP, par exemple, étaient
+    # décrits dans .env.exemple mais n'arrivaient jamais à l'application — la
+    # réinitialisation de mot de passe ne pouvait donc pas envoyer de courriel
+    # en production, sans que rien ne le dise.
+    env_file:
+      - .env
+    # Ne restent ici que celles qui ont besoin d'une valeur par défaut, ou
+    # d'être exigées, quand .env ne les mentionne pas.
     environment:
       FLAMBEE_SECRET_KEY: ${FLAMBEE_SECRET_KEY:?definis une cle dans .env}
       FLAMBEE_SIGNUP: ${FLAMBEE_SIGNUP:-ouvert}
-      FLAMBEE_INVITE_CODE: ${FLAMBEE_INVITE_CODE:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       FLAMBEE_WHISPER_MODEL: ${FLAMBEE_WHISPER_MODEL:-base}
       FLAMBEE_NICE: ${FLAMBEE_NICE:-5}
       FLAMBEE_MAX_UPLOAD_MB: ${FLAMBEE_MAX_UPLOAD_MB:-600}
