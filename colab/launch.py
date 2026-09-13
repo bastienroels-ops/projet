@@ -240,15 +240,34 @@ def colab_fallback_url(port: int) -> str | None:
         return None
 
 
+def etat_transcription() -> str:
+    """Une ligne pour le bandeau : le moteur est-il prêt, et lequel.
+
+    Sans cela, l'absence de moteur ne se découvre qu'en ouvrant Script Viral,
+    longtemps après le démarrage.
+    """
+    try:
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from flambee import transcribe
+    except Exception:
+        return "état inconnu"
+
+    if transcribe.available():
+        return f"{transcribe.moteur_actif()} ✓"
+    return "absente — bouton « Installer le moteur » dans l'application"
+
+
 def banner(url: str, username: str, password: str) -> str:
     line = "═" * 54
     return "\n".join([
         "", line,
         "  🔥  FLAMBÉE EST EN LIGNE",
         line,
-        f"  {'Adresse':<13}{url}",
-        f"  {'Identifiant':<13}{username}",
-        f"  {'Mot de passe':<13}{password}",
+        f"  {'Adresse':<15}{url}",
+        f"  {'Identifiant':<15}{username}",
+        f"  {'Mot de passe':<15}{password}",
+        f"  {'Transcription':<15}{etat_transcription()}",
         line,
         "  Ouvre l'adresse dans Safari, saisis l'identifiant et le mot de",
         "  passe, puis Partager → Sur l'écran d'accueil.",
