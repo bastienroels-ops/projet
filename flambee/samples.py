@@ -25,11 +25,39 @@ SAMPLE_TEXT = "Voici l'astuce que personne ne connaît"
 WORD_DURATION = 0.34
 TAIL = 0.5
 
-# On ne montre que le bas du cadre : le texte reste lisible en petit, et la
-# distance au bord inférieur — qui change d'un style à l'autre — reste visible.
-CROP_HEIGHT = 700
 OUT_WIDTH = 540
 
+# Le fond : six aplats de couleur agrandis puis fondus. Le dégradé de maille
+# obtenu a de la profondeur, là où le filtre `gradients` de ffmpeg donne un
+# lavis terne. Clair en haut, sombre en bas : le texte y ressort toujours.
+BACKDROP_COLORS = ("0x5a3418", "0x1d2c4e",
+                   "0x8a4514", "0x141c2c",
+                   "0x0b0d13", "0x0a0b10")
+
+
+def backdrop_inputs(duration: float) -> list[str]:
+    """Entrées ffmpeg des six aplats du fond."""
+    entrees: list[str] = []
+    for couleur in BACKDROP_COLORS:
+        entrees += ["-f", "lavfi", "-i",
+                    f"color=c={couleur}:size=8x8:d={duration:.2f}:r=25"]
+    return entrees
+
+
+def backdrop_filter(width: int, height: int, *, tag: str = "fond") -> str:
+    """Assemble et adoucit le fond jusqu'au format demandé."""
+    demi_w, demi_h = max(2, width // 2), max(2, height // 2)
+    return (
+        "[0][1]hstack[r1];[2][3]hstack[r2];[4][5]hstack[r3];"
+        f"[r1][r2][r3]vstack=inputs=3,"
+        f"scale={demi_w}:{demi_h}:flags=bicubic,"
+        f"gblur=sigma={max(40, demi_w // 5)},"      # c'est le flou qui fait la maille
+        f"scale={width}:{height},vignette=PI/6,"
+        f"noise=alls=4:allf=t+u[{tag}]"
+    )
+
+
+_locks: dict[str, threading.Lock] = {}
 _locks: dict[str, threading.Lock] = {}
 _guard = threading.Lock()
 
@@ -48,8 +76,12 @@ def sample_words() -> list[Word]:
 
 
 def _signature(style: config.SubtitleStyle) -> str:
-    """Empreinte du style : le cache se renouvelle dès qu'un réglage change."""
-    payload = repr(sorted(asdict(style).items())) + SAMPLE_TEXT
+    """Empreinte de l'échantillon : le cache se renouvelle dès qu'un réglage
+    change — style, texte, fond ou cadrage."""
+    payload = "|".join([
+        repr(sorted(asdict(style).items())), SAMPLE_TEXT,
+        "".join(BACKDROP_COLORS), str(BAND_HEIGHT), str(OUT_WIDTH),
+    ])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
@@ -57,6 +89,22 @@ def sample_path(preset: str) -> Path:
     style = config.subtitle_style(preset)
     folder = config.WORK_DIR / ".samples"
     return folder / f"{preset}-{_signature(style)}.mp4"
+
+
+BAND_HEIGHT = 340      # hauteur de bande, identique pour tous les styles
+
+
+def text_band(style: config.SubtitleStyle, fmt: config.VideoFormat) -> tuple[int, int]:
+    """Bande à montrer : centrée sur le texte du style, hauteur constante.
+
+    Le texte est calé en bas de l'image, à `margin_v` du bord ; on recadre
+    autour de lui pour ne pas montrer du vide. La hauteur ne varie pas d'un
+    style à l'autre : les vignettes restent alignées, et l'écart de taille
+    entre un style et un autre se voit tel qu'il est.
+    """
+    centre = fmt.height - style.margin_v - int(style.font_size * 0.6)
+    haut = max(0, min(fmt.height - BAND_HEIGHT, centre - BAND_HEIGHT // 2))
+    return haut, BAND_HEIGHT
 
 
 def build_sample(preset: str) -> Path:
@@ -78,31 +126,27 @@ def build_sample(preset: str) -> Path:
         subtitles.write_ass(words, ass_path, style=style, max_duration=duration)
 
         fmt = config.FORMAT
-        top = max(0, fmt.height - CROP_HEIGHT)
-        height = round(CROP_HEIGHT * OUT_WIDTH / fmt.width / 2) * 2
+        haut, hauteur = text_band(style, fmt)
+        sortie_h = round(hauteur * OUT_WIDTH / fmt.width / 2) * 2
 
         from .assembler import _escape_filter_path
 
-        chain = (
-            f"subtitles=filename='{_escape_filter_path(ass_path)}'"
+        graphe = (
+            backdrop_filter(fmt.width, fmt.height)
+            + f";[fond]subtitles=filename='{_escape_filter_path(ass_path)}'"
             f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
-            f"crop={fmt.width}:{CROP_HEIGHT}:0:{top},"
-            f"scale={OUT_WIDTH}:{height},format=yuv420p"
+            f"crop={fmt.width}:{hauteur}:0:{haut},"
+            f"scale={OUT_WIDTH}:{sortie_h},format=yuv420p[o]"
         )
         try:
             ffmpeg([
-                # Un fond dégradé tiède : plus représentatif d'une vraie image
-                # qu'un aplat noir, sur lequel tout paraît lisible.
-                "-f", "lavfi", "-i",
-                f"gradients=s={fmt.width}x{fmt.height}:c0=0x1d2430:c1=0x44291a"
-                f":x0=0:y0=0:x1={fmt.width}:y1={fmt.height}"
-                f":d={duration:.2f}:r=25",
+                *backdrop_inputs(duration),
                 "-t", f"{duration:.2f}",
-                "-vf", chain,
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                "-filter_complex", graphe, "-map", "[o]",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
                 "-movflags", "+faststart", "-an",
                 str(out_path),
-            ], timeout=180)
+            ], timeout=240)
         finally:
             ass_path.unlink(missing_ok=True)
 
@@ -174,7 +218,8 @@ def build_hero() -> Path:
     """
     style = config.subtitle_style("punch")
     empreinte = hashlib.sha256(
-        (repr(sorted(asdict(style).items())) + HERO_TEXT).encode("utf-8")
+        "|".join([repr(sorted(asdict(style).items())), HERO_TEXT,
+                  "".join(BACKDROP_COLORS), str(HERO_WIDTH)]).encode("utf-8")
     ).hexdigest()[:12]
     out_path = config.WORK_DIR / ".samples" / f"hero-{empreinte}.mp4"
     if out_path.exists() and has_media_duration(out_path, minimum=0.5):
@@ -198,20 +243,25 @@ def build_hero() -> Path:
 
         from .assembler import _escape_filter_path
 
-        chaine = (
+        # Le fond est agrandi puis lentement balayé : sur une page d'accueil,
+        # une image parfaitement immobile a l'air en panne.
+        large, haut_large = int(fmt.width * 1.14), int(fmt.height * 1.14)
+        marge_x, marge_y = large - fmt.width, haut_large - fmt.height
+        avance = f"min(1,t/{duree:.2f})"
+        graphe = (
+            backdrop_filter(large, haut_large)
+            + f";[fond]crop={fmt.width}:{fmt.height}"
+            f":x='{marge_x}*{avance}':y='{marge_y}*(1-{avance})',"
             f"subtitles=filename='{_escape_filter_path(ass_path)}'"
             f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
-            f"scale={HERO_WIDTH}:{hauteur},format=yuv420p"
+            f"scale={HERO_WIDTH}:{hauteur},format=yuv420p[o]"
         )
         try:
             ffmpeg([
-                # Un fond qui bouge lentement : le cadre ne paraît pas figé.
-                "-f", "lavfi", "-i",
-                f"gradients=s={fmt.width}x{fmt.height}:c0=0x241a12:c1=0x0d1119"
-                f":c2=0x3a1f0e:n=3:d={duree:.2f}:r=25:speed=0.05",
+                *backdrop_inputs(duree),
                 "-t", f"{duree:.2f}",
-                "-vf", chaine,
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+                "-filter_complex", graphe, "-map", "[o]",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
                 "-movflags", "+faststart", "-an",
                 str(out_path),
             ], timeout=240)

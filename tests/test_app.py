@@ -444,3 +444,33 @@ def test_copie_de_visionnage_est_plus_legere(tmp_path):
 def test_visionnage_absent_sans_rendu(client):
     project_id = _create(client)
     assert client.get(f"/api/projects/{project_id}/viewing").status_code == 404
+
+
+def test_le_cache_suit_le_fond_et_le_cadrage(monkeypatch):
+    """Changer le fond ou la bande doit produire un nouveau fichier."""
+    from flambee import samples
+
+    avant = samples.sample_path("punch")
+    monkeypatch.setattr(samples, "BAND_HEIGHT", samples.BAND_HEIGHT + 20)
+    assert samples.sample_path("punch") != avant
+
+    monkeypatch.undo()
+    monkeypatch.setattr(samples, "BACKDROP_COLORS", ("0x000000",) * 6)
+    assert samples.sample_path("punch") != avant
+
+
+def test_toutes_les_vignettes_ont_le_meme_format():
+    """Des cartes de hauteurs différentes donneraient une grille bancale."""
+    from flambee import config as flambee_config
+    from flambee import samples
+
+    hauteurs = {samples.text_band(flambee_config.subtitle_style(nom),
+                                  flambee_config.FORMAT)[1]
+                for nom in flambee_config.SUBTITLE_PRESETS}
+    assert len(hauteurs) == 1, "la bande doit être identique pour tous les styles"
+
+    # Le cadrage reste dans l'image, quel que soit le style.
+    for nom in flambee_config.SUBTITLE_PRESETS:
+        haut, hauteur = samples.text_band(flambee_config.subtitle_style(nom),
+                                          flambee_config.FORMAT)
+        assert 0 <= haut and haut + hauteur <= flambee_config.FORMAT.height

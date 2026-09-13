@@ -163,7 +163,7 @@ body.site { padding: 0; }
   background: rgba(0, 0, 0, .3);
 }
 .style-carte video {
-  width: 100%; aspect-ratio: 54 / 35; display: block;
+  width: 100%; aspect-ratio: 108 / 34; display: block;
   border-radius: 11px; background: #12131a;
 }
 .style-carte figcaption {

@@ -346,7 +346,7 @@ input[type=range]::-moz-range-thumb {
 .preview video {
   width: 270px; flex: none; display: block;
   /* Proportions de l'échantillon : le cadre ne saute pas pendant le chargement. */
-  aspect-ratio: 54 / 35;
+  aspect-ratio: 108 / 34;
   border-radius: 10px; background: #12131a;
   box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .9);
 }
