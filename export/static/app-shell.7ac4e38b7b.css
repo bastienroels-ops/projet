@@ -12,7 +12,7 @@ body.fige { overflow: hidden; }
   display: flex; align-items: center; gap: 14px;
   height: 62px; padding: 0 18px;
   border-bottom: 1px solid var(--hairline);
-  background: rgba(8, 9, 12, .86);
+  background: rgba(10, 7, 5, .86);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
 }

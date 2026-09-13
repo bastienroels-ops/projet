@@ -28,32 +28,48 @@
 }
 
 :root {
-  /* Fonds, du plus profond au plus clair */
-  --ink:        #08090c;
-  --ink-2:      #0c0e13;
-  --surface:    rgba(255, 255, 255, .028);
-  --surface-2:  rgba(255, 255, 255, .05);
-  --hairline:   rgba(255, 255, 255, .08);
-  --hairline-2: rgba(255, 255, 255, .14);
+  /* Les fonds. Un noir chaud, presque brun — celui d'un atelier la nuit, pas
+     celui d'un tableau de bord. Le gris pur donnait au site l'air d'un outil
+     technique ; la braise n'y trouvait aucun écho. */
+  --ink:        #0a0705;
+  --ink-2:      #120d09;
+  --ink-3:      #1b1410;          /* surface opaque, pour les cartes pleines */
 
-  /* Texte */
-  --text:       #f4f1ec;
-  --text-soft:  #a9a49c;
-  --text-faint: #6c6862;
+  /* Les voiles. Teintés vers la braise plutôt que blancs : un blanc pur posé
+     sur un fond chaud le refroidit et casse l'unité. */
+  --surface:    rgba(255, 236, 214, .032);
+  --surface-2:  rgba(255, 236, 214, .062);
+  --hairline:   rgba(255, 231, 201, .085);
+  --hairline-2: rgba(255, 231, 201, .17);
+
+  /* Texte : de l'os, jamais du blanc. */
+  --text:       #f7f0e5;
+  --text-soft:  #b3a897;
+  --text-faint: #74695c;
 
   /* La braise : l'accent de la marque */
   --ember:      #ff7a2f;
   --ember-2:    #ffb648;
   --ember-deep: #c23c0c;
   --gold:       #e8c87a;
+  --laiton:     #b98c4a;          /* le métal des filets, plus sourd que l'or */
 
   --ok:         #5fd6a4;
   --alert:      #ff6b6b;
 
-  --radius:     18px;
-  --radius-sm:  12px;
-  --shadow:     0 24px 60px -24px rgba(0, 0, 0, .9);
-  --shadow-lift: 0 30px 70px -28px rgba(255, 122, 47, .35);
+  --radius:     20px;
+  --radius-sm:  13px;
+
+  /* La lumière vient d'en haut : un filet clair sur l'arête supérieure suffit
+     à donner de l'épaisseur à une surface, là où une bordure uniforme la
+     laisse plate. */
+  --lueur:      inset 0 1px 0 rgba(255, 231, 201, .10);
+  --lueur-forte: inset 0 1px 0 rgba(255, 240, 220, .20);
+
+  --shadow:     0 30px 80px -34px rgba(0, 0, 0, .95),
+                0 3px 10px -6px rgba(0, 0, 0, .7);
+  --shadow-lift: 0 34px 76px -30px rgba(255, 122, 47, .42),
+                0 4px 12px -6px rgba(0, 0, 0, .6);
 
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
@@ -115,7 +131,7 @@ html::after {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 22px 30px;
   border-bottom: 1px solid var(--hairline);
-  background: linear-gradient(180deg, rgba(8, 9, 12, .92), rgba(8, 9, 12, .55));
+  background: linear-gradient(180deg, rgba(10, 7, 5, .92), rgba(10, 7, 5, .55));
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
 }
@@ -347,7 +363,7 @@ input[type=range]::-moz-range-thumb {
   width: 270px; flex: none; display: block;
   /* Proportions de l'échantillon : le cadre ne saute pas pendant le chargement. */
   aspect-ratio: 108 / 34;
-  border-radius: 10px; background: #12131a;
+  border-radius: 10px; background: #14100c;
   box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .9);
 }
 /* `display: block` ci-dessus l'emporterait sur l'attribut hidden. */
@@ -382,23 +398,50 @@ button, .button {
   transition: transform .2s cubic-bezier(.16, 1, .3, 1), box-shadow .25s,
               background .25s, color .25s, border-color .25s;
 }
+/* Trois couches sur un bouton plein : le reflet du haut, le corps du dégradé,
+   et l'ombre interne du bas. Une seule teinte plate fait un aplat de peinture ;
+   ces trois-là font une pastille de métal chauffé, qu'on a envie de toucher.
+   Le reflet reste bas (14 %) et court (34 %) : au-delà, le haut du bouton
+   blanchit et l'orange de la marque n'y est plus. */
 .primary {
-  background: linear-gradient(135deg, var(--ember-2), var(--ember) 55%, var(--ember-deep));
-  color: #180d05;
-  box-shadow: 0 10px 30px -12px rgba(255, 122, 47, .85);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, .14), transparent 34%),
+    linear-gradient(168deg, var(--ember-2) 0%, var(--ember) 46%,
+                    var(--ember-deep) 100%);
+  color: #1a0e04;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 236, .52),
+    inset 0 -1px 0 rgba(120, 40, 0, .38),
+    0 12px 32px -14px rgba(255, 122, 47, .9);
+  text-shadow: 0 1px 0 rgba(255, 230, 200, .34);
 }
 .primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 236, .6),
+    inset 0 -1px 0 rgba(120, 40, 0, .35),
+    var(--shadow-lift);
 }
-.primary:active:not(:disabled) { transform: translateY(0); }
+.primary:active:not(:disabled) {
+  transform: translateY(0) scale(.988);
+  box-shadow:
+    inset 0 2px 6px rgba(120, 40, 0, .45),
+    0 4px 14px -8px rgba(255, 122, 47, .7);
+}
+/* Le bouton secondaire reste discret, mais pas éteint : un souffle de braise
+   au bas du fond suffit à le rattacher au primaire. Sans lui, les deux
+   boutons du premier écran n'ont pas l'air de venir du même endroit. */
 .ghost {
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, .045),
+                    rgba(255, 122, 47, .035));
   color: var(--text-soft);
   border: 1px solid var(--hairline);
+  box-shadow: var(--lueur);
 }
 .ghost:hover:not(:disabled) {
-  color: var(--text); border-color: var(--hairline-2);
+  color: var(--text);
+  border-color: rgba(185, 140, 74, .45);       /* le filet chauffe au laiton */
   background: var(--surface-2); transform: translateY(-1px);
 }
 button:disabled, .button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
@@ -682,10 +725,31 @@ code {
    les bandes de dégradé que produisent les écrans 8 bits et donne au noir une
    texture de pellicule. Le motif est en SVG embarqué — aucun fichier à
    charger, aucun appel réseau. */
-body::after {
+/* Porté par `html`, pas par `body` : `body::after` sert déjà à la seconde
+   braise du fond. Les deux règles portaient le même sélecteur et se
+   mélangeaient — le grain héritait du `blur(90px)`, du `border-radius: 50%`
+   et de l'animation de la braise, c'est-à-dire qu'il n'était plus un grain
+   mais un rond flou qui respirait, et que la braise du bas avait disparu.
+   Un défaut invisible en lecture : chacune des deux règles est correcte. */
+html::after {
   content: ""; position: fixed; inset: 0; z-index: 9999;
-  pointer-events: none; opacity: .04; mix-blend-mode: overlay;
+  pointer-events: none; opacity: .055; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b)'/%3E%3C/svg%3E");
+}
+
+/* Le vignettage. Une image sombre sans lui reste un rectangle : c'est
+   l'assombrissement des bords qui fait qu'on regarde le milieu. Posé
+   au-dessus du fond et sous le contenu, il ne touche jamais le texte. */
+.vignette {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 92% at 50% 38%, transparent 34%, rgba(4, 3, 2, .66) 100%),
+    /* Le champ de braises monte du bas : c'est là qu'il est le plus vif, et
+       là que le texte d'une page sans image lui passe dessus. Le bas du
+       vignettage est donc plus lourd que le haut — ce n'est pas symétrique,
+       et ça n'a pas à l'être. */
+    linear-gradient(180deg, rgba(4, 3, 2, .55), transparent 16%,
+                    transparent 46%, rgba(4, 3, 2, .58) 100%);
 }
 
 /* L'aurore : deux halos chauds qui dérivent lentement derrière la page. Ils
@@ -769,3 +833,34 @@ body::after {
 /* Les halos CSS ne servent que de secours : dès que le shader tourne, ils
    feraient double emploi et alourdiraient la composition. */
 .braises-actives .aurore { opacity: 0; transition: opacity .8s; }
+
+/* ===================================================================
+   Le fond ne doit pas passer à travers
+   ===================================================================
+   Le champ de braises est superbe derrière le premier écran, où un voile
+   dense le tient sous le titre. Ailleurs il n'y a pas de voile, et les
+   surfaces translucides le laissaient traverser : sur la page des tarifs,
+   les flammes montaient à travers les trois cartes, et sur les questions
+   elles occupaient toute la page derrière le texte. Un fond qui se voit plus
+   que ce qu'il porte n'est plus un fond.
+
+   Deux corrections, pas une. Baisser la seule opacité du champ l'aurait
+   éteint partout, y compris là où il fonctionne ; épaissir les seules
+   surfaces aurait laissé les pages sans carte — les questions, les mentions
+   légales — aussi chargées. */
+.braises-actives .braises { opacity: .52; }
+
+/* Les cartes reposent sur un fond opaque, pas sur un voile. La teinte reste
+   celle de l'encre : la carte a l'air découpée dans la page, ce qu'elle est,
+   au lieu de flotter au-dessus d'un incendie. */
+.tarif, .carte, .carte-formulaire {
+  background:
+    linear-gradient(180deg, rgba(255, 236, 214, .055), rgba(255, 236, 214, .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--lueur);
+}
+.tarif.vedette {
+  background:
+    linear-gradient(180deg, rgba(255, 150, 74, .10), rgba(255, 122, 47, .022)),
+    linear-gradient(180deg, #241610, var(--ink-2));
+}

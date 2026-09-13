@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import threading
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from . import config, subtitles
@@ -390,88 +390,179 @@ def viewing_copy(source: Path, cache_dir: Path) -> Path:
 # reste rapide.
 
 HORIZON = 0.615        # hauteur de la ligne d'horizon, en fraction de l'image
-SOLEIL_X = 0.37        # le soleil décentré : le cadre respire mieux
-SOLEIL_Y = 0.578
-SOLEIL_R = 0.135       # rayon du disque, en fraction de la largeur
-
-# Du zénith à l'horizon : nuit, violet, braise, orange, or.
-CIEL_COULEURS = ("0x0d1230", "0x2a2050", "0x7d3355",
-                 "0xd65f34", "0xf59b3c", "0xffd27a")
-
 DEF_COUCHE = 270       # largeur de calcul des couches peintes
 
 
+@dataclass(frozen=True)
+class Moment:
+    """Un moment du jour : ce qui change d'un plan à l'autre.
+
+    Le dessin — l'horizon, la forme des collines, l'ondulation de la mer —
+    reste le même d'un moment à l'autre. Seules changent les couleurs et la
+    place de l'astre : c'est assez pour que trois plans issus de la même
+    formule ne se ressemblent pas.
+    """
+
+    ciel: tuple[str, ...]          # du zénith à l'horizon
+    astre: tuple[float, float, float]   # x, y, rayon — en fractions de l'image
+    astre_couleur: tuple[int, int, int]  # la teinte au cœur du disque
+    halo: float                    # ampleur du halo autour du disque
+    nuages: tuple[int, int, int]   # teinte des bandes hautes
+    collines: tuple[int, int, int]
+    mer_claire: tuple[int, int, int]    # la mer près de l'horizon
+    mer_sombre: tuple[int, int, int]    # au premier plan
+    horizon: float = HORIZON            # hauteur de la ligne de mer
+
+
+# Le couchant de la page d'accueil. Les valeurs d'origine : la vidéo du
+# téléphone, en haut du site, sort de ce moment-là.
+COUCHANT = Moment(
+    ciel=("0x0d1230", "0x2a2050", "0x7d3355", "0xd65f34", "0xf59b3c", "0xffd27a"),
+    astre=(0.37, 0.578, 0.135),
+    astre_couleur=(255, 248, 214),
+    halo=0.62,
+    nuages=(190, 150, 192),
+    collines=(26, 21, 48),
+    mer_claire=(216, 152, 100),
+    mer_sombre=(18, 16, 44),
+)
+
+# L'aube : le soleil n'a pas encore chauffé le ciel. Bleus froids, rose pâle,
+# et une mer d'étain. Le contraste avec le couchant tient à cela — la même
+# lumière, mais qui n'a pas encore pris.
+AUBE = Moment(
+    ciel=("0x101c3e", "0x24365f", "0x4a5580", "0x9a7391", "0xe0a08c", "0xf7ceb0"),
+    astre=(0.68, 0.596, 0.068),
+    astre_couleur=(255, 250, 236),
+    halo=0.40,
+    nuages=(158, 176, 208),
+    collines=(22, 28, 52),
+    mer_claire=(150, 158, 176),
+    mer_sombre=(14, 20, 40),
+)
+
+# La nuit : plus d'astre bas, une lune haute et petite, et le chemin d'argent
+# qu'elle laisse sur l'eau. Presque aucune chaleur — la braise du site en
+# ressort d'autant mieux quand elle revient.
+NUIT = Moment(
+    ciel=("0x05070f", "0x080d1f", "0x0d1730", "0x142442", "0x1d3355", "0x2b4a6b"),
+    astre=(0.72, 0.235, 0.043),
+    astre_couleur=(248, 250, 255),
+    halo=0.30,
+    nuages=(92, 108, 140),
+    collines=(8, 10, 22),
+    mer_claire=(46, 66, 92),
+    mer_sombre=(5, 7, 16),
+)
+
+
+# Le même moment, composé pour un bandeau très large. La lune est ramenée au
+# centre — le titre du site se pose dans son halo — et l'horizon descend aux
+# trois quarts, pour que le chemin d'argent tombe sous le texte plutôt que de
+# le traverser. Recadré depuis NUIT, le bandeau coupait la lune au bord haut
+# et faisait passer la ligne de mer au milieu de la phrase.
+NUIT_BANDEAU = replace(NUIT, astre=(0.5, 0.30, 0.048), horizon=0.74)
+
+# Même raisonnement pour le couchant : l'astre revient au centre, un peu plus
+# bas, pour que la citation se pose dans sa lueur. Décentré comme dans le plan
+# d'origine, son disque venait couper la première ligne de la phrase — et
+# assombrir assez pour l'effacer, c'était renoncer à l'image.
+COUCHANT_BANDEAU = replace(COUCHANT, astre=(0.5, 0.615, 0.115), horizon=0.66)
+
+
 def _couche(r: str, g: str, b: str, a: str, largeur: int, hauteur: int,
-            duree: float) -> str:
+            duree: float, fps: int = 25) -> str:
     """Une couche RGBA peinte pixel par pixel, en basse définition."""
-    return (f"color=c=black@0:s={largeur}x{hauteur}:d={duree:.2f}:r=25,"
+    return (f"color=c=black@0:s={largeur}x{hauteur}:d={duree:.2f}:r={fps},"
             f"format=rgba,geq=r='{r}':g='{g}':b='{b}':a='{a}'")
 
 
 def sunset_filter(width: int, height: int, duration: float,
-                  *, tag: str = "fond") -> str:
+                  *, tag: str = "fond", moment: Moment = COUCHANT,
+                  definition: int | None = None, fps: int = 25) -> str:
     """Chaîne de filtres produisant le plan de coucher de soleil.
 
     N'attend aucune entrée : toutes les sources sont créées dans le graphe.
+
+    `definition` fixe la largeur à laquelle les couches peintes sont calculées
+    avant d'être agrandies. La valeur par défaut suffit tant que l'astre est
+    gros : ses contours sont doux, l'agrandissement ne se voit pas. Un astre
+    petit dans une image large — la lune du bandeau de nuit fait douze pixels
+    dans la couche — en ressort au contraire crénelé, et il faut alors peindre
+    plus fin. Calculer *tout* plus fin coûterait des secondes de rendu pour
+    rien : c'est un réglage, pas une constante.
+
+    `fps` est la cadence à laquelle les couches sont calculées. Chaque pixel
+    de chaque image passe par `geq` : pour une image fixe prise à la neuvième
+    seconde, la cadence du cinéma en fait calculer deux cent vingt pour n'en
+    garder qu'une. La baisser ne change pas le résultat — les formules ne
+    dépendent que de `T`, qui reste exact aux instants rendus — seulement le
+    temps de calcul.
     """
-    petit_l = DEF_COUCHE
+    petit_l = definition or DEF_COUCHE
     petit_h = round(petit_l * height / width / 2) * 2
-    rapport = width / height          # pour que le soleil reste rond
+    rapport = width / height          # pour que l'astre reste rond
+    ax, ay, ar = moment.astre
+    hz = moment.horizon
 
     def peindre(r, g, b, a):
-        return (_couche(r, g, b, a, petit_l, petit_h, duration)
+        return (_couche(r, g, b, a, petit_l, petit_h, duration, fps)
                 + f",scale={width}:{height}:flags=bicubic")
 
-    ciel = (f"gradients=s={width}x{height}:d={duration:.2f}:r=25:speed=0.00001"
-            f":n={len(CIEL_COULEURS)}"
-            + "".join(f":c{i}={c}" for i, c in enumerate(CIEL_COULEURS))
-            + f":x0=0:y0=0:x1=0:y1={int(height * HORIZON)}")
+    ciel = (f"gradients=s={width}x{height}:d={duration:.2f}:r={fps}:speed=0.00001"
+            f":n={len(moment.ciel)}"
+            + "".join(f":c{i}={c}" for i, c in enumerate(moment.ciel))
+            + f":x0=0:y0=0:x1=0:y1={int(height * hz)}")
 
-    # Le soleil : un disque net, un halo large, et la couleur qui passe du
+    # L'astre : un disque net, un halo large, et la couleur qui passe du
     # blanc chaud au cœur à l'orange sur les bords.
-    d = (f"(pow((X/W-{SOLEIL_X})/{SOLEIL_R}\\,2)"
-         f"+pow((Y/H-{SOLEIL_Y})/{SOLEIL_R * rapport:.4f}\\,2))")
+    ar_r, ar_g, ar_b = moment.astre_couleur
+    d = (f"(pow((X/W-{ax})/{ar}\\,2)"
+         f"+pow((Y/H-{ay})/{ar * rapport:.4f}\\,2))")
     soleil = peindre(
-        "255",
-        f"248-70*min(1\\,{d}/3)",
-        f"214-160*min(1\\,{d}/2.2)",
-        f"255*max(clip((1.05-{d})/0.08\\,0\\,1)\\,0.62*exp(-{d}/5))",
+        f"{ar_r}",
+        f"{ar_g}-70*min(1\\,{d}/3)",
+        f"{ar_b}-160*min(1\\,{d}/2.2)",
+        f"255*max(clip((1.05-{d})/0.08\\,0\\,1)\\,{moment.halo}*exp(-{d}/5))",
     )
 
     # Les nuages : des bandes fines, ondulées lentement, dont l'épaisseur
     # varie le long de la bande pour qu'elles ne soient pas des rubans.
+    n_r, n_g, n_b = moment.nuages
     bande = ("max(0\\,sin(Y/H*46+1.4*sin(X/W*3.1+T*0.06)"
              "+0.5*sin(X/W*1.3-T*0.04)))")
     epaisseur = ("(0.30+0.70*pow(max(0\\,sin(X/W*2.3+Y/H*6.0+1.7))\\,1.4))")
     enveloppe = "exp(-pow((Y/H-0.31)/0.21\\,2))"
     altitude = "clip(Y/H/0.5\\,0\\,1)"
     nuages = peindre(
-        f"190+65*{altitude}", f"150+22*{altitude}", f"192-84*{altitude}",
+        f"{n_r}+65*{altitude}", f"{n_g}+22*{altitude}", f"{n_b}-84*{altitude}",
         f"255*0.72*pow({bande}\\,3)*{epaisseur}*{enveloppe}",
     )
 
     # La colline : deux bosses, presque noires, qui posent la profondeur.
-    crete = (f"({HORIZON}-0.052*exp(-pow((X/W-0.87)/0.19\\,2))"
+    c_r, c_g, c_b = moment.collines
+    crete = (f"({hz}-0.052*exp(-pow((X/W-0.87)/0.19\\,2))"
              f"-0.030*exp(-pow((X/W-0.63)/0.085\\,2)))")
-    collines = peindre("26", "21", "48",
+    collines = peindre(f"{c_r}", f"{c_g}", f"{c_b}",
                        f"255*clip((Y/H-{crete})*{petit_h * 0.9:.0f}\\,0\\,1)")
 
     # La mer : chaude sous l'horizon, profonde au premier plan, avec le chemin
     # de lumière qui s'élargit en venant vers l'objectif.
-    v = f"clip((Y/H-{HORIZON})/{1 - HORIZON:.3f}\\,0\\,1)"
-    # La chaleur de la mer vient du soleil : elle décroît avec la distance à
+    v = f"clip((Y/H-{hz})/{1 - hz:.3f}\\,0\\,1)"
+    # La chaleur de la mer vient de l'astre : elle décroît avec la distance à
     # sa verticale, sinon toute la bande sous l'horizon vire au brun uniforme.
-    lateral = f"exp(-pow((X/W-{SOLEIL_X})/0.5\\,2))"
+    lateral = f"exp(-pow((X/W-{ax})/0.5\\,2))"
     profondeur = f"clip(pow({v}\\,0.5)+0.40*(1-{lateral})\\,0\\,1)"
-    chemin = f"exp(-pow((X/W-{SOLEIL_X})/(0.02+0.30*{v})\\,2))"
+    chemin = f"exp(-pow((X/W-{ax})/(0.02+0.30*{v})\\,2))"
     onde = "pow(max(0\\,sin(Y/H*230+T*1.3+0.8*sin(X/W*9)))\\,7)"
     tirets = "(0.18+0.82*pow(max(0\\,sin(X/W*26+Y/H*55+T*0.5))\\,2))"
     eclat = f"({chemin}*{onde}*{tirets})"
+    mc, ms = moment.mer_claire, moment.mer_sombre
     mer = peindre(
-        f"clip(216-198*{profondeur}+150*{eclat}\\,0\\,255)",
-        f"clip(152-136*{profondeur}+140*{eclat}\\,0\\,255)",
-        f"clip(100-56*{profondeur}+118*{eclat}\\,0\\,255)",
-        f"255*clip((Y/H-{HORIZON})*{petit_h * 1.6:.0f}\\,0\\,1)",
+        f"clip({mc[0]}-{mc[0] - ms[0]}*{profondeur}+150*{eclat}\\,0\\,255)",
+        f"clip({mc[1]}-{mc[1] - ms[1]}*{profondeur}+140*{eclat}\\,0\\,255)",
+        f"clip({mc[2]}-{mc[2] - ms[2]}*{profondeur}+118*{eclat}\\,0\\,255)",
+        f"255*clip((Y/H-{hz})*{petit_h * 1.6:.0f}\\,0\\,1)",
     )
 
     return (

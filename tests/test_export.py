@@ -230,24 +230,81 @@ def test_les_ressources_publiees_sont_a_jour():
         assert publie.exists(), (
             f"{publie.name} manque dans l'export — "
             f"relance : python outils/exporter_site.py --sortie export")
-        assert publie.read_bytes() == fichier.read_bytes(), (
+        attendu = fichier.read_bytes()
+        if fichier.suffix in (".css", ".js", ".webmanifest"):
+            # Ces fichiers citent des images, et l'export y remplace les
+            # adresses par les noms empreints : comparer au fichier source tel
+            # quel accuserait à tort l'export d'être périmé.
+            attendu = exporter_site.reecrire_ressources(
+                attendu.decode("utf-8"), empreintes).encode("utf-8")
+        assert publie.read_bytes() == attendu, (
             f"{publie.name} est périmé — "
             f"relance : python outils/exporter_site.py --sortie export")
+
+
+def test_calculer_les_empreintes_ne_touche_pas_au_depot():
+    """Mesurer ne doit rien changer à ce qu'on mesure.
+
+    Ce test et celui de fraîcheur appellent `empreintes_ressources` sur
+    l'arborescence *source*, pas sur la copie exportée. Le jour où cette
+    fonction a renommé les fichiers et réécrit les feuilles de style au
+    passage, lancer la suite de tests suffisait à renommer les images du
+    dépôt et à figer leur empreinte dans le CSS commité — sans un message,
+    et avec une suite qui passait ensuite très bien.
+    """
+    avant = {f: f.stat().st_mtime_ns for f in sorted(SOURCE_STATIQUE.rglob("*"))}
+    sommes = {f: f.read_bytes() for f in avant if f.is_file()}
+
+    exporter_site.empreintes_ressources(SOURCE_STATIQUE)
+
+    apres = {f: f.stat().st_mtime_ns for f in sorted(SOURCE_STATIQUE.rglob("*"))}
+    assert set(apres) == set(avant), (
+        f"fichiers apparus ou disparus : "
+        f"{sorted(p.name for p in set(apres) ^ set(avant))}")
+    modifies = [f.name for f, contenu in sommes.items()
+                if f.read_bytes() != contenu]
+    assert not modifies, f"contenu réécrit : {modifies}"
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_aucune_adresse_publiee_ne_pointe_vers_un_nom_sans_empreinte():
+    """Une adresse oubliée dans une feuille de style est un 404 silencieux.
+
+    Les images citées par le CSS doivent être réécrites vers leur nom
+    empreint : le fichier d'origine n'existe plus dans l'export, et le
+    navigateur n'affiche rien — sans erreur visible, puisqu'une image de fond
+    absente ne dit rien.
+    """
+    empreints = {Path(v).name
+                 for v in exporter_site.empreintes_ressources(SOURCE_STATIQUE).values()}
+    for fichier in sorted((EXPORT / "static").rglob("*")):
+        if fichier.suffix not in (".css", ".js", ".webmanifest"):
+            continue
+        texte = fichier.read_text(encoding="utf-8")
+        for adresse in re.findall(r"/static/[\w/.-]+", texte):
+            nom = Path(adresse).name
+            # Les polices gardent leur nom : leur contenu ne change jamais.
+            assert nom in empreints or "/fonts/" in adresse, (
+                f"{fichier.name} cite {adresse}, qui n'existe pas dans l'export")
 
 
 @pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
 def test_aucune_ressource_ne_traine_sous_son_ancien_nom():
     """Un nom d'empreinte périmé serait servi un an : il ne doit pas rester.
 
-    Les CSS et JS publiés portent un cache d'un an. Si l'export gardait aussi
+    Les ressources publiées portent un cache d'un an. Si l'export gardait aussi
     la version précédente d'un fichier, une page ancienne encore en cache
-    continuerait de la charger sans jamais expirer.
+    continuerait de la charger sans jamais expirer. Les images comptent autant
+    que les feuilles de style : elles portent le même cache.
     """
-    attendus = {Path(v).name
-                for v in exporter_site.empreintes_ressources(SOURCE_STATIQUE).values()}
-    trouves = {f.name for f in (EXPORT / "static").glob("*")
-               if f.suffix in (".css", ".js", ".webmanifest")}
-    assert trouves == attendus, f"en trop : {trouves - attendus}"
+    empreintes = exporter_site.empreintes_ressources(SOURCE_STATIQUE)
+    attendus = {Path(v).name for v in empreintes.values()}
+    suffixes = {Path(v).suffix for v in empreintes.values()}
+    trouves = {f.name for f in (EXPORT / "static").rglob("*")
+               if f.suffix in suffixes}
+    assert trouves == attendus, (
+        f"en trop : {sorted(trouves - attendus)} ; "
+        f"manquants : {sorted(attendus - trouves)}")
 
 
 def test_les_boutons_de_compte_menent_a_une_ancre_qui_existe():
@@ -374,4 +431,9 @@ def test_le_site_s_installe_sur_l_ecran_d_accueil():
     assert contenu["display"] == "standalone", "le site s'ouvrirait dans Safari"
     for icone in contenu["icons"]:
         assert (EXPORT / icone["src"].lstrip("/")).exists(), icone["src"]
-    assert (EXPORT / "static" / "icone-180.png").exists(), "icône iOS absente"
+    # L'icône iOS est empreinte comme le reste : on suit l'adresse déclarée
+    # plutôt que le nom d'origine, qui n'existe plus dans l'export.
+    ios = re.search(r'rel="apple-touch-icon" href="([^"]+)"', page)
+    assert ios, "aucune icône iOS déclarée"
+    assert (EXPORT / ios.group(1).lstrip("/")).exists(), \
+        f"{ios.group(1)} déclarée mais absente"

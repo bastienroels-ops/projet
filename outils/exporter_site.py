@@ -53,16 +53,60 @@ def empreintes_ressources(dossier: Path) -> dict[str, str]:
 
     Les polices gardent leur nom : leur contenu ne change jamais à nom égal.
     """
+    def nommer(fichier: Path, contenu: bytes) -> tuple[str, str]:
+        relatif = fichier.relative_to(dossier).as_posix()
+        empreinte = hashlib.sha256(contenu).hexdigest()[:10]
+        souche = relatif[:-len(fichier.suffix)]
+        return (f"/static/{relatif}",
+                f"/static/{souche}.{empreinte}{fichier.suffix}")
+
+    # Les images d'abord. Elles sont citées par les feuilles de style, dont
+    # l'empreinte doit donc se calculer sur le contenu *réécrit* : hachée
+    # avant, une feuille changerait de contenu sans changer de nom, et le
+    # cache d'un an servirait l'ancienne.
     table: dict[str, str] = {}
-    for fichier in sorted(dossier.glob("*")):
+    for fichier in sorted(dossier.rglob("*")):
+        if fichier.suffix in (".jpg", ".png", ".webp", ".svg"):
+            origine, publie = nommer(fichier, fichier.read_bytes())
+            table[origine] = publie
+
+    for fichier in sorted(dossier.rglob("*")):
         # Le manifeste rejoint les feuilles et les scripts : il porte le même
         # cache d'un an, et un nom fixe l'y figerait aussi longtemps.
         if fichier.suffix not in (".css", ".js", ".webmanifest"):
             continue
-        empreinte = hashlib.sha256(fichier.read_bytes()).hexdigest()[:10]
-        table[f"/static/{fichier.name}"] = (
-            f"/static/{fichier.stem}.{empreinte}{fichier.suffix}")
+        contenu = reecrire_ressources(fichier.read_text(encoding="utf-8"), table)
+        origine, publie = nommer(fichier, contenu.encode("utf-8"))
+        table[origine] = publie
     return table
+
+
+def reecrire_ressources(texte: str, empreintes: dict[str, str]) -> str:
+    """Remplace les adresses de ressources par leur nom empreint."""
+    for origine, publie in empreintes.items():
+        texte = texte.replace(origine, publie)
+    return texte
+
+
+def appliquer_empreintes(dossier: Path, empreintes: dict[str, str]) -> None:
+    """Renomme les fichiers du dossier et met à jour ce qui les cite.
+
+    Séparé du calcul : `empreintes_ressources` est appelée sur l'arborescence
+    *source* par les tests et par le garde-fou de fraîcheur. Tant que les deux
+    ne faisaient qu'un, les lancer renommait les fichiers du dépôt et
+    réécrivait les feuilles de style au passage — le contenu du projet changeait
+    parce qu'on l'avait mesuré.
+    """
+    for fichier in sorted(dossier.rglob("*")):
+        if fichier.suffix in (".css", ".js", ".webmanifest"):
+            texte = fichier.read_text(encoding="utf-8")
+            remplace = reecrire_ressources(texte, empreintes)
+            if remplace != texte:
+                fichier.write_text(remplace, encoding="utf-8")
+
+    for origine, publie in empreintes.items():
+        source = dossier / origine[len("/static/"):]
+        source.rename(dossier / publie[len("/static/"):])
 
 
 def correspondances_medias() -> dict[str, str]:
@@ -347,8 +391,7 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
     print("→ Ressources…", flush=True)
     shutil.copytree(RACINE / "flambee" / "static", sortie / "static")
     ressources = empreintes_ressources(sortie / "static")
-    for origine, publie in ressources.items():
-        (sortie / origine.lstrip("/")).rename(sortie / publie.lstrip("/"))
+    appliquer_empreintes(sortie / "static", ressources)
     adresses = {**medias, **ressources}
 
     with TestClient(app) as client:
