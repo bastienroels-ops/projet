@@ -296,7 +296,10 @@ def render(
         "-pix_fmt", "yuv420p", "-r", str(fmt.fps),
         "-c:a", "aac", "-b:a", fmt.audio_bitrate, "-ar", "48000", "-ac", "2",
         "-movflags", "+faststart",
-        "-threads", "0",
+        # Sur une petite machine, on garde un cœur pour le reste : sinon le
+        # tunnel HTTPS de Colab lâche en plein encodage (erreur 1033).
+        "-threads", str(config.FFMPEG_THREADS),
+        "-filter_threads", str(config.FFMPEG_THREADS),
         str(out_path),
     ]
 

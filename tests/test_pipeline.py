@@ -6,6 +6,7 @@ vocale (edge-tts) est remplacée par un minutage simulé.
 
 from __future__ import annotations
 
+import os
 import sys
 import threading
 from pathlib import Path
@@ -338,3 +339,36 @@ def test_la_ligne_reste_lisible_quand_une_pause_suit():
     fins = [ligne.split(",")[2] for ligne in contenu.splitlines()
             if ligne.startswith("Dialogue")]
     assert fins[0] == "0:00:00.68"          # 0,50 s + les 0,18 s de lecture
+
+
+def test_l_encodage_laisse_un_coeur_libre_sur_petite_machine(monkeypatch):
+    """Sur deux cœurs, un encodage qui prend tout fait tomber le tunnel.
+
+    C'est l'erreur 1033 de Cloudflare, en plein rendu : cloudflared perd sa
+    liaison faute de temps processeur. Abaisser la priorité ne suffit pas,
+    puisque les deux cœurs restent occupés — il faut vraiment en laisser un.
+    """
+    import importlib
+
+    monkeypatch.delenv("FLAMBEE_FFMPEG_THREADS", raising=False)
+    monkeypatch.setattr(os, "cpu_count", lambda: 2)
+    recharge = importlib.reload(config)
+    assert recharge.FFMPEG_THREADS == 1, "les deux cœurs seraient pris"
+
+    monkeypatch.setattr(os, "cpu_count", lambda: 16)
+    recharge = importlib.reload(config)
+    assert recharge.FFMPEG_THREADS == 0, "une grosse machine doit tout utiliser"
+
+    monkeypatch.setenv("FLAMBEE_FFMPEG_THREADS", "3")
+    recharge = importlib.reload(config)
+    assert recharge.FFMPEG_THREADS == 3, "le réglage explicite doit primer"
+    importlib.reload(config)
+
+
+def test_le_rendu_transmet_la_limite_de_threads():
+    """La limite doit atteindre ffmpeg, pas seulement vivre dans les réglages."""
+    source = (Path(__file__).resolve().parent.parent
+              / "flambee" / "assembler.py").read_text(encoding="utf-8")
+    assert '"-threads", str(config.FFMPEG_THREADS)' in source
+    assert '"-filter_threads", str(config.FFMPEG_THREADS)' in source
+    assert '"-threads", "0"' not in source, "limite ignorée, valeur écrite en dur"

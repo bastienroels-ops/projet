@@ -303,3 +303,22 @@ def test_le_compte_est_cree_dans_la_base_du_serveur(tmp_path, monkeypatch):
 
     launch.preparer_environnement()
     assert os.environ["FLAMBEE_WORK_DIR"] == str(tmp_path / "work")
+
+
+def test_le_tunnel_passe_avant_l_encodage():
+    """Le tunnel doit garder la priorité, et l'encodage lâcher un cœur.
+
+    Deux leviers pour la même panne — l'erreur 1033 en plein rendu. Le tunnel
+    n'a presque rien à faire, mais il doit le faire à l'heure : quelques
+    battements manqués et Cloudflare coupe. L'encodage, lui, peut attendre.
+    """
+    source = (ROOT / "colab" / "launch.py").read_text(encoding="utf-8")
+    assert "os.setpriority" in source, "le tunnel n'est pas priorisé"
+    assert "FLAMBEE_FFMPEG_THREADS" in source, "l'encodage prendrait tous les cœurs"
+
+    # `wait_for_server` est défini plus haut dans le fichier : on découpe
+    # jusqu'à la fonction qui suit réellement, pas jusqu'à un nom au hasard.
+    debut = source.index("def start_server(")
+    corps = source[debut:source.index("def start_tunnel(", debut)]
+    assert '"FLAMBEE_FFMPEG_THREADS": os.environ.get("FLAMBEE_FFMPEG_THREADS", "1")' \
+        in corps, "la limite doit être imposée, pas devinée"

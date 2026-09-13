@@ -190,6 +190,10 @@ def start_server(
         # Encodage en priorité basse : sinon ffmpeg monopolise les deux cœurs
         # de la machine et le tunnel finit par tomber en plein rendu.
         "FLAMBEE_NICE": os.environ.get("FLAMBEE_NICE", "10"),
+        # Colab annonce parfois plus de cœurs qu'il n'en donne réellement.
+        # On impose donc la limite plutôt que de la laisser deviner : un
+        # encodage qui prend tout fait tomber le tunnel en plein rendu.
+        "FLAMBEE_FFMPEG_THREADS": os.environ.get("FLAMBEE_FFMPEG_THREADS", "1"),
         "FLAMBEE_PASSWORD": password,
         "FLAMBEE_USERNAME": username,
         "FLAMBEE_HOST": "127.0.0.1",
@@ -238,7 +242,24 @@ def start_tunnel(binary: Path, port: int, timeout: float = 90.0):
 
     # On continue à vider la sortie du tunnel, sinon le tuyau finit par bloquer.
     threading.Thread(target=_drain, args=(process,), daemon=True).start()
+    _prioriser(process)
     return process, url
+
+
+def _prioriser(process: subprocess.Popen) -> None:
+    """Donne au tunnel la priorité sur l'encodage.
+
+    Le tunnel n'a presque rien à faire, mais il doit le faire à l'heure :
+    quelques battements de cœur manqués et Cloudflare coupe la liaison
+    (erreur 1033). L'encodage, lui, peut attendre quelques millisecondes sans
+    que personne ne s'en aperçoive. Sur Colab on est root, donc la priorité
+    négative passe ; ailleurs elle est refusée, et ce n'est pas grave — la
+    limite de cœurs suffit déjà.
+    """
+    try:
+        os.setpriority(os.PRIO_PROCESS, process.pid, -5)
+    except (OSError, AttributeError, PermissionError):
+        pass
 
 
 # Les dernières lignes du serveur, gardées pour les afficher en cas d'échec.
@@ -308,7 +329,9 @@ def etat_transcription() -> str:
     return "absente — bouton « Installer le moteur » dans l'application"
 
 
-# Le compte créé au démarrage, lu par `banner()`.
+# Le lien direct de Colab et le compte créés au démarrage, lus par `banner()`.
+_SECOURS: str | None = None
+
 # Passer par une variable plutôt que par la valeur de retour de `start_all()`
 # est délibéré : Colab garde en mémoire la cellule affichée dans le navigateur,
 # qui peut dater d'une version antérieure. Changer la signature casserait ces
@@ -374,6 +397,11 @@ def banner(url: str, username: str, password: str) -> str:
         "  passe, puis Partager → Sur l'écran d'accueil.",
         "",
     ] + ([
+        "  ⭐ Pendant un rendu, préfère ce lien direct : il ne passe par",
+        "     aucun tunnel et ne peut donc pas afficher d'erreur 1033.",
+        f"     {_SECOURS}",
+        "",
+    ] if _SECOURS else []) + ([
         "  Ton compte est déjà créé — rien à remplir. Sur la page,",
         "  touche « Connexion » et saisis :",
         f"  {'Adresse':<15}{_COMPTE}",
@@ -421,7 +449,7 @@ def start_all(
     # Le compte est créé avant le serveur : celui-ci démarre alors avec les
     # inscriptions fermées, et l'adresse publique du tunnel ne permet à
     # personne d'ouvrir un compte sur ta machine.
-    global _COMPTE
+    global _COMPTE, _SECOURS
     _COMPTE = ouvrir_un_compte(password)
     if _COMPTE:
         os.environ["FLAMBEE_SIGNUP"] = "ferme"
@@ -436,6 +464,10 @@ def start_all(
 
     if not tunnel:
         return server, None, None, password
+
+    # Recueilli avant le tunnel : il ne dépend que de Colab, et reste valable
+    # même quand cloudflared tombe.
+    _SECOURS = colab_fallback_url(port)
 
     binary = ensure_cloudflared(ROOT / "colab" / "cloudflared")
     log("→ Ouverture du tunnel HTTPS…")

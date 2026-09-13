@@ -43,6 +43,24 @@ FFPROBE_BIN = os.environ.get("FLAMBEE_FFPROBE", "ffprobe")
 FFMPEG_NICE = int(os.environ.get("FLAMBEE_NICE", "0"))
 
 
+def _threads_par_defaut() -> int:
+    """Cœurs laissés à l'encodage. 0 signifie « tous », au sens de ffmpeg.
+
+    Sur une machine à deux cœurs — celle de Colab — un encodage qui les prend
+    tous les deux prive le tunnel HTTPS de son souffle : cloudflared perd sa
+    liaison et le navigateur affiche une erreur 1033 en plein rendu. Abaisser
+    la priorité ne suffit pas, puisque les deux cœurs restent occupés ; il faut
+    vraiment en laisser un. On encode alors un peu moins vite, mais on ne perd
+    pas la session.
+    """
+    coeurs = os.cpu_count() or 1
+    return 1 if coeurs <= 2 else 0
+
+
+FFMPEG_THREADS = int(os.environ.get("FLAMBEE_FFMPEG_THREADS",
+                                    _threads_par_defaut()))
+
+
 # --- Cookies yt-dlp -------------------------------------------------------
 # YouTube/TikTok demandent parfois une connexion (« Sign in to confirm you're
 # not a bot »). Deux solutions, au choix :
