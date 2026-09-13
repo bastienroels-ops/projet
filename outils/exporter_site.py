@@ -90,12 +90,50 @@ def reecrire(html: str, medias: dict[str, str], atelier: str, prefixe: str) -> s
         base = atelier.rstrip("/")
         for lien in LIENS_ATELIER:
             html = re.sub(rf'href="{lien}(["?])', rf'href="{base}{lien}\1', html)
+    else:
+        # Vitrine seule : ces adresses n'existent pas ici. Plutôt qu'un 404 au
+        # premier clic, les boutons descendent à l'essayage — on montre le
+        # produit au lieu de mener nulle part.
+        for lien in LIENS_ATELIER:
+            html = re.sub(rf'href="{lien}[^"]*"', 'href="#essayage"', html)
     if prefixe:
         # `poster` et `data-src` portent aussi des adresses de médias : les
         # oublier laisserait les clips pointer à la racine du domaine.
         html = re.sub(r'\b(href|src|poster|data-src)="/(?!/)',
                       rf'\1="{prefixe}/', html)
     return html
+
+
+def ecrire_reglages_cloudflare(sortie: Path, atelier: str) -> None:
+    """Deux fichiers que Cloudflare Pages lit à la racine du site.
+
+    `_headers` fixe la durée de cache. Les médias portent une empreinte dans
+    leur nom et ne changent jamais à contenu égal : les garder un an évite de
+    les retélécharger à chaque visite. Les pages, elles, doivent être
+    revalidées, sinon une correction publiée resterait invisible.
+
+    `_redirects` rattrape les adresses de l'atelier : sans lui, un visiteur
+    qui a gardé un lien vers /inscription tomberait sur une page d'erreur.
+    """
+    (sortie / "_headers").write_text(
+        "/media/*\n"
+        "  Cache-Control: public, max-age=31536000, immutable\n"
+        "/static/*\n"
+        "  Cache-Control: public, max-age=31536000, immutable\n"
+        "/*\n"
+        "  Cache-Control: public, max-age=0, must-revalidate\n"
+        "  X-Content-Type-Options: nosniff\n"
+        "  Referrer-Policy: strict-origin-when-cross-origin\n",
+        encoding="utf-8")
+
+    destination = atelier.rstrip("/") if atelier else ""
+    lignes = []
+    for lien in LIENS_ATELIER:
+        cible = f"{destination}{lien}" if destination else "/"
+        code = "302" if destination else "302"
+        lignes.append(f"{lien} {cible} {code}")
+        lignes.append(f"{lien}/* {cible} {code}")
+    (sortie / "_redirects").write_text("\n".join(lignes) + "\n", encoding="utf-8")
 
 
 def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
@@ -139,13 +177,16 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
         (sortie / "404.html").write_text(
             reecrire(reponse.text, medias, atelier, prefixe), encoding="utf-8")
 
+    ecrire_reglages_cloudflare(sortie, atelier)
+
     poids = sum(f.stat().st_size for f in sortie.rglob("*") if f.is_file())
     fichiers = sum(1 for f in sortie.rglob("*") if f.is_file())
     print(f"\n✓ {fichiers} fichiers, {poids / 1_048_576:.1f} Mo dans {sortie}/")
     if not atelier:
-        print("\n⚠️  Sans --atelier, les boutons « Créer un compte » et")
-        print("   « Connexion » pointent vers des adresses absentes du site")
-        print("   statique. Relance avec l'adresse de ton application.")
+        print("\n⚠️  Vitrine seule : les boutons « Créer un compte » et")
+        print("   « Connexion » descendent à l'essayage, faute d'atelier où")
+        print("   les envoyer. Relance avec --atelier <adresse> le jour où")
+        print("   l'application tourne, et ils y mèneront.")
 
 
 def main() -> None:

@@ -37,19 +37,56 @@ python outils/exporter_site.py --sortie export \
 Sans cette option, le script prévient : ces boutons pointeraient vers des
 pages absentes du site statique.
 
-### Où le publier, gratuitement
+### Publier sur Cloudflare Pages, depuis un téléphone
+
+Le dossier `export/` est **versionné dans le dépôt**, déjà construit. C'est
+délibéré : l'environnement de construction de Cloudflare n'a pas ffmpeg, et
+une commande de build qui doit rendre les clips y échouerait. En publiant le
+résultat, il ne reste plus rien qui puisse casser — Cloudflare sert des
+fichiers, c'est tout.
+
+1. Ouvrir [dash.cloudflare.com](https://dash.cloudflare.com) et créer un
+   compte (gratuit, aucune carte bancaire).
+2. **Workers & Pages** → **Create** → onglet **Pages** → **Connect to Git**.
+3. Autoriser GitHub, choisir le dépôt `bastienroels-ops/projet`.
+4. Dans les réglages de construction :
+
+   | Champ | Valeur |
+   |---|---|
+   | Framework preset | **None** |
+   | Build command | *(laisser vide)* |
+   | Build output directory | `export` |
+   | Branch | `claude/fastapi-viral-video-montage-e9x7i8` |
+
+5. **Save and Deploy**. Une minute plus tard, le site répond sur une adresse
+   en `.pages.dev`.
+
+Chaque envoi sur la branche republie le site tout seul.
+
+### Mettre le site à jour
+
+Le dossier publié est le résultat d'une construction : après toute
+modification du site, il faut le refaire et le committer.
+
+```bash
+python outils/exporter_site.py --sortie export
+git add export && git commit -m "Republier le site" && git push
+```
+
+### Un nom de domaine
+
+L'adresse `.pages.dev` est gratuite et définitive. Pour un nom à toi :
+**Custom domains** dans le projet Pages, puis suivre les instructions. Le
+domaine coûte une dizaine d'euros par an chez n'importe quel registrar — et
+rien de plus : Cloudflare ne facture ni le HTTPS, ni le trafic, ni les
+certificats.
+
+### Les autres hébergeurs gratuits
 
 | Hébergeur | Coût | Remarque |
 |---|---|---|
-| **Cloudflare Pages** | 0 € | Le plus adapté : trafic illimité, nom de domaine personnalisé gratuit, HTTPS compris, publication depuis GitHub à chaque commit. |
 | **GitHub Pages** | 0 € | Ton dépôt y est déjà. Publié sous `nom.github.io/projet`, il faut alors exporter avec `--prefixe /projet`. |
 | **Netlify** | 0 € | 100 Go de trafic par mois, largement au-dessus du besoin. |
-
-Sur Cloudflare Pages : créer un projet, le relier au dépôt GitHub, indiquer
-`python outils/exporter_site.py --sortie export` comme commande de
-construction et `export` comme dossier publié. Chaque commit republie le site.
-L'adresse `quelquechose.pages.dev` est fournie ; un domaine à toi coûte une
-dizaine d'euros par an, et rien de plus.
 
 ### Ce que la version statique ne fait pas
 

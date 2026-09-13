@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <title>Questions fréquentes — Flambée</title>
+
+  <!-- Aperçu lors d'un partage : sans ces balises, le lien s'affiche nu. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flambée">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="Questions fréquentes — Flambée">
+  <meta property="og:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta property="og:image" content="http://testserver/api/demo/poster">
+  <meta property="og:url" content="http://testserver/faq">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Questions fréquentes — Flambée">
+  <meta name="twitter:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta name="twitter:image" content="http://testserver/api/demo/poster">
+  <link rel="canonical" href="http://testserver/faq">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/site.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
+</head>
+<body class="site">
+
+
+
+<canvas class="braises" id="braises" aria-hidden="true"></canvas>
+<div class="aurore" aria-hidden="true"><span></span><span></span></div>
+<div class="progression" id="progression" aria-hidden="true"></div>
+
+<header class="site-header">
+  <a class="brand" href="/"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</a>
+  <nav class="site-nav" id="site-nav">
+    <a href="/fonctionnalites" >Fonctionnalités</a>
+    <a href="/tarifs" >Tarifs</a>
+    <a href="/faq" class="courant">Questions</a>
+    
+    <a href="#essayage" >Connexion</a>
+    <a href="#essayage" class="button primary petit">Créer un compte</a>
+    
+  </nav>
+  <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
+    <span></span><span></span>
+  </button>
+</header>
+
+
+<section class="section section-premiere">
+  <p class="eyebrow">Questions</p>
+  <h1>Ce qu'on nous demande <em>le plus souvent</em>.</h1>
+  <div class="faq">
+  
+  <details>
+    <summary>Faut-il installer quelque chose ?</summary>
+    <p>Non. Flambée tourne dans le navigateur, y compris sur téléphone. Le montage s&#39;effectue côté serveur.</p>
+  </details>
+  
+  <details>
+    <summary>D&#39;où viennent les vidéos sources ?</summary>
+    <p>De liens que tu colles, ou de fichiers déjà enregistrés sur ton appareil. Tu restes responsable des droits sur ce que tu importes : réutiliser la vidéo d&#39;un tiers sans son accord n&#39;est pas permis, et Flambée ne te couvre pas là-dessus.</p>
+  </details>
+  
+  <details>
+    <summary>La voix est-elle vraiment naturelle ?</summary>
+    <p>Ce sont des voix de synthèse neuronales françaises, avec plusieurs timbres et débits. Elles conviennent au format court ; elles ne remplacent pas un comédien.</p>
+  </details>
+  
+  <details>
+    <summary>Puis-je modifier le script avant le rendu ?</summary>
+    <p>Oui, à tout moment. Le texte est éditable, et le compteur t&#39;indique la durée de voix off correspondante.</p>
+  </details>
+  
+  <details>
+    <summary>Combien de temps prend un rendu ?</summary>
+    <p>Quelques dizaines de secondes pour une vidéo d&#39;une minute. L&#39;aperçu en 540p, lui, arrive en quelques secondes.</p>
+  </details>
+  
+  <details>
+    <summary>Puis-je annuler mon abonnement ?</summary>
+    <p>Oui, à tout moment et sans justification. L&#39;accès reste ouvert jusqu&#39;à la fin de la période déjà réglée.</p>
+  </details>
+  
+</div>
+</section>
+
+<section class="appel">
+  <h2>Une question qui n'est pas là ?</h2>
+  <p>Écris-nous, on répond.</p>
+  <a href="#essayage" class="button primary grand">Ouvrir l'atelier</a>
+</section>
+
+
+<footer class="site-footer">
+  <div class="footer-grille">
+    <div class="footer-marque">
+      <div class="brand"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</div>
+      <p>L'atelier qui transforme des vidéos éparses en un format vertical
+         qui tient en haleine.</p>
+    </div>
+    <div>
+      <h4>Produit</h4>
+      <a href="/fonctionnalites">Fonctionnalités</a>
+      <a href="/tarifs">Tarifs</a>
+      <a href="#essayage">Ouvrir l'atelier</a>
+    </div>
+    <div>
+      <h4>Aide</h4>
+      <a href="/faq">Questions fréquentes</a>
+      <a href="#essayage">Connexion</a>
+      <a href="#essayage">Créer un compte</a>
+      <a href="#essayage">Ouvrir l'atelier</a>
+    </div>
+    <div>
+      <h4>Cadre légal</h4>
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/conditions">Conditions d'utilisation</a>
+      <a href="/confidentialite">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bas">
+    <span>© 2026 Flambée</span>
+    <span>Fait en France</span>
+  </div>
+</footer>
+
+<script src="/static/braises.js" defer></script>
+<script src="/static/site.js"></script>
+</body>
+</html>

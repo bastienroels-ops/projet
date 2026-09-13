@@ -61,9 +61,36 @@ def test_les_liens_de_compte_pointent_vers_l_atelier():
     assert 'href="/tarifs"' in rendu
 
 
-def test_sans_atelier_les_liens_restent_tels_quels():
-    html = '<a href="/inscription">Créer</a>'
-    assert 'href="/inscription"' in exporter_site.reecrire(html, MEDIAS, "", "")
+def test_sans_atelier_les_boutons_menent_a_l_essayage():
+    """Publiée seule, la vitrine n'a pas de page d'inscription : un bouton qui
+    mène à un 404 est pire qu'un bouton qui montre le produit."""
+    html = ('<a href="/inscription">Créer</a>'
+            '<a href="/inscription?formule=createur">Choisir</a>'
+            '<a href="/connexion">Entrer</a>')
+    rendu = exporter_site.reecrire(html, MEDIAS, "", "")
+    assert rendu.count('href="#essayage"') == 3
+    assert "/inscription" not in rendu and "/connexion" not in rendu
+
+
+def test_les_reglages_cloudflare_sont_ecrits(tmp_path):
+    """Sans _redirects, un visiteur ayant gardé un lien vers /inscription
+    tomberait sur une page d'erreur."""
+    exporter_site.ecrire_reglages_cloudflare(tmp_path, "")
+    redirections = (tmp_path / "_redirects").read_text()
+    for lien in exporter_site.LIENS_ATELIER:
+        assert f"{lien} / 302" in redirections
+
+    entetes = (tmp_path / "_headers").read_text()
+    # Les médias portent une empreinte : les garder un an évite de les
+    # retélécharger. Les pages, elles, doivent être revalidées.
+    assert "immutable" in entetes.split("/*")[0] or "/media/*" in entetes
+    assert "must-revalidate" in entetes
+
+
+def test_les_redirections_pointent_vers_l_atelier_quand_il_existe(tmp_path):
+    exporter_site.ecrire_reglages_cloudflare(tmp_path, "https://atelier.fr/")
+    redirections = (tmp_path / "_redirects").read_text()
+    assert "/inscription https://atelier.fr/inscription 302" in redirections
 
 
 def test_un_sous_chemin_prefixe_toutes_les_adresses():

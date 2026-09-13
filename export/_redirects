@@ -1,0 +1,8 @@
+/inscription / 302
+/inscription/* / 302
+/connexion / 302
+/connexion/* / 302
+/studio / 302
+/studio/* / 302
+/mot-de-passe-oublie / 302
+/mot-de-passe-oublie/* / 302

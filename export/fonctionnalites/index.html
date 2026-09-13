@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <title>Fonctionnalités — Flambée</title>
+
+  <!-- Aperçu lors d'un partage : sans ces balises, le lien s'affiche nu. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flambée">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="Fonctionnalités — Flambée">
+  <meta property="og:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta property="og:image" content="http://testserver/api/demo/poster">
+  <meta property="og:url" content="http://testserver/fonctionnalites">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Fonctionnalités — Flambée">
+  <meta name="twitter:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta name="twitter:image" content="http://testserver/api/demo/poster">
+  <link rel="canonical" href="http://testserver/fonctionnalites">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/site.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
+</head>
+<body class="site">
+
+
+
+<canvas class="braises" id="braises" aria-hidden="true"></canvas>
+<div class="aurore" aria-hidden="true"><span></span><span></span></div>
+<div class="progression" id="progression" aria-hidden="true"></div>
+
+<header class="site-header">
+  <a class="brand" href="/"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</a>
+  <nav class="site-nav" id="site-nav">
+    <a href="/fonctionnalites" class="courant">Fonctionnalités</a>
+    <a href="/tarifs" >Tarifs</a>
+    <a href="/faq" >Questions</a>
+    
+    <a href="#essayage" >Connexion</a>
+    <a href="#essayage" class="button primary petit">Créer un compte</a>
+    
+  </nav>
+  <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
+    <span></span><span></span>
+  </button>
+</header>
+
+
+<section class="section section-premiere">
+  <p class="eyebrow">Fonctionnalités</p>
+  <h1>Ce que fait Flambée <em>pendant que tu fais autre chose</em>.</h1>
+  <p class="section-accroche">Chaque étape du montage est automatisée, mais
+    aucune n'est verrouillée : tu peux reprendre la main partout.</p>
+  <div class="atouts-grille">
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M20.5 3.5 8.4 15.6M20.5 20.5 8.4 8.4"/></svg></span>
+      <h3>Les coupes tombent juste</h3>
+      <p>Les changements de plan de chaque source sont détectés, et le montage y cale ses coupes. Rien n&#39;est tranché au milieu d&#39;un geste.</p>
+    </article>
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13.2 2.5 4.8 13.4h6.2l-1.2 8.1 8.4-10.9h-6.2l1.2-8.1Z"/></svg></span>
+      <h3>L&#39;accroche est notée</h3>
+      <p>Les trois premières secondes de chaque source sont mesurées — mouvement, énergie sonore, popularité — et la plus percutante t&#39;est proposée en tête.</p>
+    </article>
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.6" y="4.8" width="18.8" height="14.4" rx="3.2"/><path d="M6.4 11.4h6.2M15.2 11.4h2.4M6.4 15.2h3.4M12.2 15.2h5.4"/></svg></span>
+      <h3>Des sous-titres au mot près</h3>
+      <p>Le minutage vient de la synthèse vocale elle-même : chaque mot s&#39;allume quand il est prononcé. Six styles, du plus viral au plus sobre.</p>
+    </article>
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3v5.2M6 12.8V21M12 3v8.4M12 16v5M18 3v2.6M18 10.2V21"/><circle cx="6" cy="10.5" r="2.1"/><circle cx="12" cy="13.7" r="2.1"/><circle cx="18" cy="7.9" r="2.1"/></svg></span>
+      <h3>Un son de vraie production</h3>
+      <p>Voix normalisée aux standards de diffusion, musique qui s&#39;efface d&#39;elle-même sous la parole, limiteur en sortie.</p>
+    </article>
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.2 2.4h3.6l.5 2.4 1.7 1 2.3-.9 1.8 3.1-1.8 1.7v2l1.8 1.7-1.8 3.1-2.3-.9-1.7 1-.5 2.4h-3.6l-.5-2.4-1.7-1-2.3.9L4 15.4l1.8-1.7v-2L4 10l1.7-3.1 2.3.9 1.7-1 .5-2.4Z"/><circle cx="12" cy="12" r="2.9"/></svg></span>
+      <h3>Un seul encodage</h3>
+      <p>Découpe, recadrage, montage, sous-titres et mixage tiennent dans une seule passe : c&#39;est plus rapide, et l&#39;image ne subit aucune perte de génération.</p>
+    </article>
+    
+    <article class="atout">
+      <span class="atout-icone"><svg class="icone" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="6" y="2.3" width="12" height="19.4" rx="3.2"/><path d="M10.4 18.6h3.2"/></svg></span>
+      <h3>Vertical par construction</h3>
+      <p>Tout est pensé pour le 9:16 : recadrage centré, masquage des sous-titres d&#39;origine, léger travelling sur les plans fixes.</p>
+    </article>
+    
+  </div>
+</section>
+
+<section class="section">
+  <p class="eyebrow">Le déroulé</p>
+  <h2>Cinq étapes, <em>pas une de plus</em>.</h2>
+  <ol class="etapes">
+    
+    <li>
+      <span class="etape-numero">01</span>
+      <h3>Tu donnes la matière</h3>
+      <p>Deux à cinq liens sur une même thématique, ou des vidéos déjà sur ton téléphone.</p>
+    </li>
+    
+    <li>
+      <span class="etape-numero">02</span>
+      <h3>Tu choisis l&#39;accroche</h3>
+      <p>Les premières secondes de chaque source, côte à côte, classées par impact.</p>
+    </li>
+    
+    <li>
+      <span class="etape-numero">03</span>
+      <h3>Tu poses le style</h3>
+      <p>Voix, sous-titres, musique, travelling. Un aperçu montre le rendu exact.</p>
+    </li>
+    
+    <li>
+      <span class="etape-numero">04</span>
+      <h3>Tu valides le script</h3>
+      <p>Sujet et consignes suffisent. Le texte reste éditable jusqu&#39;au bout.</p>
+    </li>
+    
+    <li>
+      <span class="etape-numero">05</span>
+      <h3>Tu récupères le fichier</h3>
+      <p>Un .mp4 vertical, sous-titré, mixé, prêt à publier.</p>
+    </li>
+    
+  </ol>
+</section>
+
+<section class="section">
+  <p class="eyebrow">Les sous-titres</p>
+  <h2>Six écritures, <em>rendues par le moteur vidéo</em>.</h2>
+  <div class="styles-grille">
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/punch-poster.jpg"
+             data-src="/media/punch-sample.mp4"></video>
+      <figcaption><b>Punch</b>Le classique des vidéos virales : gros, blanc, mot actif ambre.</figcaption>
+    </figure>
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/impact-poster.jpg"
+             data-src="/media/impact-sample.mp4"></video>
+      <figcaption><b>Impact</b>Capitales condensées et serrées, pour un ton affirmé.</figcaption>
+    </figure>
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/neon-poster.jpg"
+             data-src="/media/neon-sample.mp4"></video>
+      <figcaption><b>Néon</b>Halo lumineux sur le mot prononcé, ambiance nocturne.</figcaption>
+    </figure>
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/studio-poster.jpg"
+             data-src="/media/studio-sample.mp4"></video>
+      <figcaption><b>Studio</b>Texte posé sur un bandeau sombre : lisible sur toute image.</figcaption>
+    </figure>
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/signature-poster.jpg"
+             data-src="/media/signature-sample.mp4"></video>
+      <figcaption><b>Signature</b>Serif haut de gamme, or discret, rythme posé.</figcaption>
+    </figure>
+    
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             poster="/media/minimal-poster.jpg"
+             data-src="/media/minimal-sample.mp4"></video>
+      <figcaption><b>Minimal</b>Capitales fines et espacées, sans animation.</figcaption>
+    </figure>
+    
+  </div>
+</section>
+
+<section class="appel">
+  <h2>Le plus simple reste <em>d'essayer</em>.</h2>
+  <a href="#essayage" class="button primary grand">Ouvrir l'atelier</a>
+</section>
+
+
+<footer class="site-footer">
+  <div class="footer-grille">
+    <div class="footer-marque">
+      <div class="brand"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</div>
+      <p>L'atelier qui transforme des vidéos éparses en un format vertical
+         qui tient en haleine.</p>
+    </div>
+    <div>
+      <h4>Produit</h4>
+      <a href="/fonctionnalites">Fonctionnalités</a>
+      <a href="/tarifs">Tarifs</a>
+      <a href="#essayage">Ouvrir l'atelier</a>
+    </div>
+    <div>
+      <h4>Aide</h4>
+      <a href="/faq">Questions fréquentes</a>
+      <a href="#essayage">Connexion</a>
+      <a href="#essayage">Créer un compte</a>
+      <a href="#essayage">Ouvrir l'atelier</a>
+    </div>
+    <div>
+      <h4>Cadre légal</h4>
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/conditions">Conditions d'utilisation</a>
+      <a href="/confidentialite">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bas">
+    <span>© 2026 Flambée</span>
+    <span>Fait en France</span>
+  </div>
+</footer>
+
+<script src="/static/braises.js" defer></script>
+<script src="/static/site.js"></script>
+</body>
+</html>

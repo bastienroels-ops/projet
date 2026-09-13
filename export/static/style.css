@@ -1,0 +1,771 @@
+/* ==========================================================================
+   Flambée — habillage
+   Une identité « braise » : noir profond, lumière chaude, verre dépoli.
+   Tout est tokenisé ci-dessous ; l'interface entière suit ces variables.
+   ========================================================================== */
+
+/* Polices embarquées (SIL OFL) : aucun appel réseau, donc un rendu identique
+   partout — y compris hors ligne — et aucun clignotement au chargement. */
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/static/fonts/Inter-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 500 600; font-display: swap;
+  src: url('/static/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('/static/fonts/Inter-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Serif'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/static/fonts/InstrumentSerif-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Serif'; font-style: italic; font-weight: 400; font-display: swap;
+  src: url('/static/fonts/InstrumentSerif-Italic.woff2') format('woff2');
+}
+
+:root {
+  /* Fonds, du plus profond au plus clair */
+  --ink:        #08090c;
+  --ink-2:      #0c0e13;
+  --surface:    rgba(255, 255, 255, .028);
+  --surface-2:  rgba(255, 255, 255, .05);
+  --hairline:   rgba(255, 255, 255, .08);
+  --hairline-2: rgba(255, 255, 255, .14);
+
+  /* Texte */
+  --text:       #f4f1ec;
+  --text-soft:  #a9a49c;
+  --text-faint: #6c6862;
+
+  /* La braise : l'accent de la marque */
+  --ember:      #ff7a2f;
+  --ember-2:    #ffb648;
+  --ember-deep: #c23c0c;
+  --gold:       #e8c87a;
+
+  --ok:         #5fd6a4;
+  --alert:      #ff6b6b;
+
+  --radius:     18px;
+  --radius-sm:  12px;
+  --shadow:     0 24px 60px -24px rgba(0, 0, 0, .9);
+  --shadow-lift: 0 30px 70px -28px rgba(255, 122, 47, .35);
+
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ink);
+  color: var(--text);
+  font: 400 15px/1.6 var(--sans);
+  letter-spacing: -.01em;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* La lueur de fond : deux braises qui respirent très lentement. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+body::before {
+  width: 62vw; height: 62vw; max-width: 680px; max-height: 680px;
+  top: -22vw; right: -16vw;
+  background: radial-gradient(circle, rgba(255, 122, 47, .30), transparent 68%);
+  animation: respire 14s ease-in-out infinite;
+}
+body::after {
+  width: 52vw; height: 52vw; max-width: 560px; max-height: 560px;
+  bottom: -20vw; left: -18vw;
+  background: radial-gradient(circle, rgba(194, 60, 12, .22), transparent 70%);
+  animation: respire 19s ease-in-out infinite reverse;
+}
+@keyframes respire {
+  0%, 100% { transform: scale(1) translateY(0); opacity: .85; }
+  50%      { transform: scale(1.14) translateY(3%); opacity: 1; }
+}
+
+/* Un grain de pellicule très fin : il casse le lissé des aplats sombres et
+   donne de la matière. Trop discret pour se remarquer, assez pour se sentir. */
+html::after {
+  content: ""; position: fixed; inset: 0; z-index: 3;
+  pointer-events: none; opacity: .04; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------- En-tête --- */
+.topbar {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 22px 30px;
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(8, 9, 12, .92), rgba(8, 9, 12, .55));
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+.brand {
+  display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--serif);
+  font-size: 27px; font-weight: 400; letter-spacing: .01em;
+  white-space: nowrap;
+}
+.brand .flamme, .barre-marque .flamme {
+  width: 22px; height: 22px; color: var(--ember);
+  filter: drop-shadow(0 0 14px rgba(255, 122, 47, .75));
+  animation: vacille 3.5s ease-in-out infinite;
+}
+@keyframes vacille {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-2px) rotate(2deg); }
+}
+.version {
+  font-family: var(--sans); font-size: 10px; font-weight: 500;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint);
+}
+
+.health { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.health .tag {
+  font-size: 10.5px; font-weight: 500; letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text-faint);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.health .tag::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; opacity: .9;
+}
+.health .tag.ok { color: var(--ok); border-color: rgba(95, 214, 164, .26); }
+.health .tag.ko { color: var(--alert); border-color: rgba(255, 107, 107, .3); }
+
+/* ---------------------------------------------------------------- Corps --- */
+main {
+  position: relative; z-index: 1;
+  max-width: 940px; margin: 0 auto; padding: 40px 26px 120px;
+}
+
+/* --------------------------------------------------------------- Étapes --- */
+.steps {
+  display: flex; gap: 6px; margin-bottom: 30px;
+  padding: 6px; border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow-x: auto; scrollbar-width: none;
+}
+.steps::-webkit-scrollbar { display: none; }
+
+.step {
+  flex: 1 0 auto;
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 16px; border: none; border-radius: 999px;
+  background: transparent; color: var(--text-faint);
+  font: 500 13.5px var(--sans); letter-spacing: -.01em;
+  white-space: nowrap; cursor: pointer;
+  transition: color .25s, background .25s;
+}
+.step b {
+  display: grid; place-items: center;
+  width: 21px; height: 21px; border-radius: 50%;
+  background: var(--surface-2); color: inherit;
+  font-size: 10.5px; font-weight: 600;
+  transition: all .25s;
+}
+.step:hover:not(:disabled) { color: var(--text-soft); }
+.step.done { color: var(--text-soft); }
+.step.done b { background: rgba(95, 214, 164, .14); color: var(--ok); }
+.step.active {
+  color: #140c06;
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  box-shadow: 0 8px 24px -10px rgba(255, 122, 47, .8);
+}
+.step.active b { background: rgba(0, 0, 0, .22); color: #140c06; }
+.step:disabled { opacity: .3; cursor: not-allowed; }
+
+/* -------------------------------------------------------------- Panneau --- */
+.panel {
+  position: relative;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .012));
+  backdrop-filter: blur(26px) saturate(130%);
+  -webkit-backdrop-filter: blur(26px) saturate(130%);
+  box-shadow: var(--shadow);
+  padding: 34px;
+  animation: entree .5s cubic-bezier(.16, 1, .3, 1);
+}
+/* Un filet de lumière court le long du bord supérieur. */
+.panel::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 182, 72, .5), transparent);
+}
+@keyframes entree {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.eyebrow {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .17em;
+  text-transform: uppercase; color: var(--ember);
+  margin: 0 0 12px;
+}
+h2 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(30px, 5vw, 40px); line-height: 1.08;
+  letter-spacing: -.015em; margin: 0 0 10px;
+}
+h2 em { font-style: italic; color: var(--gold); }
+.hint { color: var(--text-soft); font-size: 14px; margin: 0 0 24px; max-width: 62ch; }
+.legal {
+  color: var(--text-faint); font-size: 11.5px; line-height: 1.6;
+  margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--hairline);
+}
+
+/* ------------------------------------------------------------ Formulaires --- */
+textarea, input[type=text], select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .32);
+  color: var(--text);
+  font: 400 15px/1.6 var(--sans);
+  resize: vertical;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+textarea::placeholder, input::placeholder { color: var(--text-faint); }
+textarea:focus, input:focus, select:focus {
+  outline: none;
+  border-color: rgba(255, 122, 47, .55);
+  background: rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 4px rgba(255, 122, 47, .1);
+}
+select {
+  appearance: none; cursor: pointer; padding-right: 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-soft) 50%),
+    linear-gradient(135deg, var(--text-soft) 50%, transparent 50%);
+  background-position: calc(100% - 21px) 50%, calc(100% - 15px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+label.block { display: block; margin: 22px 0 0; }
+.field-label,
+.grid label > span:first-child,
+label.block > span:first-child {
+  display: block; margin-bottom: 9px;
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+
+.grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 20px; margin-bottom: 4px;
+}
+.value { float: right; color: var(--gold); letter-spacing: 0; font-weight: 500; }
+
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 3px; border-radius: 999px; outline: none;
+  background: linear-gradient(90deg, var(--ember), var(--ember-2)) no-repeat,
+              rgba(255, 255, 255, .12);
+  background-size: 50% 100%;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: var(--text); cursor: pointer;
+  border: 3px solid var(--ember);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .6);
+}
+input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--text); border: 3px solid var(--ember); cursor: pointer;
+}
+
+/* Cases à cocher : une rangée de bascules lisibles au pouce. */
+.checks { display: flex; flex-direction: column; gap: 2px; margin: 26px 0 6px; }
+.checks label {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 2px; cursor: pointer; font-size: 14.5px;
+  border-bottom: 1px solid var(--hairline);
+  transition: color .2s;
+}
+.checks label:last-child { border-bottom: none; }
+.checks input[type=checkbox] {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 42px; height: 24px; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, .09);
+  border: 1px solid var(--hairline);
+  position: relative; transition: background .25s, border-color .25s;
+}
+.checks input[type=checkbox]::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--text-soft);
+  transition: transform .25s cubic-bezier(.3, 1.4, .5, 1), background .25s;
+}
+.checks input[type=checkbox]:checked {
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  border-color: transparent;
+}
+.checks input[type=checkbox]:checked::after {
+  transform: translateX(18px); background: #12100e;
+}
+
+/* ------------------------------------------------- Aperçu des sous-titres --- */
+.preview {
+  display: flex; align-items: center; gap: 20px;
+  margin: 18px 0 0; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: rgba(0, 0, 0, .28);
+}
+.preview video {
+  width: 270px; flex: none; display: block;
+  /* Proportions de l'échantillon : le cadre ne saute pas pendant le chargement. */
+  aspect-ratio: 108 / 34;
+  border-radius: 10px; background: #12131a;
+  box-shadow: 0 10px 26px -14px rgba(0, 0, 0, .9);
+}
+/* `display: block` ci-dessus l'emporterait sur l'attribut hidden. */
+.preview video[hidden] { display: none; }
+.preview figcaption {
+  display: flex; flex-direction: column; gap: 7px;
+  font-size: 13.5px; color: var(--text-soft); line-height: 1.5;
+}
+.preview figcaption b {
+  font-family: var(--serif); font-weight: 400; font-size: 22px;
+  color: var(--text); letter-spacing: -.01em;
+}
+.preview-note {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.preview.loading video { opacity: .3; }
+.preview.unplayable .preview-note::after {
+  content: " — aperçu indisponible ici";
+  color: var(--ember-2);
+}
+
+/* -------------------------------------------------------------- Boutons --- */
+.row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+
+button, .button {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 26px; border: none; border-radius: 999px;
+  font: 600 14.5px var(--sans); letter-spacing: -.005em;
+  cursor: pointer; text-decoration: none;
+  transition: transform .2s cubic-bezier(.16, 1, .3, 1), box-shadow .25s,
+              background .25s, color .25s, border-color .25s;
+}
+.primary {
+  background: linear-gradient(135deg, var(--ember-2), var(--ember) 55%, var(--ember-deep));
+  color: #180d05;
+  box-shadow: 0 10px 30px -12px rgba(255, 122, 47, .85);
+}
+.primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+.primary:active:not(:disabled) { transform: translateY(0); }
+.ghost {
+  background: var(--surface);
+  color: var(--text-soft);
+  border: 1px solid var(--hairline);
+}
+.ghost:hover:not(:disabled) {
+  color: var(--text); border-color: var(--hairline-2);
+  background: var(--surface-2); transform: translateY(-1px);
+}
+button:disabled, .button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+button.small { padding: 8px 16px; font-size: 12.5px; }
+
+.separator {
+  display: flex; align-items: center; gap: 16px;
+  margin: 32px 0 22px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.separator::before, .separator::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hairline), transparent);
+}
+.file-button { cursor: pointer; }
+
+/* -------------------------------------------------------------- Sources --- */
+.sources { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+.source {
+  padding: 15px 18px; border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 13.5px;
+  animation: entree .45s cubic-bezier(.16, 1, .3, 1) backwards;
+}
+.source .title { font-weight: 600; display: flex; align-items: center; gap: 9px; }
+.source .meta {
+  color: var(--text-faint); font-size: 11.5px; margin-top: 5px;
+  letter-spacing: .03em;
+}
+.source .warn { color: var(--ember-2); font-size: 12.5px; margin-top: 8px; }
+.source .err { color: var(--alert); font-size: 12.5px; margin-top: 8px; }
+
+/* ------------------------------------------------------------ Accroches --- */
+.hooks {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 18px;
+}
+.hook {
+  position: relative; cursor: pointer;
+  padding: 9px; border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1), border-color .3s,
+              box-shadow .3s;
+}
+.hook:hover { transform: translateY(-4px); border-color: var(--hairline-2); }
+.hook.recommended { border-color: rgba(232, 200, 122, .4); }
+.hook.selected {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 1px var(--ember), 0 20px 44px -20px rgba(255, 122, 47, .75);
+}
+.hook video {
+  width: 100%; aspect-ratio: 9 / 16; object-fit: cover;
+  border-radius: 12px; display: block; background: #000;
+}
+.hook .label { padding: 12px 6px 4px; font-size: 11.5px; color: var(--text-faint); }
+.hook .label b {
+  display: block; font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hook .badge {
+  position: absolute; top: 18px; left: 18px; z-index: 2; overflow: hidden;
+  padding: 5px 11px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold), #d0a94f);
+  color: #170f03; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  box-shadow: 0 6px 18px -6px rgba(232, 200, 122, .8);
+}
+/* Un reflet traverse le badge, comme sur du métal poli. */
+.hook .badge::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 30%,
+              rgba(255, 255, 255, .75) 48%, transparent 66%);
+  transform: translateX(-120%);
+  animation: reflet 4.5s ease-in-out 1.5s infinite;
+}
+@keyframes reflet {
+  0%, 72%, 100% { transform: translateX(-120%); }
+  86%           { transform: translateX(120%); }
+}
+.hook .score {
+  position: absolute; top: 18px; right: 18px; z-index: 2;
+  padding: 5px 9px; border-radius: 999px;
+  background: rgba(0, 0, 0, .62); backdrop-filter: blur(8px);
+  color: var(--text); font-size: 10.5px; font-weight: 600;
+}
+
+/* ------------------------------------------------------- Tâche en cours --- */
+.job { margin-bottom: 24px; }
+.job-bar {
+  height: 2px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, .08);
+}
+.job-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--ember-deep), var(--ember), var(--ember-2));
+  border-radius: 999px;
+  transition: width .45s cubic-bezier(.16, 1, .3, 1);
+  box-shadow: 0 0 14px rgba(255, 122, 47, .8);
+}
+.job-line {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-top: 12px;
+}
+.job-message { font-size: 13px; color: var(--text-soft); margin: 0; }
+
+.alert {
+  padding: 15px 19px; margin-bottom: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 107, 107, .28);
+  background: rgba(255, 107, 107, .07);
+  color: #ffb4b4; font-size: 13.5px; line-height: 1.55;
+  white-space: pre-wrap;
+  animation: entree .35s ease;
+}
+.alert.ok {
+  border-color: rgba(95, 214, 164, .28);
+  background: rgba(95, 214, 164, .06);
+  color: #a5ead0;
+}
+
+.prompt-box {
+  margin-top: 20px; padding: 20px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .3);
+}
+.prompt-box textarea { font-size: 13px; margin-bottom: 12px; }
+
+/* ------------------------------------------------------------- Récapitulatif --- */
+.recap dl {
+  display: grid; grid-template-columns: max-content 1fr;
+  gap: 0; margin: 0; font-size: 14px;
+}
+.recap dt, .recap dd {
+  padding: 13px 0; border-bottom: 1px solid var(--hairline);
+}
+.recap dt {
+  color: var(--text-faint); font-size: 11px; font-weight: 600;
+  letter-spacing: .11em; text-transform: uppercase;
+  padding-right: 28px; align-self: center;
+}
+.recap dd { margin: 0; color: var(--text); }
+
+.result { display: flex; gap: 30px; margin-top: 32px; flex-wrap: wrap; }
+.result video {
+  width: 252px; aspect-ratio: 9 / 16;
+  border-radius: var(--radius); background: #000;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow);
+}
+.result video.preview { border-color: rgba(232, 200, 122, .45); }
+.result-side { flex: 1 1 230px; display: flex; flex-direction: column; gap: 14px; }
+#result-info { font-family: var(--serif); font-size: 22px; margin: 0; line-height: 1.25; }
+
+code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px; padding: 3px 7px; border-radius: 6px;
+  background: rgba(255, 255, 255, .06); color: var(--text-soft);
+}
+
+.hidden { display: none !important; }
+
+/* ------------------------------------------------------------ Téléphone --- */
+@media (max-width: 680px) {
+  .topbar { padding: 16px 18px; flex-wrap: wrap; gap: 12px; }
+  .brand { font-size: 23px; }
+  .health { width: 100%; justify-content: flex-start; }
+  main { padding: 24px 16px 90px; }
+  .panel { padding: 24px 20px; border-radius: 16px; }
+  h2 { font-size: 27px; }
+  .steps { gap: 4px; padding: 5px; }
+  .step { padding: 9px 13px; font-size: 12.5px; }
+  .step span { display: none; }          /* on ne garde que le numéro… */
+  .step.active span { display: inline; } /* …sauf pour l'étape en cours */
+  .row button, .row .button { flex: 1 1 100%; }
+  .preview { flex-direction: column; align-items: stretch; gap: 14px; padding: 12px; }
+  .preview video { width: 100%; }
+  .result { gap: 20px; }
+  .result video { width: 100%; max-width: 300px; margin: 0 auto; }
+  .recap dl { grid-template-columns: 1fr; }
+  .recap dt { padding-bottom: 0; border-bottom: none; }
+  .recap dd { padding-top: 5px; }
+  /* Sous 16 px, iOS zoome automatiquement sur les champs. */
+  textarea, input[type=text], select { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, body::before, body::after { animation: none !important; transition: none !important; }
+}
+
+/* --------------------------------------------------------------- Tarifs --- */
+/* Les cartes de formule servent deux fois : sur la page publique des tarifs
+   et dans l'atelier, à la rubrique Abonnement. Elles vivent donc ici, dans la
+   feuille que les deux coquilles chargent, et non dans site.css. */
+.bascule-facturation {
+  display: inline-flex; gap: 4px; padding: 5px; margin-bottom: 38px;
+  border: 1px solid var(--hairline); border-radius: 999px;
+  background: var(--surface);
+}
+.bascule-facturation button {
+  padding: 9px 20px; border: none; border-radius: 999px;
+  background: transparent; color: var(--text-soft);
+  font: 500 13.5px var(--sans); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.bascule-facturation button.actif {
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  color: #150d05; font-weight: 600;
+}
+.remise {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(95, 214, 164, .16); color: var(--ok);
+}
+.bascule-facturation button.actif .remise { background: rgba(0,0,0,.2); color: #150d05; }
+
+.tarifs-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
+  gap: 22px; align-items: start;
+}
+.tarif {
+  position: relative; padding: 34px 30px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+}
+.tarif.vedette {
+  border-color: rgba(255, 122, 47, .45);
+  box-shadow: 0 26px 70px -34px rgba(255, 122, 47, .7);
+}
+.ruban {
+  position: absolute; top: -11px; left: 30px;
+  padding: 5px 13px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  color: #150d05; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.tarif h3 {
+  font-family: var(--serif); font-weight: 400; font-size: 28px;
+  margin: 0 0 8px;
+}
+.tarif-accroche { font-size: 14px; color: var(--text-soft); margin: 0 0 24px; min-height: 42px; line-height: 1.55; }
+.tarif-prix { display: flex; align-items: baseline; gap: 9px; margin: 0 0 6px; }
+.tarif-prix b { font-size: 44px; font-weight: 600; letter-spacing: -.03em; }
+.tarif-prix span { font-size: 13.5px; color: var(--text-faint); }
+.tarif-volume {
+  font-size: 12px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ember-2); margin: 0 0 26px;
+}
+/* Le lien du site public et le bouton de formulaire de l'atelier :
+   même carte, même largeur pleine. */
+.tarif .button,
+.tarif button,
+.tarif form { width: 100%; }
+.tarif .button, .tarif > button, .tarif form { margin-bottom: 26px; }
+.tarif form button { margin-bottom: 0; }
+.tarif-liste { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.tarif-liste li {
+  position: relative; padding-left: 26px;
+  font-size: 14px; color: var(--text-soft); line-height: 1.5;
+}
+.tarif-liste li::before {
+  content: "→"; position: absolute; left: 0; top: 0;
+  color: var(--ember); font-size: 13px;
+}
+.tarif-note { margin: 22px 0 0; font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+
+@media (max-width: 680px) {
+  .tarif { padding: 28px 22px; }
+}
+
+/* ==========================================================================
+   Finitions — grain, aurore, halo, progression
+   Trois couches qui ne changent rien à la lecture mais donnent sa matière au
+   noir : sans elles, un fond sombre est un aplat, pas une image.
+   ========================================================================== */
+
+/* Le grain. Un bruit fixe, très faible, appliqué au-dessus de tout : il casse
+   les bandes de dégradé que produisent les écrans 8 bits et donne au noir une
+   texture de pellicule. Le motif est en SVG embarqué — aucun fichier à
+   charger, aucun appel réseau. */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none; opacity: .04; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23b)'/%3E%3C/svg%3E");
+}
+
+/* L'aurore : deux halos chauds qui dérivent lentement derrière la page. Ils
+   vivent dans un conteneur à part, sous tout le reste, pour ne jamais gêner
+   ni la sélection du texte ni le défilement. */
+.aurore {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden;
+  pointer-events: none;
+}
+.aurore span {
+  position: absolute; display: block; border-radius: 50%;
+  filter: blur(90px); opacity: .5;
+  will-change: transform;
+}
+.aurore span:nth-child(1) {
+  width: 46vw; height: 46vw; top: -14vw; left: -8vw;
+  background: radial-gradient(circle, rgba(255, 122, 47, .30), transparent 68%);
+  animation: derive-a 34s ease-in-out infinite alternate;
+}
+.aurore span:nth-child(2) {
+  width: 38vw; height: 38vw; top: 8vw; right: -10vw;
+  background: radial-gradient(circle, rgba(120, 90, 255, .17), transparent 68%);
+  animation: derive-b 41s ease-in-out infinite alternate;
+}
+@keyframes derive-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6vw, 5vw, 0) scale(1.14); }
+}
+@keyframes derive-b {
+  from { transform: translate3d(0, 0, 0) scale(1.08); }
+  to   { transform: translate3d(-7vw, 4vw, 0) scale(.92); }
+}
+
+/* Le halo du curseur sur les boutons pleins : la lumière suit la main. Les
+   coordonnées sont posées par le script sous forme de variables. */
+.button.primary, button.primary {
+  position: relative; overflow: hidden; isolation: isolate;
+}
+.button.primary::after, button.primary::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  opacity: 0; transition: opacity .3s;
+  background: radial-gradient(180px circle at var(--x, 50%) var(--y, 50%),
+              rgba(255, 255, 255, .35), transparent 62%);
+}
+.button.primary:hover::after, button.primary:hover::after { opacity: 1; }
+
+/* La progression de lecture, posée sur le filet de l'en-tête. */
+.progression {
+  position: fixed; top: 0; left: 0; height: 2px; z-index: 60;
+  width: var(--avance, 0%);
+  background: linear-gradient(90deg, var(--ember-2), var(--ember));
+  box-shadow: 0 0 14px rgba(255, 122, 47, .6);
+  transition: width .1s linear;
+}
+
+/* Les chiffres qui se posent : la tabulation numérique évite que la largeur
+   saute pendant le décompte. */
+.chiffres-grille b { font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurore span { animation: none; }
+  .progression { transition: none; }
+}
+
+/* Les icônes du jeu maison : elles suivent la couleur du texte et ne doivent
+   jamais se déformer quand la place manque. */
+.icone { flex: none; display: block; }
+.icone.flamme { color: var(--ember); }
+
+/* Le fond WebGL. Il occupe l'écran entier, sous tout le reste, et se retire
+   du flux : aucune interaction, aucune sélection, aucun défilement. */
+.braises {
+  position: fixed; inset: 0; z-index: -2;
+  width: 100%; height: 100%;
+  display: block; pointer-events: none;
+  /* Il apparaît en fondu : un champ qui surgit d'un coup au chargement fait
+     sursauter, là où une montée d'une seconde passe pour un allumage. */
+  opacity: 0; transition: opacity 1.1s ease-out;
+}
+.braises-actives .braises { opacity: 1; }
+/* Les halos CSS ne servent que de secours : dès que le shader tourne, ils
+   feraient double emploi et alourdiraient la composition. */
+.braises-actives .aurore { opacity: 0; transition: opacity .8s; }
