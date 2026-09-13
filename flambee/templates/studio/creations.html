@@ -18,12 +18,23 @@
   {% if creations %}
   <div class="creations">
     {% for projet in creations %}
-    <a class="creation" href="/studio?projet={{ projet.id }}">
-      {% if projet.viewing_url %}
-      <video src="{{ projet.viewing_url }}#t=0.5" muted playsinline preload="metadata"></video>
-      {% else %}
-      <div class="vide">🎬</div>
-      {% endif %}
+    <a class="creation{{ ' terminee' if projet.poster_url }}"
+       href="/studio?projet={{ projet.id }}">
+      <div class="creation-image">
+        {% if projet.poster_url %}
+        {# Une image plutôt qu'un lecteur : quarante vidéos rendraient la page
+           lourde, et sans preload="auto" aucune ne peindrait d'image. La
+           vidéo n'est chargée qu'au survol, par le script. #}
+        <img src="{{ projet.poster_url }}" alt="" loading="lazy" decoding="async"
+             width="360" height="640">
+        <video muted loop playsinline preload="none"
+               data-src="{{ projet.viewing_url }}"></video>
+        <span class="creation-jouer" aria-hidden="true">▶</span>
+        {% else %}
+        <div class="vide">🎬</div>
+        <span class="creation-etat">En cours</span>
+        {% endif %}
+      </div>
       <div class="creation-info">
         <b>{{ projet.titre }}</b>
         <span>{{ projet.date }} · étape {{ projet.step }}/5</span>

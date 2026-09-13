@@ -24,3 +24,33 @@
     if (e.key === "Escape") basculer(false);
   });
 })();
+
+/* La grille des créations : l'affiche s'affiche tout de suite, la vidéo ne se
+   charge qu'au survol — quarante lecteurs chargés d'emblée rendraient la page
+   inutilisable sur une connexion mobile. */
+(() => {
+  const cartes = document.querySelectorAll(".creation.terminee");
+  if (!cartes.length) return;
+  if (!window.matchMedia("(pointer: fine)").matches) return;   // pas de survol
+
+  cartes.forEach((carte) => {
+    const video = carte.querySelector("video[data-src]");
+    if (!video) return;
+    let horloge = null;
+
+    carte.addEventListener("pointerenter", () => {
+      /* Un survol de passage ne doit pas déclencher un téléchargement : on
+         attend que l'intention se confirme. */
+      horloge = setTimeout(() => {
+        if (!video.src) video.src = video.dataset.src;
+        video.play().then(() => video.classList.add("joue")).catch(() => {});
+      }, 220);
+    });
+
+    carte.addEventListener("pointerleave", () => {
+      clearTimeout(horloge);
+      video.classList.remove("joue");
+      video.pause();
+    });
+  });
+})();

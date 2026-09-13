@@ -492,6 +492,9 @@ async def studio_creations(request: Request):
             "viewing_url": (f"/api/projects/{projet.id}/viewing"
                             if projet.output_path
                             and Path(projet.output_path).exists() else ""),
+            "poster_url": (f"/api/projects/{projet.id}/poster"
+                           if projet.output_path
+                           and Path(projet.output_path).exists() else ""),
         })
     return templates.TemplateResponse(
         request, "studio/creations.html",
@@ -1284,6 +1287,22 @@ async def download_output(request: Request, project_id: str, download: bool = Fa
         media_type="video/mp4",
         filename=Path(project.output_path).name if download else None,
     )
+
+
+@app.get("/api/projects/{project_id}/poster")
+async def projet_affiche(request: Request, project_id: str):
+    """Vignette d'un rendu, pour la liste des créations."""
+    project = _get(project_id, request)
+    if not project.output_path or not Path(project.output_path).exists():
+        raise HTTPException(status_code=404, detail="Aucun rendu disponible.")
+    try:
+        chemin = await asyncio.to_thread(
+            samples.output_poster, Path(project.output_path),
+            project.dir / ".viewing")
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="image/jpeg",
+                        headers={"Cache-Control": "private, max-age=3600"})
 
 
 @app.get("/api/projects/{project_id}/viewing")

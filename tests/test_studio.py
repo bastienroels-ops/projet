@@ -124,3 +124,48 @@ def test_la_voix_importee_apparait_dans_la_liste(compte, monkeypatch):
 
 def test_fichier_de_voix_absent(compte):
     assert compte.get("/studio/voix/fichier").status_code == 404
+
+
+def test_la_vignette_d_un_rendu_est_une_image(compte, tmp_path):
+    """Quarante lecteurs vidéo rendraient la liste des créations inutilisable
+    sur une connexion mobile ; une image de quelques kilo-octets suffit."""
+    import subprocess
+
+    from flambee import media
+    from flambee.project import store
+
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+
+    projet = store.create(compte_id := _identifiant(compte))
+    sortie = projet.dir / "final.mp4"
+    subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i",
+                    "testsrc2=size=540x960:duration=3:rate=25",
+                    "-c:v", "libx264", "-preset", "ultrafast",
+                    "-pix_fmt", "yuv420p", str(sortie)],
+                   check=True, capture_output=True)
+    projet.output_path = str(sortie)
+    projet.save()
+
+    reponse = compte.get(f"/api/projects/{projet.id}/poster")
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"] == "image/jpeg"
+    assert len(reponse.content) > 800
+
+    # Le second appel vient du cache, sans relancer ffmpeg.
+    empreintes = list((projet.dir / ".viewing").glob("affiche-*.jpg"))
+    assert len(empreintes) == 1
+
+
+def test_un_projet_sans_rendu_n_a_pas_de_vignette(compte):
+    from flambee.project import store
+
+    projet = store.create(_identifiant(compte))
+    assert compte.get(f"/api/projects/{projet.id}/poster").status_code == 404
+
+
+def _identifiant(client) -> int:
+    from flambee import users
+
+    return users.par_email("essai@exemple.fr").id
+

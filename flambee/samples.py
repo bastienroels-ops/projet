@@ -253,6 +253,36 @@ def clear_cache() -> int:
 VIEWING_WIDTH = 540
 
 
+def output_poster(source: Path, cache_dir: Path) -> Path:
+    """Image fixe d'un rendu, pour les vignettes de la liste des créations.
+
+    Une grille de quarante lecteurs vidéo est lourde à charger et, sans
+    `preload="auto"`, la plupart des navigateurs n'en peignent aucune image :
+    on obtient quarante rectangles noirs. Une image de 12 ko règle les deux.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    empreinte = hashlib.sha256(
+        f"{source.name}:{source.stat().st_mtime_ns}:{source.stat().st_size}"
+        .encode("utf-8")
+    ).hexdigest()[:12]
+    out_path = cache_dir / f"affiche-{empreinte}.jpg"
+    if out_path.exists() and out_path.stat().st_size > 800:
+        return out_path
+
+    with _lock_for(f"affiche:{empreinte}"):
+        if out_path.exists() and out_path.stat().st_size > 800:
+            return out_path
+        for ancien in cache_dir.glob("affiche-*.jpg"):
+            ancien.unlink(missing_ok=True)      # une seule affiche par projet
+        # Une seconde après le début : le tout premier plan est souvent un
+        # fondu, et une vignette noire n'apprend rien.
+        ffmpeg(["-ss", "1.0", "-i", str(source), "-frames:v", "1",
+                "-vf", "scale=360:-2", "-q:v", "5", str(out_path)], timeout=120)
+        if not out_path.exists():
+            raise MediaError("Affiche du rendu absente.")
+        return out_path
+
+
 def viewing_copy(source: Path, cache_dir: Path) -> Path:
     """Version allégée d'un rendu, destinée à la lecture dans la page.
 
