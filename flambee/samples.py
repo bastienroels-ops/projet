@@ -106,6 +106,45 @@ def text_band(style: config.SubtitleStyle, fmt: config.VideoFormat) -> tuple[int
     return haut, BAND_HEIGHT
 
 
+def _rendre_clip(preset: str, mots: list[Word], out_path: Path) -> Path:
+    """Rend la bande de sous-titres pour ces mots. Appelé sous verrou."""
+    style = config.subtitle_style(preset)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    duration = mots[-1].end + TAIL
+
+    ass_path = out_path.with_suffix(".ass")
+    subtitles.write_ass(mots, ass_path, style=style, max_duration=duration)
+
+    fmt = config.FORMAT
+    haut, hauteur = text_band(style, fmt)
+    sortie_h = round(hauteur * OUT_WIDTH / fmt.width / 2) * 2
+
+    from .assembler import _escape_filter_path
+
+    graphe = (
+        backdrop_filter(fmt.width, fmt.height)
+        + f";[fond]subtitles=filename='{_escape_filter_path(ass_path)}'"
+        f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
+        f"crop={fmt.width}:{hauteur}:0:{haut},"
+        f"scale={OUT_WIDTH}:{sortie_h},format=yuv420p[o]"
+    )
+    try:
+        ffmpeg([
+            *backdrop_inputs(duration),
+            "-t", f"{duration:.2f}",
+            "-filter_complex", graphe, "-map", "[o]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+            "-movflags", "+faststart", "-an",
+            str(out_path),
+        ], timeout=240)
+    finally:
+        ass_path.unlink(missing_ok=True)
+
+    if not has_media_duration(out_path, minimum=0.3):
+        raise MediaError(f"Échantillon vide pour le style « {preset} ».")
+    return out_path
+
+
 def build_sample(preset: str) -> Path:
     """Rend l'échantillon du style demandé (ou retourne celui déjà en cache)."""
     out_path = sample_path(preset)
@@ -115,44 +154,88 @@ def build_sample(preset: str) -> Path:
     with _lock_for(preset):                 # deux requêtes simultanées, un seul rendu
         if out_path.exists() and has_media_duration(out_path, minimum=0.3):
             return out_path
-
-        style = config.subtitle_style(preset)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        words = sample_words()
-        duration = words[-1].end + TAIL
-
-        ass_path = out_path.with_suffix(".ass")
-        subtitles.write_ass(words, ass_path, style=style, max_duration=duration)
-
-        fmt = config.FORMAT
-        haut, hauteur = text_band(style, fmt)
-        sortie_h = round(hauteur * OUT_WIDTH / fmt.width / 2) * 2
-
-        from .assembler import _escape_filter_path
-
-        graphe = (
-            backdrop_filter(fmt.width, fmt.height)
-            + f";[fond]subtitles=filename='{_escape_filter_path(ass_path)}'"
-            f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
-            f"crop={fmt.width}:{hauteur}:0:{haut},"
-            f"scale={OUT_WIDTH}:{sortie_h},format=yuv420p[o]"
-        )
-        try:
-            ffmpeg([
-                *backdrop_inputs(duration),
-                "-t", f"{duration:.2f}",
-                "-filter_complex", graphe, "-map", "[o]",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
-                "-movflags", "+faststart", "-an",
-                str(out_path),
-            ], timeout=240)
-        finally:
-            ass_path.unlink(missing_ok=True)
-
-        if not has_media_duration(out_path, minimum=0.3):
-            raise MediaError(f"Échantillon vide pour le style « {preset} ».")
+        _rendre_clip(preset, sample_words(), out_path)
         log.info("Échantillon rendu : %s", out_path.name)
         return out_path
+
+
+# --- Essayage : le texte du visiteur, rendu par le vrai moteur -------------
+TEXTE_MAX = 70
+# Ce qui entre dans un fichier ASS : les accolades y ouvrent un bloc de
+# commandes, la barre oblique inversée introduit une directive, et un retour
+# à la ligne termine l'événement — la suite serait lue comme du balisage.
+# Les séparateurs deviennent des espaces, les directives disparaissent : sans
+# cela, « ligne1\nligne2 » donnerait le mot « ligne1ligne2 ».
+_INTERDITS = str.maketrans({"{": None, "}": None, "\\": None,
+                            "\r": " ", "\n": " ", "\t": " "})
+
+
+def nettoyer_texte(texte: str) -> str:
+    """Rend un texte de visiteur inoffensif pour le format ASS.
+
+    Le champ vient d'un formulaire public : sans ce filtre, on écrirait des
+    directives de sous-titrage choisies par l'inconnu qui les tape.
+    """
+    # La traduction passe en premier : un retour à la ligne n'est pas un
+    # caractère imprimable, le filtre suivant l'effacerait avant qu'il ait pu
+    # devenir l'espace qui sépare deux mots.
+    texte = texte.translate(_INTERDITS)
+    texte = "".join(c for c in texte if c.isprintable())
+    texte = " ".join(texte.split())          # espaces multiples, bords
+    return texte[:TEXTE_MAX].strip()
+
+
+def mots_du_texte(texte: str) -> list[Word]:
+    """Minutage régulier : assez pour montrer le surlignage se déplacer."""
+    return [
+        Word(text=mot, start=i * WORD_DURATION, end=(i + 1) * WORD_DURATION)
+        for i, mot in enumerate(texte.split())
+    ]
+
+
+def essayage_path(texte: str, preset: str) -> Path:
+    style = config.subtitle_style(preset)
+    empreinte = hashlib.sha256(
+        f"{texte}|{preset}|{_signature(style)}".encode("utf-8")
+    ).hexdigest()[:16]
+    return config.WORK_DIR / ".essayages" / f"{preset}-{empreinte}.mp4"
+
+
+def essayage(texte: str, preset: str) -> Path:
+    """Rend la phrase du visiteur dans le style demandé, et met en cache.
+
+    Le cache porte sur le couple texte + style : deux visiteurs qui tapent la
+    même phrase ne déclenchent qu'un encodage.
+    """
+    texte = nettoyer_texte(texte)
+    if not texte:
+        raise MediaError("Écris une phrase pour voir le rendu.")
+    if preset not in config.SUBTITLE_PRESETS:
+        raise MediaError("Style inconnu.")
+
+    out_path = essayage_path(texte, preset)
+    if out_path.exists() and has_media_duration(out_path, minimum=0.3):
+        return out_path
+
+    with _lock_for(f"essayage:{out_path.name}"):
+        if out_path.exists() and has_media_duration(out_path, minimum=0.3):
+            return out_path
+        _rendre_clip(preset, mots_du_texte(texte), out_path)
+        _limiter_cache_essayages()
+        log.info("Essayage rendu : %s (%s)", preset, texte[:40])
+        return out_path
+
+
+ESSAYAGES_MAX = 400
+
+
+def _limiter_cache_essayages() -> None:
+    """Le cache des essayages est alimenté par des inconnus : il faut un
+    plafond, sinon le disque se remplit au rythme des visiteurs."""
+    dossier = config.WORK_DIR / ".essayages"
+    fichiers = sorted(dossier.glob("*.mp4"), key=lambda f: f.stat().st_mtime)
+    for fichier in fichiers[:-ESSAYAGES_MAX]:
+        fichier.unlink(missing_ok=True)
 
 
 def clear_cache() -> int:

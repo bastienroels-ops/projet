@@ -882,6 +882,64 @@ async def demo_affiche():
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+# --- Essayage public des sous-titres --------------------------------------
+# Un encodage déclenché par un formulaire ouvert : il faut un plafond, sinon
+# une seule page rechargée en boucle occupe le processeur de la machine.
+_ESSAIS_PAR_MINUTE = 12
+_essais: dict[str, list[float]] = {}
+_essais_verrou = threading.Lock()
+
+
+def _peut_essayer(adresse: str) -> bool:
+    maintenant = time.time()
+    with _essais_verrou:
+        recents = [t for t in _essais.get(adresse, []) if maintenant - t < 60]
+        if len(recents) >= _ESSAIS_PAR_MINUTE:
+            _essais[adresse] = recents
+            return False
+        recents.append(maintenant)
+        _essais[adresse] = recents
+        if len(_essais) > 2000:            # ménage : on ne garde pas l'Internet
+            for cle in [c for c, v in _essais.items()
+                        if not v or maintenant - v[-1] > 300]:
+                _essais.pop(cle, None)
+    return True
+
+
+@app.get("/api/essayage")
+async def essayage(request: Request, texte: str = "", style: str = ""):
+    """Rend la phrase du visiteur dans le style choisi, avec le vrai moteur.
+
+    C'est l'argument du site : ce que l'on voit ici n'est pas une imitation en
+    HTML, c'est le fichier que ffmpeg produirait dans le montage final.
+    """
+    style = style or config.DEFAULT_SUBTITLE_PRESET
+    if style not in config.SUBTITLE_PRESETS:
+        raise HTTPException(status_code=404, detail="Style inconnu.")
+    propre = samples.nettoyer_texte(texte)
+    if not propre:
+        raise HTTPException(status_code=400, detail="Écris une phrase.")
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+
+    # Un essayage déjà en cache ne coûte rien : il ne consomme pas de quota.
+    chemin = samples.essayage_path(propre, style)
+    if not chemin.exists():
+        adresse = request.client.host if request.client else "inconnu"
+        if not _peut_essayer(adresse):
+            raise HTTPException(
+                status_code=429,
+                detail="Trop d'essais d'un coup. Laisse passer une minute.",
+            )
+        try:
+            chemin = await asyncio.to_thread(samples.essayage, propre, style)
+        except media.MediaError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return FileResponse(chemin, media_type="video/mp4",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/presets/{preset}/poster")
 async def preset_affiche(preset: str):
     """Image fixe d'un style : la vignette n'est jamais un rectangle noir."""

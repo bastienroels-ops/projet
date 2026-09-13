@@ -428,3 +428,97 @@ input[type=email]:focus, input[type=password]:focus {
 .erreur-page { text-align: center; padding-block: 110px 130px; }
 .erreur-page .section-accroche { margin-inline: auto; }
 .erreur-page .row { justify-content: center; }
+
+/* ---------------------------------------------- Essayage des sous-titres --- */
+.essayage { margin-top: 38px; }
+
+.essayage-champ { position: relative; display: block; margin-bottom: 22px; }
+.essayage-champ input {
+  width: 100%; padding: 20px 92px 20px 24px;
+  font: 500 19px/1.4 var(--sans); color: var(--text);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border: 1px solid var(--hairline); border-radius: 16px;
+  transition: border-color .25s, box-shadow .25s, background .25s;
+}
+.essayage-champ input::placeholder { color: var(--text-faint); }
+.essayage-champ input:focus {
+  outline: none; border-color: rgba(255, 122, 47, .55);
+  background: rgba(255, 122, 47, .05);
+  box-shadow: 0 0 0 4px rgba(255, 122, 47, .10),
+              0 22px 60px -34px rgba(255, 122, 47, .8);
+}
+.essayage-compteur {
+  position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  font: 600 12px var(--sans); letter-spacing: .04em;
+  color: var(--text-faint); pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.essayage-compteur.proche { color: var(--ember-2); }
+
+.essayage-styles {
+  display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 24px;
+}
+.puce {
+  padding: 10px 18px; border-radius: 999px; cursor: pointer;
+  font: 500 13.5px var(--sans); color: var(--text-soft);
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--hairline);
+  transition: color .2s, background .2s, border-color .2s, transform .2s;
+}
+.puce:hover { color: var(--text); border-color: rgba(255, 255, 255, .18); }
+.puce:active { transform: scale(.97); }
+.puce.actif {
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  border-color: transparent; color: #150d05; font-weight: 650;
+  box-shadow: 0 14px 34px -18px rgba(255, 122, 47, .9);
+}
+
+/* La scène : un cadre sombre où le clip occupe toute la largeur. Le fond du
+   clip étant lui-même un dégradé, le cadre reste neutre pour ne pas jurer. */
+.essayage-scene {
+  position: relative; margin: 0; border-radius: 20px; overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #07080b;
+  box-shadow: 0 40px 90px -50px rgba(0, 0, 0, .95);
+}
+.essayage-scene video {
+  display: block; width: 100%; height: auto;
+  /* Le clip est une bande : on réserve sa place pour éviter le saut de page. */
+  aspect-ratio: 540 / 170; object-fit: cover; background: #07080b;
+}
+.essayage-scene figcaption {
+  padding: 16px 22px 18px; font-size: 13.5px; color: var(--text-soft);
+  border-top: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, .015);
+}
+
+/* Pendant le rendu : le clip se retire légèrement et une barre progresse. */
+.essayage.charge .essayage-scene video { opacity: .38; filter: saturate(.5); }
+.essayage-scene video { transition: opacity .35s, filter .35s; }
+.essayage.charge .essayage-scene::after {
+  content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ember), transparent);
+  animation: balayage 1.15s ease-in-out infinite;
+}
+@keyframes balayage {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.essayage-etat {
+  margin: 14px 0 0; min-height: 20px;
+  font-size: 13.5px; color: var(--text-faint);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 680px) {
+  .essayage-champ input { padding: 17px 78px 17px 18px; font-size: 16.5px; }
+  .puce { padding: 9px 15px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .essayage.charge .essayage-scene::after { animation: none; opacity: .6; }
+}

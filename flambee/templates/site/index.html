@@ -56,19 +56,43 @@
 
 <section class="section" id="styles">
   <p class="eyebrow">Les sous-titres</p>
-  <h2>Six écritures, <em>un seul clic</em>.</h2>
-  <p class="section-accroche">Chaque style est rendu par le moteur vidéo lui-même :
-    ce que tu vois ici est exactement ce que ta vidéo produira.</p>
-  <div class="styles-grille">
-    {% for preset in presets %}
-    <figure class="style-carte">
-      <video muted loop autoplay playsinline preload="none"
-             poster="/api/presets/{{ preset.id }}/poster"
-             data-src="/api/presets/{{ preset.id }}/sample"></video>
-      <figcaption><b>{{ preset.label }}</b>{{ preset.description }}</figcaption>
+  <h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>
+  <p class="section-accroche">Six écritures. Tape ce que tu veux : le clip
+    ci-dessous est calculé par le moteur vidéo lui-même, pas imité en HTML.
+    C'est très exactement ce que produira ton montage.</p>
+
+  <div class="essayage" id="essayage">
+    <label class="essayage-champ">
+      <span class="sr-only">Ta phrase</span>
+      <input type="text" id="essayage-texte" maxlength="70" autocomplete="off"
+             spellcheck="false"
+             value="Voici l'astuce que personne ne connaît"
+             aria-describedby="essayage-compteur">
+      <span class="essayage-compteur" id="essayage-compteur" aria-live="polite"></span>
+    </label>
+
+    <div class="essayage-styles" role="tablist" aria-label="Style de sous-titres">
+      {% for preset in presets %}
+      <button type="button" class="puce{% if loop.first %} actif{% endif %}"
+              role="tab" data-style="{{ preset.id }}"
+              aria-selected="{{ 'true' if loop.first else 'false' }}">
+        {{ preset.label }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <figure class="essayage-scene" id="essayage-scene">
+      <video id="essayage-video" muted loop autoplay playsinline preload="none"
+             poster="/api/presets/{{ presets[0].id }}/poster"></video>
+      <figcaption id="essayage-legende">{{ presets[0].description }}</figcaption>
     </figure>
-    {% endfor %}
+    <p class="essayage-etat" id="essayage-etat" role="status" aria-live="polite"></p>
   </div>
+  {# Les descriptions vivent en Python : on les passe au script plutôt que de
+     les réécrire en double dans le JavaScript. #}
+  <script type="application/json" id="styles-json">
+    { {% for preset in presets %}"{{ preset.id }}": {{ preset.description | tojson }}{{ ", " if not loop.last }}{% endfor %} }
+  </script>
 </section>
 
 <section class="chiffres">

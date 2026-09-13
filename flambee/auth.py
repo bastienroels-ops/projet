@@ -34,6 +34,7 @@ PUBLIC = (
     "/", "/fonctionnalites", "/tarifs", "/faq", "/mentions-legales",
     "/conditions", "/confidentialite", "/connexion", "/inscription",
     "/deconnexion", "/api/demo", "/api/demo/poster", "/api/health",
+    "/api/essayage",
     "/robots.txt", "/sitemap.xml", "/mot-de-passe-oublie", "/reinitialiser",
 )
 PREFIXES_PUBLICS = ("/static/", "/api/presets/")

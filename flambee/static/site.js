@@ -88,3 +88,128 @@ if (entete) {
   ajuster();
   window.addEventListener("scroll", ajuster, { passive: true });
 }
+
+
+/* 6. Essayage des sous-titres.
+      Le visiteur tape sa phrase, choisit une écriture, et reçoit un clip rendu
+      par ffmpeg. Chaque frappe ne doit pas déclencher un encodage : on attend
+      que la saisie se pose, et l'on n'envoie que si quelque chose a changé. */
+(() => {
+  const bloc = document.getElementById("essayage");
+  if (!bloc) return;
+
+  const champ = document.getElementById("essayage-texte");
+  const video = document.getElementById("essayage-video");
+  const legende = document.getElementById("essayage-legende");
+  const etat = document.getElementById("essayage-etat");
+  const compteur = document.getElementById("essayage-compteur");
+  const puces = [...bloc.querySelectorAll(".puce")];
+  const MAX = parseInt(champ.getAttribute("maxlength"), 10) || 70;
+
+  let descriptions = {};
+  try {
+    descriptions = JSON.parse(
+      document.getElementById("styles-json")?.textContent || "{}");
+  } catch (e) { /* la légende restera celle du gabarit */ }
+
+  let style = puces[0]?.dataset.style || "punch";
+  let dernier = "";
+  let minuterie = null;
+  let demande = 0;
+
+  const majCompteur = () => {
+    compteur.textContent = `${champ.value.length}/${MAX}`;
+    compteur.classList.toggle("proche", champ.value.length > MAX - 10);
+  };
+
+  async function rendre() {
+    const texte = champ.value.trim();
+    if (!texte) {
+      etat.textContent = "Écris une phrase pour voir le rendu.";
+      return;
+    }
+    const cle = `${style}::${texte}`;
+    if (cle === dernier) return;            // rien n'a changé
+    dernier = cle;
+
+    const jeton = ++demande;                // seule la dernière réponse compte
+    bloc.classList.add("charge");
+    etat.textContent = "Rendu en cours…";
+
+    const url = `/api/essayage?texte=${encodeURIComponent(texte)}`
+      + `&style=${encodeURIComponent(style)}`;
+    try {
+      const reponse = await fetch(url);
+      if (jeton !== demande) return;
+      if (!reponse.ok) {
+        const detail = await reponse.json().catch(() => ({}));
+        etat.textContent = reponse.status === 429
+          ? "Trop d'essais d'un coup — laisse passer une minute."
+          : (detail.detail || "Rendu impossible pour l'instant.");
+        dernier = "";                        // pour pouvoir réessayer
+        bloc.classList.remove("charge");
+        return;
+      }
+      /* On passe par un blob : la vidéo ne clignote pas entre deux rendus,
+         et l'on sait précisément quand l'image est prête. */
+      const blob = await reponse.blob();
+      if (jeton !== demande) return;
+      const ancienne = video.src;
+      /* L'affiche porte la phrase par défaut : une fois qu'un vrai rendu
+         existe, la laisser reviendrait à réafficher un texte que le visiteur
+         n'a pas écrit à chaque changement de source. */
+      video.removeAttribute("poster");
+      video.src = URL.createObjectURL(blob);
+      video.play().catch(() => {});
+      if (ancienne.startsWith("blob:")) URL.revokeObjectURL(ancienne);
+      etat.textContent = "";
+    } catch (erreur) {
+      if (jeton === demande) {
+        etat.textContent = "Rendu indisponible — réessaie dans un instant.";
+        dernier = "";
+      }
+    } finally {
+      if (jeton === demande) bloc.classList.remove("charge");
+    }
+  }
+
+  const differer = (delai = 650) => {
+    clearTimeout(minuterie);
+    minuterie = setTimeout(rendre, delai);
+  };
+
+  champ.addEventListener("input", () => { majCompteur(); differer(); });
+  champ.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); clearTimeout(minuterie); rendre(); }
+  });
+
+  puces.forEach((puce) => {
+    puce.addEventListener("click", () => {
+      puces.forEach((p) => {
+        p.classList.toggle("actif", p === puce);
+        p.setAttribute("aria-selected", p === puce ? "true" : "false");
+      });
+      style = puce.dataset.style;
+      const decrit = descriptions[style];
+      if (decrit && legende) legende.textContent = decrit;
+      clearTimeout(minuterie);
+      rendre();
+    });
+  });
+
+  majCompteur();
+  /* Le premier rendu attend que la section approche de l'écran : une page
+     d'accueil n'a pas à lancer un encodage pour un visiteur qui ne descendra
+     jamais jusque-là. */
+  if ("IntersectionObserver" in window) {
+    const oeil = new IntersectionObserver((entrees) => {
+      if (entrees.some((e) => e.isIntersecting)) {
+        oeil.disconnect();
+        rendre();
+      }
+    }, { rootMargin: "200px" });
+    oeil.observe(bloc);
+  } else {
+    rendre();
+  }
+})();
