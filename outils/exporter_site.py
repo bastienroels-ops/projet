@@ -32,7 +32,6 @@ sys.path.insert(0, str(RACINE))
 PAGES: dict[str, str] = {
     "/": "index.html",
     "/fonctionnalites": "fonctionnalites/index.html",
-    "/tarifs": "tarifs/index.html",
     "/faq": "faq/index.html",
     "/mentions-legales": "mentions-legales/index.html",
     "/conditions": "conditions/index.html",
@@ -94,6 +93,19 @@ def fabriquer_medias(destination: Path) -> dict[str, str]:
     shutil.copy2(samples.build_hero(), destination / "demo.mp4")
     shutil.copy2(samples.hero_poster(), destination / "demo.jpg")
 
+    # Le fond nu : l'aperçu du navigateur y pose le texte du visiteur.
+    print("→ Fond de l'essayage…", flush=True)
+    shutil.copy2(samples.build_backdrop(), destination / "fond.mp4")
+
+    # Les polices des sous-titres, pour que le navigateur dessine avec les
+    # mêmes que ffmpeg. Elles sont toutes sous licence OFL, qui autorise leur
+    # redistribution ; leur fichier de licence part avec elles.
+    polices = destination.parent / "fonts"
+    polices.mkdir(parents=True, exist_ok=True)
+    for fichier in sorted(config.FONTS_DIR.iterdir()):
+        if fichier.suffix in (".ttf", ".otf") or fichier.name == "LICENCES.md":
+            shutil.copy2(fichier, polices / fichier.name)
+
     for preset in config.SUBTITLE_PRESETS:
         print(f"→ Style « {preset} »…", flush=True)
         shutil.copy2(samples.build_sample(preset),
@@ -118,11 +130,21 @@ def reecrire(html: str, adresses: dict[str, str], atelier: str, prefixe: str) ->
     for source in sorted(adresses, key=len, reverse=True):
         html = html.replace(f'"{source}"', f'"{adresses[source]}"')
 
-    # L'essayage libre demande ffmpeg : on bascule sur les clips pré-calculés.
+    # L'essayage libre demande ffmpeg à chaque phrase. Publié en statique, il
+    # passe à l'aperçu dessiné par le navigateur : le visiteur tape toujours sa
+    # phrase, le fond reste celui du moteur, seul le texte est peint à l'écran.
+    #
+    # `data-polices` porte le préfixe ici même : la passe finale ne réécrit que
+    # href, src, poster et data-src. `src` du fond, lui, la laisse faire.
     html = html.replace(
         '<div class="essayage" id="essayage">',
-        f'<div class="essayage" id="essayage" data-fige="1" '
-        f'data-echantillons="{prefixe}/media">', 1)
+        f'<div class="essayage" id="essayage" data-apercu="1" '
+        f'data-polices="{prefixe}/fonts">', 1)
+    html = re.sub(
+        r'<video id="essayage-video"[^>]*>',
+        '<video id="essayage-video" muted loop autoplay playsinline '
+        'preload="auto" src="/media/fond.mp4">',
+        html, count=1)
 
     if atelier:
         base = atelier.rstrip("/")
@@ -158,47 +180,42 @@ _CLASSE = re.compile(r'class="([^"]*)"')
 # l'adresse.
 _PROMESSES = {
     "Essai gratuit — aucune carte bancaire demandée.":
-        "Tout ce qui est ci-dessous est calculé par l'outil lui-même.",
+        "Libre d'accès, sans compte à créer.",
     # Un produit que personne n'a encore pu acheter n'a pas de formule
     # « la plus choisie » : le ruban invente une preuve sociale.
     '<span class="ruban">Le plus choisi</span>': "",
-    # L'essayage libre demande ffmpeg à chaque phrase : sans serveur, le champ
-    # de saisie est masqué et seuls les six clips déjà calculés défilent. Le
-    # titre, lui, continuait de dire « écris ta phrase » au-dessus d'un bloc
-    # où il n'y a rien où écrire — l'invitation la plus frustrante du site,
-    # puisqu'elle porte sur la seule chose qu'on demande vraiment au visiteur.
-    "<h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>":
-        "<h2>Six écritures, <em>au mot près</em>.</h2>",
-    # Les titres et l'accroche des tarifs, qui invitent à commencer.
-    "<h2>Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>":
-        "<h2>Les formules prévues, <em>et ce qu'elles contiendront</em>.</h2>",
-    "<h1>Un prix par <em>rythme de publication</em>.</h1>":
-        "<h1>Les prix prévus, par <em>rythme de publication</em>.</h1>",
-    # Jusque dans l'aperçu partagé : c'est la première ligne que verra
-    # quelqu'un à qui l'adresse est envoyée par message.
-    "Trois formules, de l'essai gratuit au studio. Résiliable à tout moment.":
-        "Les trois formules prévues pour Flambée. Aucune n'est encore ouverte.",
     "Oui, à tout moment et sans justification. L'accès reste ouvert "
     "jusqu'à la fin de la période déjà réglée.":
-        "Les abonnements ne sont pas encore ouverts. Le jour où ils le seront, "
-        "l'arrêt se fera à tout moment et sans justification, l'accès restant "
-        "ouvert jusqu'à la fin de la période réglée.",
+        "Il n'y a pas d'abonnement : le site est libre et gratuit, et rien "
+        "n'y est à souscrire.",
+    "Puis-je annuler mon abonnement ?": "Y a-t-il quelque chose à payer ?",
 }
-
-_AVIS_TARIFS = (
-    '<p class="tarifs-avis">Ces formules ne sont pas encore ouvertes : aucune '
-    'inscription n\'est possible pour l\'instant. Les montants indiqués sont '
-    'ceux prévus, pas des tarifs en vigueur.</p>\n<div class="tarifs-grille">')
 
 _APPEL = (
     '<section class="appel">\n'
-    "  <h2>Flambée n'est pas encore <em>ouverte</em>.</h2>\n"
-    '  <p>Le montage fonctionne, la voix et les sous-titres aussi : tout ce que\n'
-    '     montre cette page sort du moteur lui-même, pas d\'une maquette. Il\n'
-    "     manque le serveur qui accueillera les comptes.</p>\n"
-    '  <a href="/#essayage" class="button primary grand">Voir la démonstration</a>\n'
-    '  <p class="appel-note">Aucune inscription n\'est ouverte pour l\'instant.</p>\n'
+    "  <h2>Sers-toi, <em>c'est gratuit</em>.</h2>\n"
+    "  <p>Pas de compte, pas de formule, rien à payer. Les six écritures de\n"
+    "     sous-titres et le test de l'accroche sont là, ouverts à tout le\n"
+    "     monde, et le resteront.</p>\n"
+    '  <a href="/#essayage" class="button primary grand">Essayer les sous-titres</a>\n'
     "</section>")
+
+# Les blocs entiers que la vitrine gratuite n'a pas lieu de montrer.
+# La clause d'abonnement renvoie à une page de tarifs qui n'existe plus et
+# décrit une facturation qui n'a pas lieu : la laisser serait plus trompeur
+# que de l'ôter. Une clause la remplace, qui dit ce qu'il en est vraiment.
+_A_RETIRER = (
+    r'<section class="section section-tarifs">.*?</section>',
+    r'<a href="/tarifs"[^>]*>.*?</a>',
+)
+
+_CLAUSE_ABONNEMENT = r'<h2>Abonnement et résiliation</h2>(?:\s*<p>.*?</p>)+'
+
+
+_CLAUSE_GRATUITE = (
+    "<h2>Gratuité</h2><p>Le service est mis à disposition gratuitement. "
+    "Aucun paiement n'est demandé, aucun abonnement n'est souscrit, et rien "
+    "n'est donc à résilier.</p>")
 
 
 def _en_vitrine(html: str) -> str:
@@ -225,26 +242,51 @@ def _en_vitrine(html: str) -> str:
         return ""
 
     html = _ANCRE_ATELIER.sub(remplacer, html)
-    # L'accroche des tarifs tient sur deux lignes dans le gabarit : on la
-    # reconnaît à son début plutôt qu'à sa mise en forme, qui peut bouger.
-    html = re.sub(
-        r'<p class="section-accroche">Commence gratuitement\..*?</p>',
-        '<p class="section-accroche">Voici les formules prévues pour Flambée, '
-        "et ce que chacune contiendra. Aucune n'est ouverte pour l'instant.</p>",
-        html, flags=re.S)
+    # Toutes les occurrences : le lien vers les tarifs figure dans le menu et
+    # dans le pied de page, et n'en retirer qu'un le laisserait dans l'autre.
+    for motif in _A_RETIRER:
+        html = re.sub(motif, "", html, flags=re.S)
+
+    # La clause de gratuité ne remplace celle d'abonnement que sur la page qui
+    # la portait : posée sur les trois pages légales, elle parlerait de
+    # paiement là où il n'en était pas question.
+    html, retiree = re.subn(_CLAUSE_ABONNEMENT, "", html, flags=re.S, count=1)
+    if retiree:
+        # Elle se pose à la fin du texte légal, et nulle part ailleurs : un
+        # simple remplacement du premier « </div> » la collerait dans l'en-tête.
+        html = re.sub(r'(<div class="texte-legal">.*?)</div>',
+                      lambda m: m.group(1) + _CLAUSE_GRATUITE + "</div>",
+                      html, count=1, flags=re.S)
+    # Le navigateur dessine le texte : la saisie libre fonctionne, et
+    # l'accroche peut de nouveau y inviter — en disant d'où vient quoi.
     html = re.sub(
         r'<p class="section-accroche">Six écritures\. Tape ce que tu veux.*?</p>',
-        '<p class="section-accroche">Chaque clip ci-dessous est calculé par le '
-        "moteur vidéo lui-même, pas imité en HTML : c'est exactement ce que "
-        "produirait ton montage. Choisis une écriture pour la voir tourner — "
-        "y taper ta propre phrase demande l'atelier, qui n'est pas encore "
-        "ouvert.</p>",
+        '<p class="section-accroche">Six écritures. Tape ce que tu veux : le '
+        "fond est une vraie image du moteur vidéo, et ton navigateur y dessine "
+        "le texte avec la police, la taille et les couleurs exactes du rendu.</p>",
         html, flags=re.S)
     for promesse, honnete in _PROMESSES.items():
         html = html.replace(promesse, honnete)
-    html = html.replace('<div class="tarifs-grille">', _AVIS_TARIFS, 1)
     html = re.sub(r'<section class="appel">.*?</section>', _APPEL, html, flags=re.S)
     return html
+
+
+def _elaguer_sitemap(xml: str, atelier: str, prefixe: str) -> str:
+    """Ne garde que les adresses réellement publiées."""
+    publiees = {chemin.rstrip("/") or "/" for chemin in PAGES}
+
+    def garder(bloc: str) -> bool:
+        adresse = re.search(r"<loc>([^<]+)</loc>", bloc)
+        if not adresse:
+            return True
+        chemin = re.sub(r"^https?://[^/]+", "", adresse.group(1)).rstrip("/") or "/"
+        if prefixe and chemin.startswith(prefixe):
+            chemin = chemin[len(prefixe):] or "/"
+        return chemin in publiees
+
+    return re.sub(r"\s*<url>.*?</url>",
+                  lambda m: m.group(0) if garder(m.group(0)) else "",
+                  xml, flags=re.S)
 
 
 def ecrire_reglages_cloudflare(sortie: Path, atelier: str) -> None:
@@ -320,8 +362,16 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
 
         for nom in ("robots.txt", "sitemap.xml"):
             reponse = client.get("/" + nom)
-            if reponse.status_code == 200:
-                (sortie / nom).write_text(reponse.text, encoding="utf-8")
+            if reponse.status_code != 200:
+                continue
+            texte = reponse.text
+            if nom == "sitemap.xml":
+                # Le plan du site est celui de l'application : il annonce des
+                # adresses que la vitrine ne publie pas. Les y laisser enverrait
+                # les moteurs de recherche sur des redirections, et ferait
+                # figurer dans leurs résultats des pages qui n'existent plus.
+                texte = _elaguer_sitemap(texte, atelier, prefixe)
+            (sortie / nom).write_text(texte, encoding="utf-8")
 
     # Une page 404 : les hébergeurs statiques la servent d'eux-mêmes.
     with TestClient(app) as client:

@@ -42,13 +42,33 @@ def test_les_clips_de_style_sont_recables():
     assert "/media/punch-poster.jpg" in rendu and "/media/punch-sample.mp4" in rendu
 
 
-def test_l_essayage_bascule_en_mode_fige():
-    """Sans serveur, l'essayage libre est impossible : les puces doivent
-    quand même faire défiler les six clips déjà calculés."""
-    html = '<div class="essayage" id="essayage">…</div>'
+def test_l_essayage_bascule_en_apercu():
+    """Sans serveur, le navigateur prend le relais et dessine lui-même.
+
+    Le bloc doit être armé pour l'aperçu, savoir où trouver les polices du
+    moteur, et recevoir le fond nu à la place des clips pré-calculés.
+    """
+    html = ('<div class="essayage" id="essayage">'
+            '<video id="essayage-video" poster="/api/presets/punch/poster">'
+            "</video></div>")
     rendu = exporter_site.reecrire(html, MEDIAS, "", "")
-    assert 'data-fige="1"' in rendu
-    assert 'data-echantillons="/media"' in rendu
+    assert 'data-apercu="1"' in rendu
+    assert 'data-polices="/fonts"' in rendu
+    assert 'src="/media/fond.mp4"' in rendu
+    assert "data-fige" not in rendu
+
+
+def test_les_polices_suivent_le_sous_chemin():
+    """Publié sous /projet, l'aperçu doit chercher les polices au bon endroit.
+
+    La passe de préfixe ne réécrit que href, src, poster et data-src : celle-ci
+    porte donc le préfixe dès sa pose, sinon le navigateur irait chercher les
+    polices à la racine du domaine et dessinerait avec autre chose.
+    """
+    rendu = exporter_site.reecrire(
+        '<div class="essayage" id="essayage"></div>', MEDIAS, "", "/projet")
+    assert 'data-polices="/projet/fonts"' in rendu
+    assert 'data-polices="/projet/projet' not in rendu
 
 
 def test_les_liens_de_compte_pointent_vers_l_atelier():
@@ -125,11 +145,11 @@ def test_les_redirections_pointent_vers_l_atelier_quand_il_existe(tmp_path):
 def test_un_sous_chemin_prefixe_toutes_les_adresses():
     """Publié sous « /projet », un chemin absolu « /static/x » pointerait à
     la racine du domaine, où il n'y a rien."""
-    html = ('<link href="/static/style.css"><a href="/tarifs">T</a>'
+    html = ('<link href="/static/style.css"><a href="/faq">Questions</a>'
             '<video src="/api/demo"></video>')
     rendu = exporter_site.reecrire(html, MEDIAS, "", "/projet")
     assert 'href="/projet/static/style.css"' in rendu
-    assert 'href="/projet/tarifs"' in rendu
+    assert 'href="/projet/faq"' in rendu
     assert 'src="/projet/media/demo.mp4"' in rendu
 
 
@@ -146,7 +166,11 @@ def test_toutes_les_pages_publiques_sont_exportees():
 
     ignorees = {"/connexion", "/inscription", "/deconnexion", "/reinitialiser",
                 "/mot-de-passe-oublie", "/robots.txt", "/sitemap.xml",
-                "/api/demo", "/api/demo/poster", "/api/health", "/api/essayage"}
+                "/api/demo", "/api/demo/poster", "/api/health", "/api/essayage",
+                # Le site publié est libre et gratuit : il n'a pas de page de
+                # tarifs, alors que l'application, elle, garde ses formules
+                # pour le jour où un atelier tournerait quelque part.
+                "/tarifs"}
     attendues = {a for a in auth.PUBLIC if a not in ignorees}
     assert attendues == set(exporter_site.PAGES), (
         "l'export et les routes publiques ont divergé")
@@ -257,9 +281,9 @@ PROMESSES_INTERDITES = (
     "Créer un compte", "Créer mon compte", "Créer ma première vidéo",
     "carte bancaire", "Essai gratuit", "Le plus choisi", "Ouvrir l'atelier",
     "Commence gratuitement", "Résiliable à tout moment",
-    # Le champ de saisie est masqué sans serveur : l'inviter à écrire serait
-    # promettre la seule chose qu'on demande vraiment au visiteur de faire.
-    "Écris ta phrase", "Tape ce que tu veux",
+    # Le site est libre et gratuit : plus rien n'y est à vendre, et un prix
+    # affiché renverrait à des formules qui n'existent plus.
+    "19 €", "49 €", "Abonnement et résiliation", "par mois",
 )
 
 
@@ -280,13 +304,47 @@ def test_la_vitrine_ne_promet_pas_de_compte():
 
 
 @pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
-def test_les_prix_publies_sont_annonces_comme_a_venir():
-    """Les montants restent affichés, mais jamais comme des tarifs en vigueur."""
-    for page in ("index.html", "tarifs/index.html"):
-        texte = (EXPORT / page).read_text(encoding="utf-8")
-        if "tarifs-grille" not in texte:
-            continue
-        avis = texte.index('class="tarifs-avis"')
-        assert avis < texte.index("tarifs-grille"), \
-            f"{page} : l'avis doit précéder les prix, pas les suivre"
-        assert "ne sont pas encore ouvertes" in texte, f"{page} : avis absent"
+def test_aucune_page_de_tarifs_n_est_publiee():
+    """Le site est libre : il n'a ni page de tarifs, ni lien vers elle."""
+    assert not (EXPORT / "tarifs").exists()
+    for fichier in sorted(EXPORT.rglob("*.html")):
+        texte = fichier.read_text(encoding="utf-8")
+        assert 'href="/tarifs"' not in texte, fichier.name
+    plan = (EXPORT / "sitemap.xml").read_text(encoding="utf-8")
+    assert "/tarifs" not in plan, "le plan du site annonce encore les tarifs"
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_les_conditions_disent_la_gratuite():
+    """La clause d'abonnement est remplacée, pas simplement retirée.
+
+    L'ôter sans rien mettre laisserait un texte muet sur le prix, là où la
+    question se pose ; et la clause de gratuité n'a rien à faire sur les deux
+    autres pages légales, où il n'est pas question de paiement.
+    """
+    conditions = (EXPORT / "conditions" / "index.html").read_text(encoding="utf-8")
+    assert "<h2>Gratuité</h2>" in conditions
+    assert "Abonnement et résiliation" not in conditions
+    for autre in ("mentions-legales", "confidentialite"):
+        texte = (EXPORT / autre / "index.html").read_text(encoding="utf-8")
+        assert "Gratuité" not in texte, f"clause hors sujet sur {autre}"
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_l_essayage_publie_laisse_taper_sa_phrase():
+    """Le navigateur dessine le texte : la saisie doit rester ouverte.
+
+    C'est le seul outil que le site met réellement entre les mains d'un
+    visiteur. Le masquer, ou publier la page sans les polices du moteur, le
+    ramènerait à un diaporama.
+    """
+    page = (EXPORT / "index.html").read_text(encoding="utf-8")
+    assert 'data-apercu="1"' in page, "l'aperçu du navigateur n'est pas armé"
+    assert 'id="essayage-texte"' in page, "le champ de saisie a disparu"
+    assert 'id="styles-rendu"' in page, "les styles ne sont pas transmis"
+    assert (EXPORT / "media" / "fond.mp4").exists(), "le fond du moteur manque"
+    for police in ("Anton-Regular.ttf", "ArchivoBlack-Regular.ttf",
+                   "BebasNeue-Regular.ttf", "PlayfairDisplay-Bold.ttf"):
+        assert (EXPORT / "fonts" / police).exists(), f"{police} non publiée"
+    # Les polices sont sous licence OFL : leur redistribution l'exige.
+    assert (EXPORT / "fonts" / "LICENCES.md").exists(), "licences non publiées"

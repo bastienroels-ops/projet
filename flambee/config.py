@@ -6,9 +6,14 @@ relatifs à la racine du projet, surchargeables par variables d'environnement.
 
 from __future__ import annotations
 
+import functools
+import logging
 import os
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -140,6 +145,94 @@ class SubtitleStyle:
     uppercase: bool = False
     glow: int = 0                          # flou du contour (effet néon)
     highlight_scale: int = 100             # grossissement du mot actif, en %
+
+
+# Le fichier de chaque police, pour que le navigateur puisse charger les
+# mêmes que ffmpeg. Sans cette table, l'aperçu à l'écran retomberait sur une
+# police système et ne ressemblerait plus au rendu final.
+POLICES_FICHIERS = {
+    "Archivo Black": "ArchivoBlack-Regular.ttf",
+    "Anton": "Anton-Regular.ttf",
+    "Bebas Neue": "BebasNeue-Regular.ttf",
+    "Playfair Display": "PlayfairDisplay-Bold.ttf",
+}
+
+
+@functools.lru_cache(maxsize=None)
+def echelle_police(fichier: str) -> float:
+    """Rapport entre la taille d'un style ASS et la même taille en pixels CSS.
+
+    libass ne traite pas `Fontsize` comme le cadratin de la police, mais comme
+    la hauteur totale ascendante + descendante déclarée dans la table OS/2 —
+    la règle héritée de VSFilter. Un `font_size` de 92 donne donc, pour Archivo
+    Black, un cadratin de 68 pixels seulement.
+
+    Sans ce rapport, l'aperçu du navigateur dessine un tiers trop gros : le
+    texte déborde du cadre et se replie là où le moteur, lui, tient la ligne.
+    Mesuré ici dans le fichier de police plutôt que réglé à la main, pour qu'un
+    changement de police n'introduise pas d'écart silencieux.
+    """
+    chemin = FONTS_DIR / fichier
+    try:
+        données = chemin.read_bytes()
+        nombre = struct.unpack(">H", données[4:6])[0]
+        tables = {}
+        for i in range(nombre):
+            entree = 12 + i * 16
+            nom = données[entree:entree + 4].decode("latin-1")
+            tables[nom] = struct.unpack(">I", données[entree + 8:entree + 12])[0]
+        tete = tables["head"]
+        cadratin = struct.unpack(">H", données[tete + 18:tete + 20])[0]
+        os2 = tables["OS/2"]
+        montant, descendant = struct.unpack(">HH", données[os2 + 74:os2 + 78])
+        hauteur = montant + descendant
+        if cadratin and hauteur:
+            return round(cadratin / hauteur, 5)
+    except (OSError, KeyError, struct.error, IndexError):
+        log.warning("Métrique illisible pour %s : aperçu approximatif.", fichier)
+    return 0.75          # l'ordre de grandeur commun aux polices d'affichage
+
+
+def couleur_web(valeur: str) -> str:
+    """Traduit une couleur ASS « &HAABBGGRR » en rgba() CSS.
+
+    Deux pièges : l'ordre des octets est inversé par rapport au web, et AA est
+    une *transparence*, non une opacité — &H00 est opaque, &HFF invisible.
+    """
+    v = valeur.lstrip("&Hh").rjust(8, "0")[-8:]
+    a, b, g, r = (int(v[i:i + 2], 16) for i in (0, 2, 4, 6))
+    return f"rgba({r},{g},{b},{round(1 - a / 255, 3)})"
+
+
+def style_pour_le_web(style: "SubtitleStyle") -> dict:
+    """Le nécessaire pour redessiner ce style dans un canevas.
+
+    Les tailles restent exprimées dans le cadre de 1080 × 1920 : c'est le
+    navigateur qui les met à l'échelle de son affichage, comme ffmpeg le fait
+    pour la vidéo. Une conversion ici et les deux rendus divergeraient.
+    """
+    return {
+        "police": style.font,
+        "fichier": POLICES_FICHIERS.get(style.font, ""),
+        "taille": style.font_size,
+        "echelle": echelle_police(POLICES_FICHIERS.get(style.font, "")),
+        "contour": style.outline,
+        "ombre": style.shadow,
+        "halo": style.glow,
+        "bandeau": style.border_style == 3,
+        "capitales": style.uppercase,
+        "interlettre": style.spacing,
+        "grossissement": style.highlight_scale / 100,
+        "marge_bas": style.margin_v,
+        "car_par_ligne": style.max_chars_per_line,
+        "mots_par_ligne": style.max_words_per_line,
+        "couleurs": {
+            "texte": couleur_web(style.primary_color),
+            "actif": couleur_web(style.highlight_color),
+            "contour": couleur_web(style.outline_color),
+            "fond": couleur_web(style.back_color),
+        },
+    }
 
 
 # Six rendus prêts à l'emploi, du plus viral au plus sobre.

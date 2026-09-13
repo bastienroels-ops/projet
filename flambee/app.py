@@ -181,7 +181,10 @@ def _contexte_site(page: str, request: Request | None = None, **extra) -> dict:
         "faq": plans.FAQ,
         "duel": plans.DUEL,
         "presets": [
-            {"id": nom, "label": style.label, "description": style.description}
+            {"id": nom, "label": style.label, "description": style.description,
+             # De quoi redessiner le style dans un canevas, pour l'aperçu du
+             # navigateur quand aucun serveur ne peut encoder à la demande.
+             "rendu": config.style_pour_le_web(style)}
             for nom, style in config.SUBTITLE_PRESETS.items()
         ],
         **extra,

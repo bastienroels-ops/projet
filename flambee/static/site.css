@@ -299,6 +299,15 @@ body.site { padding: 0; }
   font-size: 14.5px; line-height: 1.6; color: var(--text-soft);
 }
 
+/* Le canevas d'aperçu, posé exactement sur la vidéo de fond. Le fond vient du
+   moteur, le texte est peint par le navigateur : c'est la seule façon de
+   rendre une phrase à la demande sans serveur. */
+.essayage-scene { position: relative; }
+.essayage-toile {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; border-radius: inherit;
+}
+
 /* --------------------------------------------------------------- Étapes --- */
 .etapes {
   list-style: none; padding: 0; margin: 46px 0 0;

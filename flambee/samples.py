@@ -159,6 +159,66 @@ def build_sample(preset: str) -> Path:
         return out_path
 
 
+# --- Fond nu, pour l'aperçu du navigateur ----------------------------------
+# Publié en pages statiques, le site n'a pas ffmpeg sous la main pour rendre la
+# phrase d'un visiteur. Le navigateur dessine alors le texte lui-même, par
+# dessus ce fond — qui reste, lui, celui du vrai moteur. Seul le texte est
+# peint à l'écran ; le décor n'est pas une imitation.
+
+
+def bande_apercu() -> tuple[int, int]:
+    """Bande commune à tous les styles, et son sommet dans l'image.
+
+    Chaque style pose son texte à sa propre hauteur. La bande est centrée sur
+    l'ensemble d'entre eux, de sorte qu'aucun ne sorte du cadre : sans ce
+    calcul, un style aux marges inhabituelles se ferait couper, et il faudrait
+    y penser à chaque nouveau style plutôt qu'une fois ici.
+    """
+    fmt = config.FORMAT
+    centres = [fmt.height - style.margin_v - int(style.font_size * 0.6)
+               for style in config.SUBTITLE_PRESETS.values()]
+    milieu = (min(centres) + max(centres)) // 2
+    haut = max(0, min(fmt.height - BAND_HEIGHT, milieu - BAND_HEIGHT // 2))
+    return haut, BAND_HEIGHT
+
+
+FOND_DUREE = 6.0
+
+
+def build_backdrop() -> Path:
+    """Le fond des échantillons, sans aucun texte, prêt à tourner en boucle."""
+    haut, hauteur = bande_apercu()
+    empreinte = hashlib.sha256(
+        f"{''.join(BACKDROP_COLORS)}|{haut}|{hauteur}|{OUT_WIDTH}|{FOND_DUREE}"
+        .encode("utf-8")).hexdigest()[:12]
+    out_path = config.WORK_DIR / ".samples" / f"fond-{empreinte}.mp4"
+    if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+        return out_path
+
+    with _lock_for("fond"):
+        if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+            return out_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fmt = config.FORMAT
+        sortie_h = round(hauteur * OUT_WIDTH / fmt.width / 2) * 2
+        graphe = (
+            backdrop_filter(fmt.width, fmt.height)
+            + f";[fond]crop={fmt.width}:{hauteur}:0:{haut},"
+            f"scale={OUT_WIDTH}:{sortie_h},format=yuv420p[o]"
+        )
+        ffmpeg([
+            *backdrop_inputs(FOND_DUREE),
+            "-t", f"{FOND_DUREE:.2f}",
+            "-filter_complex", graphe, "-map", "[o]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+            "-movflags", "+faststart", "-an",
+            str(out_path),
+        ], timeout=240)
+        if not has_media_duration(out_path, minimum=0.5):
+            raise MediaError("Fond d'aperçu vide.")
+        return out_path
+
+
 # --- Essayage : le texte du visiteur, rendu par le vrai moteur -------------
 TEXTE_MAX = 70
 # Ce qui entre dans un fichier ASS : les accolades y ouvrent un bloc de

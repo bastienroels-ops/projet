@@ -121,6 +121,10 @@ if (entete) {
      Python ni ffmpeg derrière. L'essayage libre demande un serveur ; on garde
      alors les six clips déjà calculés, que les puces font défiler. Le bloc
      reste vivant au lieu de disparaître. */
+  // L'aperçu dessiné par le navigateur prend la main quand il est armé :
+  // apercu.js gère alors le champ, les puces et le rendu.
+  if (bloc.dataset.apercu === "1") return;
+
   const fige = bloc.dataset.fige === "1";
   if (fige) {
     const champBloc = bloc.querySelector(".essayage-champ");

@@ -181,6 +181,12 @@
   <script type="application/json" id="styles-json">
     { {% for preset in presets %}"{{ preset.id }}": {{ preset.description | tojson }}{{ ", " if not loop.last }}{% endfor %} }
   </script>
+  {# Les mêmes styles, traduits pour un canevas : tailles, couleurs, contour,
+     police. Le navigateur peut alors dessiner la phrase d'un visiteur quand
+     il n'y a pas de serveur pour l'encoder. #}
+  <script type="application/json" id="styles-rendu">
+    { {% for preset in presets %}"{{ preset.id }}": {{ preset.rendu | tojson }}{{ ", " if not loop.last }}{% endfor %} }
+  </script>
 </section>
 
 <section class="chiffres">

@@ -27,7 +27,7 @@
   <link rel="preload" as="font" type="font/woff2" crossorigin
         href="/static/fonts/Inter-Regular.woff2">
   <link rel="stylesheet" href="/static/style.893442fc43.css">
-  <link rel="stylesheet" href="/static/site.63bfc21ba6.css">
+  <link rel="stylesheet" href="/static/site.c8e04900bd.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
 <body class="site">
@@ -42,7 +42,7 @@
   <a class="brand" href="/"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</a>
   <nav class="site-nav" id="site-nav">
     <a href="/fonctionnalites" >Fonctionnalités</a>
-    <a href="/tarifs" >Tarifs</a>
+    
     <a href="/faq" >Questions</a>
     
     
@@ -66,9 +66,9 @@
     </p>
     <div class="hero-actions">
       <a href="/#essayage" class="button primary grand">Voir la démonstration</a>
-      <a href="/tarifs" class="button ghost grand">Voir les tarifs</a>
+      
     </div>
-    <p class="hero-note">Tout ce qui est ci-dessous est calculé par l'outil lui-même.</p>
+    <p class="hero-note">Libre d'accès, sans compte à créer.</p>
   </div>
 
   <div class="hero-visuel">
@@ -287,10 +287,10 @@
 
 <section class="section" id="styles">
   <p class="eyebrow">Les sous-titres</p>
-  <h2>Six écritures, <em>au mot près</em>.</h2>
-  <p class="section-accroche">Chaque clip ci-dessous est calculé par le moteur vidéo lui-même, pas imité en HTML : c'est exactement ce que produirait ton montage. Choisis une écriture pour la voir tourner — y taper ta propre phrase demande l'atelier, qui n'est pas encore ouvert.</p>
+  <h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>
+  <p class="section-accroche">Six écritures. Tape ce que tu veux : le fond est une vraie image du moteur vidéo, et ton navigateur y dessine le texte avec la police, la taille et les couleurs exactes du rendu.</p>
 
-  <div class="essayage" id="essayage" data-fige="1" data-echantillons="/media">
+  <div class="essayage" id="essayage" data-apercu="1" data-polices="/fonts">
     <label class="essayage-champ">
       <span class="sr-only">Ta phrase</span>
       <input type="text" id="essayage-texte" maxlength="70" autocomplete="off"
@@ -341,8 +341,7 @@
     </div>
 
     <figure class="essayage-scene" id="essayage-scene">
-      <video id="essayage-video" muted loop autoplay playsinline preload="none"
-             poster="/media/punch-poster.jpg"></video>
+      <video id="essayage-video" muted loop autoplay playsinline preload="auto" src="/media/fond.mp4"></video>
       <figcaption id="essayage-legende">Le classique des vidéos virales : gros, blanc, mot actif ambre.</figcaption>
     </figure>
     <p class="essayage-etat" id="essayage-etat" role="status" aria-live="polite"></p>
@@ -350,6 +349,10 @@
   
   <script type="application/json" id="styles-json">
     { "punch": "Le classique des vid\u00e9os virales : gros, blanc, mot actif ambre.", "impact": "Capitales condens\u00e9es et serr\u00e9es, pour un ton affirm\u00e9.", "neon": "Halo lumineux sur le mot prononc\u00e9, ambiance nocturne.", "studio": "Texte pos\u00e9 sur un bandeau sombre : lisible sur toute image.", "signature": "Serif haut de gamme, or discret, rythme pos\u00e9.", "minimal": "Capitales fines et espac\u00e9es, sans animation." }
+  </script>
+  
+  <script type="application/json" id="styles-rendu">
+    { "punch": {"bandeau": false, "capitales": false, "car_par_ligne": 22, "contour": 7, "couleurs": {"actif": "rgba(255,215,0,1.0)", "contour": "rgba(0,0,0,1.0)", "fond": "rgba(0,0,0,0.608)", "texte": "rgba(255,255,255,1.0)"}, "echelle": 0.74239, "fichier": "ArchivoBlack-Regular.ttf", "grossissement": 1.04, "halo": 0, "interlettre": 0, "marge_bas": 420, "mots_par_ligne": 4, "ombre": 2, "police": "Archivo Black", "taille": 92}, "impact": {"bandeau": false, "capitales": true, "car_par_ligne": 18, "contour": 7, "couleurs": {"actif": "rgba(255,128,64,1.0)", "contour": "rgba(0,0,0,1.0)", "fond": "rgba(0,0,0,0.608)", "texte": "rgba(255,255,255,1.0)"}, "echelle": 0.5769, "fichier": "Anton-Regular.ttf", "grossissement": 1.06, "halo": 0, "interlettre": 0, "marge_bas": 440, "mots_par_ligne": 3, "ombre": 0, "police": "Anton", "taille": 104}, "neon": {"bandeau": false, "capitales": false, "car_par_ligne": 18, "contour": 5, "couleurs": {"actif": "rgba(0,255,245,1.0)", "contour": "rgba(0,32,144,1.0)", "fond": "rgba(0,0,0,0.608)", "texte": "rgba(255,255,255,1.0)"}, "echelle": 0.74239, "fichier": "ArchivoBlack-Regular.ttf", "grossissement": 1.0, "halo": 6, "interlettre": 0, "marge_bas": 470, "mots_par_ligne": 3, "ombre": 0, "police": "Archivo Black", "taille": 88}, "studio": {"bandeau": true, "capitales": false, "car_par_ligne": 26, "contour": 18, "couleurs": {"actif": "rgba(255,215,0,1.0)", "contour": "rgba(0,0,0,0.294)", "fond": "rgba(0,0,0,0.294)", "texte": "rgba(255,255,255,1.0)"}, "echelle": 0.74239, "fichier": "ArchivoBlack-Regular.ttf", "grossissement": 1.0, "halo": 0, "interlettre": 0, "marge_bas": 360, "mots_par_ligne": 5, "ombre": 0, "police": "Archivo Black", "taille": 70}, "signature": {"bandeau": false, "capitales": false, "car_par_ligne": 24, "contour": 4, "couleurs": {"actif": "rgba(240,192,120,1.0)", "contour": "rgba(0,0,0,1.0)", "fond": "rgba(0,0,0,0.608)", "texte": "rgba(250,246,242,1.0)"}, "echelle": 0.70922, "fichier": "PlayfairDisplay-Bold.ttf", "grossissement": 1.0, "halo": 0, "interlettre": 2, "marge_bas": 360, "mots_par_ligne": 4, "ombre": 5, "police": "Playfair Display", "taille": 88}, "minimal": {"bandeau": false, "capitales": true, "car_par_ligne": 30, "contour": 3, "couleurs": {"actif": "rgba(255,255,255,1.0)", "contour": "rgba(0,0,0,1.0)", "fond": "rgba(0,0,0,0.608)", "texte": "rgba(255,255,255,1.0)"}, "echelle": 0.76923, "fichier": "BebasNeue-Regular.ttf", "grossissement": 1.0, "halo": 0, "interlettre": 4, "marge_bas": 300, "mots_par_ligne": 6, "ombre": 1, "police": "Bebas Neue", "taille": 76} }
   </script>
 </section>
 
@@ -406,72 +409,7 @@
   </div>
 </section>
 
-<section class="section section-tarifs">
-  <p class="eyebrow">Tarifs</p>
-  <h2>Les formules prévues, <em>et ce qu'elles contiendront</em>.</h2>
-  <div class="bascule-facturation">
-  <button class="actif" data-periode="mensuel">Mensuel</button>
-  <button data-periode="annuel">Annuel <span class="remise">−20 %</span></button>
-</div>
 
-<p class="tarifs-avis">Ces formules ne sont pas encore ouvertes : aucune inscription n'est possible pour l'instant. Les montants indiqués sont ceux prévus, pas des tarifs en vigueur.</p>
-<div class="tarifs-grille">
-  
-  <article class="tarif ">
-    
-    <h3>Essai</h3>
-    <p class="tarif-accroche">Pour voir ce que ça donne sur tes propres vidéos.</p>
-    <p class="tarif-prix">
-      
-        <b>Gratuit</b>
-      
-    </p>
-    <p class="tarif-volume">3 vidéos par mois</p>
-    
-    <ul class="tarif-liste">
-      <li>Montage automatique en 1080 × 1920</li><li>Deux voix de synthèse françaises</li><li>Deux styles de sous-titres</li><li>Aperçus illimités, jamais décomptés</li>
-    </ul>
-    <p class="tarif-note">Les rendus portent une mention « Flambée ». Projets conservés 7 jours.</p>
-  </article>
-  
-  <article class="tarif vedette">
-    
-    <h3>Créateur</h3>
-    <p class="tarif-accroche">Le rythme de publication quotidien, sans y passer les soirées.</p>
-    <p class="tarif-prix">
-      
-        <b data-mensuel="19" data-annuel="15">19 €</b>
-        <span>par mois</span>
-      
-    </p>
-    <p class="tarif-volume">30 vidéos par mois</p>
-    
-    <ul class="tarif-liste">
-      <li>Rendus sans filigrane</li><li>Les six styles de sous-titres</li><li>Les dix voix françaises, débit réglable</li><li>Script Viral : le texte minuté d&#39;une vidéo</li><li>Voice Studio : ta voix, sous-titres calés dessus</li><li>Musique de fond et mixage automatique</li><li>Projets conservés 90 jours</li>
-    </ul>
-    <p class="tarif-note">Le choix de la plupart des créateurs réguliers.</p>
-  </article>
-  
-  <article class="tarif ">
-    
-    <h3>Studio</h3>
-    <p class="tarif-accroche">Pour ceux qui publient sans compter.</p>
-    <p class="tarif-prix">
-      
-        <b data-mensuel="49" data-annuel="39">49 €</b>
-        <span>par mois</span>
-      
-    </p>
-    <p class="tarif-volume">Vidéos illimitées</p>
-    
-    <ul class="tarif-liste">
-      <li>Tout le Créateur, sans plafond mensuel</li><li>Projets conservés sans limite de durée</li>
-    </ul>
-    <p class="tarif-note">Profils de marque, styles sur mesure, export en lot et accès à l&#39;API sont en cours de développement, et ne sont pas encore compris.</p>
-  </article>
-  
-</div>
-</section>
 
 <section class="section">
   <p class="eyebrow">Ce que Flambée ne fait pas</p>
@@ -498,12 +436,11 @@
 </section>
 
 <section class="appel">
-  <h2>Flambée n'est pas encore <em>ouverte</em>.</h2>
-  <p>Le montage fonctionne, la voix et les sous-titres aussi : tout ce que
-     montre cette page sort du moteur lui-même, pas d'une maquette. Il
-     manque le serveur qui accueillera les comptes.</p>
-  <a href="/#essayage" class="button primary grand">Voir la démonstration</a>
-  <p class="appel-note">Aucune inscription n'est ouverte pour l'instant.</p>
+  <h2>Sers-toi, <em>c'est gratuit</em>.</h2>
+  <p>Pas de compte, pas de formule, rien à payer. Les six écritures de
+     sous-titres et le test de l'accroche sont là, ouverts à tout le
+     monde, et le resteront.</p>
+  <a href="/#essayage" class="button primary grand">Essayer les sous-titres</a>
 </section>
 
 
@@ -517,7 +454,7 @@
     <div>
       <h4>Produit</h4>
       <a href="/fonctionnalites">Fonctionnalités</a>
-      <a href="/tarifs">Tarifs</a>
+      
       
     </div>
     <div>
@@ -541,6 +478,8 @@
 </footer>
 
 <script src="/static/braises.4c3af1deb8.js" defer></script>
-<script src="/static/site.a5a5889cbd.js"></script>
+<script src="/static/site.e2519b432a.js"></script>
+
+<script src="/static/apercu.3600962768.js" defer></script>
 </body>
 </html>
