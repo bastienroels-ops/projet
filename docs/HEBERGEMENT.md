@@ -127,6 +127,29 @@ Le premier compte créé est le tien, et il reçoit d'office la formule Studio :
 crédits illimités, toutes les rubriques. Ferme les inscriptions juste après
 (`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env`).
 
+### Brancher la vitrine sur l'atelier
+
+Tant que l'application ne tourne nulle part, l'export statique fait descendre
+les boutons « Créer un compte » et « Connexion » vers l'essayage : il vaut
+mieux montrer le produit que mener à une page morte. Le jour où l'atelier
+répond, il reste une commande — sans elle, le site publié continue d'ignorer
+qu'un atelier existe.
+
+```bash
+python outils/exporter_site.py --sortie export \
+    --atelier https://<ton-nom>.duckdns.org
+git add export && git commit -m "Brancher la vitrine sur l'atelier" && git push
+```
+
+Les quatre adresses de compte (`/inscription`, `/connexion`, `/studio`,
+`/mot-de-passe-oublie`) pointent alors vers le serveur, et l'hébergeur de la
+vitrine republie tout seul au premier envoi.
+
+Les deux moitiés restent séparées, et c'est voulu : la vitrine est servie
+gratuitement depuis un hébergeur de fichiers, où elle encaisse n'importe quelle
+affluence, pendant que le serveur ne travaille que pour les gens réellement
+inscrits.
+
 ### Pourquoi DuckDNS et pas sslip.io
 
 `sslip.io` ne demande aucune inscription et transforme une IP en nom de
