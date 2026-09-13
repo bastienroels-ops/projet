@@ -298,3 +298,13 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   .attente .point { animation: none; opacity: .7; }
 }
 
+/* Les liens glissés dans une mention ou une aide : sans cette règle, le
+   navigateur les rend en bleu souligné, étranger à la palette. */
+.hint a, .mention a, .page-accroche a {
+  color: var(--ember-2); text-decoration: none;
+  border-bottom: 1px solid rgba(255, 155, 74, .38);
+}
+.hint a:hover, .mention a:hover, .page-accroche a:hover {
+  border-bottom-color: var(--ember-2);
+}
+

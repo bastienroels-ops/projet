@@ -426,6 +426,9 @@ async function loadMusic() {
   /* Une liste vide sans explication passe pour une panne : on dit laquelle
      des deux raisons s'applique. */
   choix.disabled = !autorisee;
+  // Un curseur de volume sans musique possible n'a rien à régler.
+  const volume = $("#bloc-volume");
+  if (volume) volume.hidden = !autorisee;
   const note = $("#note-musique");
   if (note) {
     note.hidden = autorisee && tracks.length > 0;
