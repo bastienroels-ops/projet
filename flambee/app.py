@@ -13,7 +13,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+                               PlainTextResponse, Response)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -21,6 +22,7 @@ from pydantic import BaseModel, Field
 from . import (__version__, account, config, downloader, media, pipeline,
                plans, samples, scriptgen, site, transcribe, users, voice,
                voicestudio)
+from . import courriel
 from .auth import (fermer_session, install_auth, ouvrir_session,
                    requete_securisee, utilisateur_courant)
 from .project import Project, store
@@ -147,10 +149,27 @@ def _project_payload(project: Project) -> dict:
 
 
 # --- Site public ----------------------------------------------------------
-def _contexte_site(page: str, **extra) -> dict:
+def _base_url(request: Request | None) -> str:
+    """Adresse publique du site, pour les liens de partage."""
+    configuree = os.environ.get("FLAMBEE_BASE_URL", "").strip().rstrip("/")
+    if configuree:
+        return configuree
+    if request is None:
+        return ""
+    # Derrière un proxy, c'est lui qui connaît le schéma réel.
+    schema = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
+    schema = schema or request.url.scheme
+    return f"{schema}://{request.url.netloc}"
+
+
+def _contexte_site(page: str, request: Request | None = None, **extra) -> dict:
     """Contexte commun à toutes les pages publiques."""
+    connecte = utilisateur_courant(request) if request is not None else None
     return {
         "page": page,
+        "connecte": connecte,
+        "base_url": _base_url(request),
+        "chemin": request.url.path if request is not None else "/",
         "annee": time.strftime("%Y"),
         "plans": plans.PLANS,
         "features": plans.FEATURES,
@@ -167,25 +186,25 @@ def _contexte_site(page: str, **extra) -> dict:
 @app.get("/", response_class=HTMLResponse)
 async def accueil(request: Request):
     return templates.TemplateResponse(request, "site/index.html",
-                                      _contexte_site("accueil"))
+                                      _contexte_site("accueil", request))
 
 
 @app.get("/fonctionnalites", response_class=HTMLResponse)
 async def fonctionnalites(request: Request):
     return templates.TemplateResponse(request, "site/fonctionnalites.html",
-                                      _contexte_site("fonctionnalites"))
+                                      _contexte_site("fonctionnalites", request))
 
 
 @app.get("/tarifs", response_class=HTMLResponse)
 async def tarifs(request: Request):
     return templates.TemplateResponse(request, "site/tarifs.html",
-                                      _contexte_site("tarifs"))
+                                      _contexte_site("tarifs", request))
 
 
 @app.get("/faq", response_class=HTMLResponse)
 async def faq(request: Request):
     return templates.TemplateResponse(request, "site/faq.html",
-                                      _contexte_site("faq"))
+                                      _contexte_site("faq", request))
 
 
 def _suite_sure(suite: str) -> str:
@@ -203,7 +222,7 @@ async def connexion(request: Request, suite: str = "", bienvenue: bool = False):
         return RedirectResponse(_suite_sure(suite), status_code=303)
     return templates.TemplateResponse(
         request, "site/connexion.html",
-        _contexte_site("connexion", suite=_suite_sure(suite), email="",
+        _contexte_site("connexion", request, suite=_suite_sure(suite), email="",
                        bienvenue=bienvenue),
     )
 
@@ -216,7 +235,7 @@ async def connexion_envoi(request: Request, email: str = Form(""),
     except users.CompteError as exc:
         return templates.TemplateResponse(
             request, "site/connexion.html",
-            _contexte_site("connexion", suite=_suite_sure(suite),
+            _contexte_site("connexion", request, suite=_suite_sure(suite),
                            email=email, erreur=str(exc)),
             status_code=401,
         )
@@ -231,7 +250,7 @@ async def inscription(request: Request, formule: str = ""):
         return RedirectResponse("/studio", status_code=303)
     return templates.TemplateResponse(
         request, "site/inscription.html",
-        _contexte_site("inscription", formule=formule, email="", nom="",
+        _contexte_site("inscription", request, formule=formule, email="", nom="",
                        ouvert=users.inscriptions_ouvertes(),
                        invitation_requise=bool(users.code_invitation())),
     )
@@ -252,7 +271,7 @@ async def inscription_envoi(
     except users.CompteError as exc:
         return templates.TemplateResponse(
             request, "site/inscription.html",
-            _contexte_site("inscription", formule=formule, email=email, nom=nom,
+            _contexte_site("inscription", request, formule=formule, email=email, nom=nom,
                            ouvert=users.inscriptions_ouvertes(),
                            invitation_requise=bool(users.code_invitation()),
                            erreur=str(exc)),
@@ -267,6 +286,81 @@ async def inscription_envoi(
                           securise=requete_securisee(request))
 
 
+@app.get("/mot-de-passe-oublie", response_class=HTMLResponse)
+async def oubli(request: Request):
+    return templates.TemplateResponse(request, "site/oubli.html",
+                                      _contexte_site("oubli", request, envoye=False))
+
+
+@app.post("/mot-de-passe-oublie", response_class=HTMLResponse)
+async def oubli_envoi(request: Request, email: str = Form("")):
+    """Envoie un lien de réinitialisation.
+
+    La réponse est la même que le compte existe ou non : autrement, ce
+    formulaire dirait qui est inscrit.
+    """
+    utilisateur = users.par_email(email)
+    envoye_par_courriel = False
+
+    if utilisateur:
+        jeton = users.creer_jeton_reinit(utilisateur.id)
+        lien = f"{_base_url(request)}/reinitialiser?jeton={jeton}"
+        envoye_par_courriel = await asyncio.to_thread(
+            courriel.envoyer, utilisateur.email,
+            "Réinitialiser ton mot de passe Flambée",
+            "Bonjour,\n\n"
+            "Voici le lien pour choisir un nouveau mot de passe. "
+            f"Il reste valable une heure :\n\n{lien}\n\n"
+            "Si tu n'es pas à l'origine de cette demande, ignore ce message : "
+            "ton mot de passe actuel reste valable.\n",
+        )
+        if not envoye_par_courriel:
+            # Sans SMTP, l'administrateur récupère le lien dans le journal.
+            log.warning("Lien de réinitialisation pour %s : %s",
+                        utilisateur.email, lien)
+
+    return templates.TemplateResponse(
+        request, "site/oubli.html",
+        _contexte_site("oubli", request, envoye=True,
+                       sans_courriel=not courriel.configure()),
+    )
+
+
+@app.get("/reinitialiser", response_class=HTMLResponse)
+async def reinitialiser(request: Request, jeton: str = ""):
+    valide = users.lire_jeton_reinit(jeton) is not None
+    return templates.TemplateResponse(
+        request, "site/reinitialiser.html",
+        _contexte_site("reinitialiser", request, jeton=jeton, invalide=not valide),
+        status_code=200 if valide else 400,
+    )
+
+
+@app.post("/reinitialiser", response_class=HTMLResponse)
+async def reinitialiser_envoi(request: Request, jeton: str = Form(""),
+                              mot_de_passe: str = Form("")):
+    identifiant = users.lire_jeton_reinit(jeton)
+    if identifiant is None:
+        return templates.TemplateResponse(
+            request, "site/reinitialiser.html",
+            _contexte_site("reinitialiser", request, jeton=jeton, invalide=True),
+            status_code=400,
+        )
+    try:
+        users.definir_mot_de_passe(identifiant, mot_de_passe)
+    except users.CompteError as exc:
+        return templates.TemplateResponse(
+            request, "site/reinitialiser.html",
+            _contexte_site("reinitialiser", request, jeton=jeton, invalide=False,
+                           erreur=str(exc)),
+            status_code=400,
+        )
+
+    utilisateur = users.par_id(identifiant)
+    reponse = RedirectResponse("/studio", status_code=303)
+    return ouvrir_session(reponse, utilisateur, securise=requete_securisee(request))
+
+
 @app.get("/deconnexion")
 async def deconnexion():
     return fermer_session(RedirectResponse("/", status_code=303))
@@ -278,7 +372,8 @@ def _page_legale(request: Request, page: str) -> HTMLResponse:
     surtitre, titre, sections = site.PAGES_LEGALES[page]
     return templates.TemplateResponse(
         request, "site/legal.html",
-        _contexte_site(page, surtitre=surtitre, titre=titre, sections=sections,
+        _contexte_site(page, request, surtitre=surtitre, titre=titre,
+                       sections=sections,
                        a_completer=any(site.A_COMPLETER in paragraphe
                                        for bloc in sections
                                        for paragraphe in bloc.paragraphes)),
@@ -679,6 +774,19 @@ async def demo_accueil():
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.get("/api/demo/poster")
+async def demo_affiche():
+    """Image fixe de la démonstration, pour que le cadre ne reste jamais noir."""
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.hero_poster)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/presets/{preset}/sample")
 async def preset_sample(preset: str):
     """Échantillon vidéo du style de sous-titres, rendu par ffmpeg et mis en cache.
@@ -1012,6 +1120,64 @@ async def cleanup(request: Request, project_id: str):
             shutil.rmtree(folder, ignore_errors=True)
     project.ensure_dirs()
     return {"freed_bytes": freed}
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots(request: Request):
+    """L'atelier n'a rien à faire dans un moteur de recherche."""
+    return "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /studio",
+        "Disallow: /api/",
+        f"Sitemap: {_base_url(request)}/sitemap.xml",
+        "",
+    ])
+
+
+@app.get("/sitemap.xml")
+async def sitemap(request: Request):
+    base = _base_url(request)
+    pages = ["/", "/fonctionnalites", "/tarifs", "/faq", "/inscription",
+             "/connexion", "/mentions-legales", "/conditions", "/confidentialite"]
+    entrees = "".join(
+        f"<url><loc>{base}{page}</loc><changefreq>weekly</changefreq></url>"
+        for page in pages
+    )
+    return Response(
+        content=f'<?xml version="1.0" encoding="UTF-8"?>'
+                f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                f"{entrees}</urlset>",
+        media_type="application/xml",
+    )
+
+
+@app.exception_handler(404)
+async def page_introuvable(request: Request, _exc):
+    """Une page d'erreur qui reste dans l'identité du site."""
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=404, content={"detail": "Introuvable."})
+    return templates.TemplateResponse(
+        request, "site/erreur.html",
+        _contexte_site("erreur", request, code=404, titre="Cette page n'existe pas",
+                       message="Le lien est peut-être ancien, ou l'adresse mal "
+                               "recopiée. Le reste du site fonctionne."),
+        status_code=404,
+    )
+
+
+@app.exception_handler(500)
+async def erreur_serveur(request: Request, _exc):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=500,
+                            content={"detail": "Erreur interne."})
+    return templates.TemplateResponse(
+        request, "site/erreur.html",
+        _contexte_site("erreur", request, code=500, titre="Quelque chose a cédé",
+                       message="L'incident est enregistré côté serveur. "
+                               "Réessaie dans un instant."),
+        status_code=500,
+    )
 
 
 @app.exception_handler(media.MediaError)

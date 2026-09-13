@@ -1,0 +1,39 @@
+{% extends "site/base.html" %}
+{% block title %}Mot de passe oublié — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit">
+  <p class="eyebrow">Mot de passe</p>
+  <h1>Ça arrive à <em>tout le monde</em>.</h1>
+
+  {% if envoye %}
+  <div class="avis reussite">
+    <b>C'est parti.</b>
+    Si un compte existe avec cette adresse, un lien de réinitialisation vient
+    d'être envoyé. Il reste valable une heure.
+  </div>
+  {% if sans_courriel %}
+  <div class="avis">
+    <b>Aucun serveur d'envoi n'est configuré.</b>
+    Le lien a été inscrit dans le journal du serveur : l'administrateur peut le
+    récupérer. Pour rendre l'opération autonome, renseigne les variables
+    <code>FLAMBEE_SMTP_*</code>.
+  </div>
+  {% endif %}
+  <div class="row"><a href="/connexion" class="button ghost grand">Retour à la connexion</a></div>
+  {% else %}
+  <p class="section-accroche">Indique l'adresse de ton compte. Tu recevras un
+    lien pour choisir un nouveau mot de passe.</p>
+  <div class="carte-formulaire">
+    <form method="post" action="/mot-de-passe-oublie" class="formulaire">
+      <label class="block"><span>Adresse e-mail</span>
+        <input type="email" name="email" required autofocus autocomplete="email"
+               placeholder="toi@exemple.fr">
+      </label>
+      <button class="primary grand" type="submit">Envoyer le lien</button>
+    </form>
+  </div>
+  <p class="sous-formulaire"><a href="/connexion">Revenir à la connexion</a></p>
+  {% endif %}
+</section>
+{% endblock %}

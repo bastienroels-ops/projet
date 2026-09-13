@@ -271,3 +271,23 @@ def build_hero() -> Path:
         if not has_media_duration(out_path, minimum=0.5):
             raise MediaError("Démonstration d'accueil vide.")
         return out_path
+
+
+def hero_poster() -> Path:
+    """Première image de la démonstration, servie en affiche du lecteur.
+
+    Sans elle, le cadre du téléphone reste noir tant que la vidéo n'a pas
+    commencé — sur une connexion lente, cela dure.
+    """
+    clip = build_hero()
+    poster = clip.with_suffix(".jpg")
+    if poster.exists() and poster.stat().st_size > 1000:
+        return poster
+    with _lock_for("hero-poster"):
+        if poster.exists() and poster.stat().st_size > 1000:
+            return poster
+        ffmpeg(["-ss", "1.2", "-i", str(clip), "-frames:v", "1",
+                "-q:v", "4", str(poster)], timeout=120)
+        if not poster.exists():
+            raise MediaError("Affiche de démonstration absente.")
+        return poster

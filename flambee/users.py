@@ -293,6 +293,69 @@ def supprimer(identifiant: int) -> None:
         shutil.rmtree(utilisateur.dossier, ignore_errors=True)
 
 
+# --- Réinitialisation du mot de passe -------------------------------------
+# Le jeton est signé comme une session, mais porte un marqueur distinct : un
+# lien de réinitialisation ne peut donc pas servir de cookie de session, ni
+# l'inverse. Durée volontairement courte.
+REINIT_MINUTES = 60
+
+
+def creer_jeton_reinit(identifiant: int) -> str:
+    expiration = int(time.time()) + REINIT_MINUTES * 60
+    empreinte = _empreinte_mot_de_passe(identifiant)
+    charge = f"reinit.{identifiant}.{expiration}.{empreinte}".encode("utf-8")
+    signature = hmac.new(_secret(), charge, hashlib.sha256).digest()
+    return (base64.urlsafe_b64encode(charge).decode().rstrip("=") + "."
+            + base64.urlsafe_b64encode(signature).decode().rstrip("="))
+
+
+def lire_jeton_reinit(jeton: str) -> int | None:
+    """Valide un jeton de réinitialisation. Un lien ne sert qu'une fois :
+    l'empreinte du mot de passe actuel en fait partie, donc le changer
+    invalide tous les liens émis."""
+    try:
+        partie_charge, partie_signature = jeton.split(".", 1)
+        charge = base64.urlsafe_b64decode(
+            partie_charge + "=" * (-len(partie_charge) % 4))
+        signature = base64.urlsafe_b64decode(
+            partie_signature + "=" * (-len(partie_signature) % 4))
+    except (ValueError, TypeError):
+        return None
+
+    if not hmac.compare_digest(
+            signature, hmac.new(_secret(), charge, hashlib.sha256).digest()):
+        return None
+    try:
+        marqueur, identifiant, expiration, empreinte = charge.decode("utf-8").split(".")
+    except ValueError:
+        return None
+    if marqueur != "reinit" or int(expiration) < time.time():
+        return None
+    if not hmac.compare_digest(empreinte, _empreinte_mot_de_passe(int(identifiant))):
+        return None
+    return int(identifiant)
+
+
+def _empreinte_mot_de_passe(identifiant: int) -> str:
+    """Empreinte courte du mot de passe actuel, pour rendre un lien à usage unique."""
+    ligne = connexion().execute(
+        "SELECT mot_de_passe FROM utilisateurs WHERE id = ?", (identifiant,)
+    ).fetchone()
+    if not ligne:
+        return ""
+    return hashlib.sha256(ligne["mot_de_passe"].encode("utf-8")).hexdigest()[:16]
+
+
+def definir_mot_de_passe(identifiant: int, nouveau: str) -> None:
+    """Pose un nouveau mot de passe sans demander l'ancien (réinitialisation)."""
+    valider_mot_de_passe(nouveau)
+    with _LOCK:
+        base = connexion()
+        base.execute("UPDATE utilisateurs SET mot_de_passe = ? WHERE id = ?",
+                     (hacher(nouveau), identifiant))
+        base.commit()
+
+
 # --- Sessions signées -----------------------------------------------------
 def _secret() -> bytes:
     """Clé de signature : depuis l'environnement, sinon engendrée et conservée.

@@ -1,0 +1,32 @@
+{% extends "site/base.html" %}
+{% block title %}Nouveau mot de passe — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit">
+  <p class="eyebrow">Mot de passe</p>
+  <h1>Choisis-en <em>un nouveau</em>.</h1>
+
+  {% if invalide %}
+  <div class="avis erreur">
+    <b>Ce lien n'est plus valable.</b>
+    Il a expiré, a déjà servi, ou le mot de passe a changé entre-temps.
+    Demandes-en un nouveau.
+  </div>
+  <div class="row">
+    <a href="/mot-de-passe-oublie" class="button primary grand">Demander un lien</a>
+  </div>
+  {% else %}
+  {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+  <div class="carte-formulaire">
+    <form method="post" action="/reinitialiser" class="formulaire">
+      <input type="hidden" name="jeton" value="{{ jeton }}">
+      <label class="block"><span>Nouveau mot de passe</span>
+        <input type="password" name="mot_de_passe" required minlength="8" autofocus
+               autocomplete="new-password" placeholder="au moins 8 caractères">
+      </label>
+      <button class="primary grand" type="submit">Enregistrer et me connecter</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

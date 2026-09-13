@@ -1,0 +1,14 @@
+{% extends "site/base.html" %}
+{% block title %}{{ titre }} — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit erreur-page">
+  <p class="eyebrow">Erreur {{ code }}</p>
+  <h1>{{ titre }}</h1>
+  <p class="section-accroche">{{ message }}</p>
+  <div class="row">
+    <a href="/" class="button primary grand">Retour à l'accueil</a>
+    <a href="/studio" class="button ghost grand">Ouvrir l'atelier</a>
+  </div>
+</section>
+{% endblock %}

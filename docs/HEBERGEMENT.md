@@ -65,6 +65,7 @@ sont tous les comptes perdus.
 | `FLAMBEE_NICE` | Au-dessus de 0, l'encodage laisse respirer le réseau. Sur une petite machine, `5` à `10` évite que le site devienne injoignable pendant un rendu. |
 | `FLAMBEE_WHISPER_MODEL` | `base` par défaut. `small` transcrit mieux mais demande environ trois fois plus de temps processeur. |
 | `FLAMBEE_MAX_UPLOAD_MB` | À accorder avec `request_body max_size` dans le `Caddyfile`. |
+| `FLAMBEE_SMTP_*` | Facultatif, mais recommandé dès qu'on ouvre les inscriptions : sans serveur d'envoi, un utilisateur qui oublie son mot de passe dépend de toi pour retrouver son lien dans `docker compose logs flambee`. Renseigne `HOTE`, `PORT`, `UTILISATEUR`, `MOT_DE_PASSE` et au besoin `EXPEDITEUR`. |
 
 ## Monter en charge
 

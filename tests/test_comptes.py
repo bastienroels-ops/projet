@@ -199,3 +199,101 @@ def test_deux_comptes_meme_mot_de_passe_ont_des_empreintes_differentes():
     assert a != b                       # le sel diffère
     assert users.verifier("identique", a) and users.verifier("identique", b)
     assert not users.verifier("autre", a)
+
+
+# --- Mot de passe oublié ---------------------------------------------------
+def _lien_de_reinit(client, email="a@exemple.fr"):
+    """Demande un lien et récupère le jeton émis pour le compte."""
+    client.post("/mot-de-passe-oublie", data={"email": email})
+    utilisateur = users.par_email(email)
+    return users.creer_jeton_reinit(utilisateur.id) if utilisateur else None
+
+
+def test_la_demande_ne_revele_pas_qui_est_inscrit(client):
+    inscrire(client)
+    client.cookies.clear()
+    connu = client.post("/mot-de-passe-oublie", data={"email": "a@exemple.fr"})
+    inconnu = client.post("/mot-de-passe-oublie", data={"email": "z@exemple.fr"})
+    assert connu.status_code == inconnu.status_code == 200
+    # Même page, mot pour mot : rien ne distingue les deux cas.
+    assert connu.text == inconnu.text
+
+
+def test_le_lien_de_reinitialisation_ouvre_la_session(client):
+    inscrire(client)
+    client.cookies.clear()
+    jeton = _lien_de_reinit(client)
+
+    assert client.get(f"/reinitialiser?jeton={jeton}").status_code == 200
+    reponse = client.post("/reinitialiser",
+                          data={"jeton": jeton, "mot_de_passe": "nouveaumdp1"},
+                          follow_redirects=False)
+    assert reponse.status_code == 303
+    assert reponse.headers["location"] == "/studio"
+    assert users.SESSION_COOKIE in reponse.cookies
+    assert client.get("/studio").status_code == 200
+
+    client.cookies.clear()
+    assert client.post("/connexion", data={"email": "a@exemple.fr",
+                                           "mot_de_passe": "nouveaumdp1"},
+                       follow_redirects=False).status_code == 303
+
+
+def test_un_lien_ne_sert_qu_une_fois(client):
+    inscrire(client)
+    client.cookies.clear()
+    jeton = _lien_de_reinit(client)
+    client.post("/reinitialiser", data={"jeton": jeton,
+                                        "mot_de_passe": "nouveaumdp1"},
+                follow_redirects=False)
+    client.cookies.clear()
+
+    # Changer le mot de passe invalide le lien déjà utilisé.
+    assert client.get(f"/reinitialiser?jeton={jeton}").status_code == 400
+    rejoue = client.post("/reinitialiser",
+                         data={"jeton": jeton, "mot_de_passe": "encoreautre1"},
+                         follow_redirects=False)
+    assert rejoue.status_code == 400
+    with pytest.raises(users.CompteError):
+        users.authentifier("a@exemple.fr", "encoreautre1")
+
+
+def test_un_jeton_falsifie_ou_perime_est_refuse(client, monkeypatch):
+    inscrire(client)
+    client.cookies.clear()
+    jeton = _lien_de_reinit(client)
+
+    assert users.lire_jeton_reinit("") is None
+    assert users.lire_jeton_reinit("nimporte.quoi") is None
+    assert users.lire_jeton_reinit(jeton[:-2] + "AA") is None   # signature cassée
+    assert client.get("/reinitialiser?jeton=bidon").status_code == 400
+
+    # Une heure plus tard, le lien ne vaut plus rien.
+    maintenant = users.time.time
+    monkeypatch.setattr(users.time, "time",
+                        lambda: maintenant() + users.REINIT_MINUTES * 60 + 1)
+    assert users.lire_jeton_reinit(jeton) is None
+
+
+def test_un_jeton_de_reinit_ne_sert_pas_de_cookie_de_session(client):
+    inscrire(client)
+    identifiant = users.par_email("a@exemple.fr").id
+    client.cookies.clear()
+
+    jeton = users.creer_jeton_reinit(identifiant)
+    assert users.lire_session(jeton) is None        # marqueur distinct
+    session = users.creer_session(identifiant)
+    assert users.lire_jeton_reinit(session) is None  # et l'inverse
+
+    client.cookies.set(users.SESSION_COOKIE, jeton)
+    assert client.get("/studio", follow_redirects=False).status_code == 303
+
+
+def test_la_page_dit_ou_trouver_le_lien_sans_smtp(client, monkeypatch):
+    """Sans SMTP configuré, on l'annonce plutôt que de faire croire à un envoi."""
+    inscrire(client)
+    client.cookies.clear()
+    monkeypatch.setattr(app_module.courriel, "configure", lambda: False)
+    page = client.post("/mot-de-passe-oublie", data={"email": "a@exemple.fr"})
+    assert page.status_code == 200
+    assert "journal" in page.text.lower()

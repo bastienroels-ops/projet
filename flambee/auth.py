@@ -33,7 +33,8 @@ _CHALLENGE = {"WWW-Authenticate": 'Basic realm="Flambee", charset="UTF-8"'}
 PUBLIC = (
     "/", "/fonctionnalites", "/tarifs", "/faq", "/mentions-legales",
     "/conditions", "/confidentialite", "/connexion", "/inscription",
-    "/deconnexion", "/api/demo", "/api/health",
+    "/deconnexion", "/api/demo", "/api/demo/poster", "/api/health",
+    "/robots.txt", "/sitemap.xml", "/mot-de-passe-oublie", "/reinitialiser",
 )
 PREFIXES_PUBLICS = ("/static/", "/api/presets/")
 
@@ -80,6 +81,18 @@ def _est_public(chemin: str) -> bool:
     return chemin in PUBLIC or chemin.startswith(PREFIXES_PUBLICS)
 
 
+def _route_connue(app: FastAPI, request: Request) -> bool:
+    """Une adresse qui ne correspond à aucune route n'a pas à être protégée :
+    elle doit répondre 404, pas rediriger vers la connexion."""
+    from starlette.routing import Match
+
+    for route in app.routes:
+        correspondance, _ = route.matches(request.scope)
+        if correspondance is not Match.NONE:
+            return True
+    return False
+
+
 # --- Verrou global hérité -------------------------------------------------
 def _autorise_basic(entete: str | None) -> bool:
     if not entete or not entete.lower().startswith("basic "):
@@ -105,7 +118,8 @@ def install_auth(app: FastAPI) -> None:
                                 headers=_CHALLENGE)
 
         chemin = request.url.path
-        if _est_public(chemin) or request.method == "OPTIONS":
+        if (_est_public(chemin) or request.method == "OPTIONS"
+                or not _route_connue(app, request)):
             return await call_next(request)
 
         # 2. Session : tout ce qui touche à l'atelier exige un compte.

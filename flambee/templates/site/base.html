@@ -7,6 +7,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="{% block description %}Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.{% endblock %}">
   <title>{% block title %}Flambée{% endblock %}</title>
+
+  <!-- Aperçu lors d'un partage : sans ces balises, le lien s'affiche nu. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Flambée">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:image" content="{{ base_url }}/api/demo/poster">
+  <meta property="og:url" content="{{ base_url }}{{ chemin }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:description" content="{{ self.description() }}">
+  <meta name="twitter:image" content="{{ base_url }}/api/demo/poster">
+  <link rel="canonical" href="{{ base_url }}{{ chemin }}">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/site.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
@@ -19,8 +33,13 @@
     <a href="/fonctionnalites" {% if page == 'fonctionnalites' %}class="courant"{% endif %}>Fonctionnalités</a>
     <a href="/tarifs" {% if page == 'tarifs' %}class="courant"{% endif %}>Tarifs</a>
     <a href="/faq" {% if page == 'faq' %}class="courant"{% endif %}>Questions</a>
-    <a href="/connexion" {% if page == 'connexion' %}class="courant"{% endif %}>Connexion</a>
+    {% if connecte %}
+    <a href="/studio/profil">{{ connecte.nom or connecte.email }}</a>
     <a href="/studio" class="button primary petit">Ouvrir l'atelier</a>
+    {% else %}
+    <a href="/connexion" {% if page == 'connexion' %}class="courant"{% endif %}>Connexion</a>
+    <a href="/inscription" class="button primary petit">Créer un compte</a>
+    {% endif %}
   </nav>
   <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
     <span></span><span></span>
@@ -47,6 +66,7 @@
       <a href="/faq">Questions fréquentes</a>
       <a href="/connexion">Connexion</a>
       <a href="/inscription">Créer un compte</a>
+      <a href="/studio">Ouvrir l'atelier</a>
     </div>
     <div>
       <h4>Cadre légal</h4>

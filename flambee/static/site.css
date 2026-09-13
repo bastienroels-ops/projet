@@ -67,6 +67,32 @@ body.site { padding: 0; }
 
 /* Le téléphone : un cadre sobre, la vidéo respire dedans. */
 .hero-visuel { display: flex; justify-content: center; }
+.scene { position: relative; }
+
+/* Deux étiquettes flottantes : elles disent ce que fait l'outil, sans texte
+   supplémentaire dans la colonne de gauche. */
+.jeton {
+  position: absolute; z-index: 3;
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 15px; border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background: rgba(14, 16, 22, .88);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .95);
+  font-size: 12.5px; font-weight: 500; color: var(--text);
+  white-space: nowrap;
+  animation: jeton-flotte 6s ease-in-out infinite;
+}
+.jeton-point {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ember); box-shadow: 0 0 10px var(--ember);
+}
+.jeton-haut { top: 58px; left: -86px; }
+.jeton-bas { bottom: 96px; right: -104px; animation-delay: -3s; }
+@keyframes jeton-flotte {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
 .telephone {
   position: relative; width: 272px; padding: 11px;
   border-radius: 40px;
@@ -336,8 +362,16 @@ body.site { padding: 0; }
 }
 
 /* ------------------------------------------------------------ Téléphone --- */
+@media (max-width: 1080px) {
+  .jeton-haut { left: -34px; }
+  .jeton-bas { right: -40px; }
+}
+
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; gap: 46px; padding: 56px 20px 50px; text-align: center; }
+  .jeton { font-size: 11.5px; padding: 8px 12px; }
+  .jeton-haut { left: -12px; top: 36px; }
+  .jeton-bas { right: -12px; bottom: 70px; }
   .hero-accroche { margin-inline: auto; }
   .hero-actions { justify-content: center; }
   .footer-grille { grid-template-columns: 1fr 1fr; gap: 34px; }
@@ -458,3 +492,7 @@ input[type=email]:focus, input[type=password]:focus {
 .franchise p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
 
 .appel-note { margin-top: 20px; font-size: 13px; color: var(--text-faint); }
+
+.erreur-page { text-align: center; padding-block: 110px 130px; }
+.erreur-page .section-accroche { margin-inline: auto; }
+.erreur-page .row { justify-content: center; }

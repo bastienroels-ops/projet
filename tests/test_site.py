@@ -92,3 +92,61 @@ def test_demo_accueil_est_une_video(client):
     assert reponse.status_code == 200
     assert reponse.headers["content-type"] == "video/mp4"
     assert len(reponse.content) > 5000
+
+
+def test_la_navigation_change_selon_la_connexion(client):
+    """Un visiteur voit « Créer un compte » ; un membre voit son nom."""
+    visiteur = client.get("/").text
+    assert 'href="/inscription" class="button primary petit"' in visiteur
+    assert "Connexion" in visiteur
+
+    client.post("/inscription",
+                data={"email": "nav@exemple.fr", "mot_de_passe": "motdepasse1",
+                      "nom": "Bastien"}, follow_redirects=False)
+    membre = client.get("/").text
+    assert "Bastien" in membre
+    assert 'href="/studio" class="button primary petit"' in membre
+
+
+def test_affiche_de_la_demonstration(client):
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    reponse = client.get("/api/demo/poster")
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"] == "image/jpeg"
+    assert len(reponse.content) > 1000
+
+
+def test_robots_ferme_latelier_aux_moteurs(client):
+    texte = client.get("/robots.txt").text
+    assert "Disallow: /studio" in texte
+    assert "Disallow: /api/" in texte
+    assert "Sitemap:" in texte
+
+
+def test_sitemap_liste_les_pages_publiques(client):
+    reponse = client.get("/sitemap.xml")
+    assert reponse.status_code == 200
+    assert "application/xml" in reponse.headers["content-type"]
+    for page in ("/tarifs", "/fonctionnalites", "/inscription"):
+        assert f"<loc>http://testserver{page}</loc>" in reponse.text
+
+
+def test_page_introuvable_reste_dans_lidentite(client):
+    reponse = client.get("/une-page-qui-nexiste-pas")
+    assert reponse.status_code == 404
+    assert "Erreur 404" in reponse.text          # l'apostrophe est échappée
+    assert "existe pas" in reponse.text
+    assert 'href="/tarifs"' in reponse.text          # la navigation est là
+
+    # Côté API, on garde du JSON.
+    api = client.get("/api/inconnu")
+    assert api.status_code == 404
+    assert api.json()["detail"]
+
+
+def test_apercu_de_partage(client):
+    texte = client.get("/").text
+    assert '<meta property="og:image" content="http://testserver/api/demo/poster">' in texte
+    assert '<meta property="og:title"' in texte
+    assert '<link rel="canonical" href="http://testserver/">' in texte

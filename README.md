@@ -24,6 +24,12 @@ HTTPS), et chaque compte dispose d'un espace cloisonné : ses projets, sa voix
 importée, ses crédits. `FLAMBEE_SIGNUP=ferme` ou `FLAMBEE_INVITE_CODE`
 restreignent les inscriptions.
 
+En cas d'oubli, `/mot-de-passe-oublie` envoie un lien valable une heure et à
+usage unique (choisir un nouveau mot de passe invalide les liens déjà émis).
+La réponse est la même que l'adresse soit inscrite ou non, pour que le
+formulaire ne dise pas qui a un compte. Sans `FLAMBEE_SMTP_HOTE`, le lien est
+écrit dans le journal du serveur et la page l'annonce clairement.
+
 ### Les rubriques de l'application
 
 | Rubrique | État |
@@ -305,6 +311,11 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | `FLAMBEE_PASSWORD` | — | verrou global optionnel, en plus des comptes |
 | `FLAMBEE_USERNAME` | `flambee` | identifiant du verrou global |
 | `FLAMBEE_MAX_UPLOAD_MB` | `600` | taille maximale d'une vidéo importée |
+| `FLAMBEE_SMTP_HOTE` | — | serveur d'envoi des courriels ; sans lui, le lien de réinitialisation part dans le journal |
+| `FLAMBEE_SMTP_PORT` | `587` | port SMTP (STARTTLS) |
+| `FLAMBEE_SMTP_UTILISATEUR` | — | identifiant SMTP |
+| `FLAMBEE_SMTP_MOT_DE_PASSE` | — | mot de passe SMTP |
+| `FLAMBEE_SMTP_EXPEDITEUR` | identifiant SMTP | adresse affichée comme expéditeur |
 | `FLAMBEE_NICE` | `0` | priorité de l'encodage (`10` sur une machine distante, pour ne pas étrangler le réseau) |
 | `FLAMBEE_OUTPUT_DIR` | `./output` | dossier des rendus |
 | `FLAMBEE_WORK_DIR` | `./work` | fichiers de travail |
