@@ -72,6 +72,20 @@ def _escape_filter_path(path: Path) -> str:
     return text
 
 
+# Le filigrane emprunte une police du dossier embarqué : sur une machine nue,
+# ffmpeg n'en trouverait aucune et le filtre échouerait.
+WATERMARK_FONT = "Anton-Regular.ttf"
+
+
+def _escape_drawtext(texte: str) -> str:
+    """Échappe le texte pour drawtext : deux-points et apostrophes y sont
+    des séparateurs de filtre, pas des caractères."""
+    for motif, remplacement in (("\\", r"\\\\"), (":", r"\:"),
+                                ("'", r"\\'"), ("%", r"\%")):
+        texte = texte.replace(motif, remplacement)
+    return texte
+
+
 def build_graph(
     segments: Sequence[Segment],
     sources: dict[int, Source],
@@ -82,6 +96,7 @@ def build_graph(
     settings: config.RenderSettings,
     duration: float,
     fmt: config.VideoFormat,
+    watermark: str = "",
 ) -> _Graph:
     """Construit le `-filter_complex` complet du montage.
 
@@ -163,6 +178,22 @@ def build_graph(
         )
         video_out = "vout"
 
+    # --- Filigrane --------------------------------------------------------
+    # Posé après les sous-titres, donc au-dessus d'eux : un filigrane qu'un
+    # sous-titre recouvre ne remplit pas son office. En haut à droite, là où
+    # les plateformes n'affichent ni leur interface ni les légendes.
+    if watermark:
+        marge = max(18, fmt.width // 34)
+        filters.append(
+            f"[{video_out}]drawtext="
+            f"fontfile='{_escape_filter_path(config.FONTS_DIR / WATERMARK_FONT)}'"
+            f":text='{_escape_drawtext(watermark)}'"
+            f":fontsize={max(20, fmt.width // 38)}"
+            f":fontcolor=white@0.62:shadowcolor=black@0.45:shadowx=2:shadowy=2"
+            f":x=w-tw-{marge}:y={marge}[vmark]"
+        )
+        video_out = "vmark"
+
     # --- Pistes audio -----------------------------------------------------
     tracks: list[str] = []
     voice_side: str | None = None
@@ -238,6 +269,7 @@ def render(
     fmt: config.VideoFormat | None = None,
     encoder: Encoder | None = None,
     fast: bool = False,
+    watermark: str = "",
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
 ) -> AssemblyResult:
@@ -250,7 +282,7 @@ def render(
     graph = build_graph(
         segments, by_index,
         voice_path=voice_path, subtitle_path=subtitle_path, music_path=music_path,
-        settings=settings, duration=duration, fmt=fmt,
+        settings=settings, duration=duration, fmt=fmt, watermark=watermark,
     )
 
     args = [*graph.inputs, "-filter_complex", ";".join(graph.filters)]
@@ -311,6 +343,7 @@ def finalize(
     duration: float | None = None,
     fmt: config.VideoFormat | None = None,
     encoder: Encoder | None = None,
+    watermark: str = "",
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
 ) -> AssemblyResult:
@@ -332,7 +365,7 @@ def finalize(
     graph = build_graph(
         [segment], {0: pseudo_source},
         voice_path=voice_path, subtitle_path=subtitle_path, music_path=music_path,
-        settings=passthrough, duration=target, fmt=fmt,
+        settings=passthrough, duration=target, fmt=fmt, watermark=watermark,
     )
     args = [*graph.inputs, "-filter_complex", ";".join(graph.filters),
             "-map", f"[{graph.video_label}]"]

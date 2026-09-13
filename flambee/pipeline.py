@@ -319,6 +319,23 @@ def run_render(project: Project, *, fast: bool = False) -> None:
         _clear_cancel(project.id)
 
 
+# Le texte du filigrane. Discret, mais reconnaissable : c'est ce qui distingue
+# un rendu d'essai d'un rendu payant, et ce que la formule Créateur retire.
+FILIGRANE = "Flambée"
+
+
+def filigrane_pour(project: Project) -> str:
+    """Le filigrane à incruster, ou une chaîne vide si la formule l'enlève.
+
+    Un projet dont on ne retrouve plus le propriétaire est traité comme un
+    essai : mieux vaut un filigrane de trop qu'un rendu payant offert.
+    """
+    utilisateur = users.par_id(project.owner) if project.owner else None
+    if utilisateur is None:
+        return FILIGRANE
+    return FILIGRANE if account.filigrane(utilisateur) else ""
+
+
 def _render_with_fallback(
     project: Project,
     out_path: Path,
@@ -335,14 +352,15 @@ def _render_with_fallback(
     music_path = _resolve_music(settings.music)
     subtitle_path = Path(project.subtitle_path) if project.subtitle_path else None
     voice_path = Path(project.voice_path) if project.voice_path else None
+    marque = filigrane_pour(project)
 
     try:
         return assembler.render(
             project.segments, project.sources, out_path,
             voice_path=voice_path, subtitle_path=subtitle_path,
             music_path=music_path, settings=settings, duration=duration,
-            fmt=fmt, encoder=encoder, fast=fast, on_progress=on_progress,
-            cancel=cancel,
+            fmt=fmt, encoder=encoder, fast=fast, watermark=marque,
+            on_progress=on_progress, cancel=cancel,
         )
     except Cancelled:
         raise
@@ -370,7 +388,8 @@ def _render_with_fallback(
         return assembler.finalize(
             montage, out_path, voice_path=voice_path, subtitle_path=subtitle_path,
             music_path=music_path, settings=settings, duration=duration,
-            fmt=fmt, encoder=encoder, on_progress=on_progress, cancel=cancel,
+            fmt=fmt, encoder=encoder, watermark=marque,
+            on_progress=on_progress, cancel=cancel,
         )
 
 

@@ -73,7 +73,7 @@
 
     <div class="grid">
       <label><span>Voix off</span><select id="voice"></select></label>
-      <label><span>Débit</span>
+      <label id="bloc-debit" hidden><span>Débit</span>
         <select id="voice_rate">
           <option value="-10%">Posé</option>
           <option value="+0%" selected>Normal</option>
@@ -83,9 +83,15 @@
       </label>
       <label><span>Musique de fond</span>
         <select id="music"><option value="">Aucune</option></select>
+        <small class="mention" id="note-musique" hidden></small>
       </label>
       <label><span>Style des sous-titres</span><select id="subtitle_preset"></select></label>
     </div>
+    <p class="hint" id="styles-reserves" hidden>
+      Quatre styles et le réglage du débit sont réservés à la formule
+      Créateur, et l'Essai appose une mention « Flambée » en haut du rendu.
+      <a href="/studio/abonnement">Voir les formules</a>.
+    </p>
     <figure class="preview" id="preset-preview">
       <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
       <figcaption>

@@ -471,8 +471,18 @@ async def studio(request: Request):
 
 @app.get("/studio/creations", response_class=HTMLResponse)
 async def studio_creations(request: Request):
+    compte = _utilisateur(request)
+    # La conservation annoncée par la formule s'applique ici, au moment où
+    # l'on regarde ses projets : pas d'ordonnanceur à faire tourner, et le
+    # ménage se fait sur le compte qui s'en sert.
+    jours = account.retention_jours(compte)
+    effaces = await asyncio.to_thread(store.purge, compte.id, jours)
+    if effaces:
+        log.info("Conservation : %d projet(s) effacé(s) pour %s (%s jours)",
+                 len(effaces), compte.email, jours)
+
     creations = []
-    for projet in store.list_recent(limit=40, owner=_utilisateur(request).id):
+    for projet in store.list_recent(limit=40, owner=compte.id):
         creations.append({
             "id": projet.id,
             "titre": projet.topic or (projet.sources[0].title if projet.sources
@@ -485,7 +495,8 @@ async def studio_creations(request: Request):
         })
     return templates.TemplateResponse(
         request, "studio/creations.html",
-        _contexte_app("creations", request, creations=creations),
+        _contexte_app("creations", request, creations=creations,
+                      retention=jours, effaces=len(effaces)),
     )
 
 
@@ -793,16 +804,30 @@ async def voices(request: Request, refresh: bool = False):
     else:
         listed = list(config.FRENCH_VOICES)
 
+    compte = _utilisateur(request)
+    combien = account.nombre_de_voix(compte)
+    if combien is not None:
+        listed = list(listed)[:combien]
+
     # La voix importée passe en tête : c'est celle qu'on veut quand on l'a.
-    if voicestudio.charger(_utilisateur(request).id):
+    if voicestudio.charger(compte.id):
         listed = [{"id": voicestudio.VOICE_ID, "label": "Ma voix (importée)"},
                   *listed]
-    return {"voices": listed, "default": config.DEFAULT_VOICE}
+    return {"voices": listed, "default": config.DEFAULT_VOICE,
+            "toutes": combien is None,
+            "debit_reglable": account.debit_reglable(compte)}
 
 
 @app.get("/api/music")
-async def music():
-    return {"tracks": pipeline.list_music(), "dir": str(config.MUSIC_DIR)}
+async def music(request: Request):
+    """La bibliothèque musicale, vide pour les formules qui n'y ont pas droit.
+
+    On renvoie `autorisee` plutôt qu'une erreur : l'étape Style doit pouvoir
+    expliquer pourquoi la liste est vide, au lieu de paraître cassée.
+    """
+    autorisee = account.musique_autorisee(_utilisateur(request))
+    return {"tracks": pipeline.list_music() if autorisee else [],
+            "autorisee": autorisee, "dir": str(config.MUSIC_DIR)}
 
 
 # --- Projets --------------------------------------------------------------
@@ -1016,9 +1041,10 @@ async def hook_preview(request: Request, project_id: str, index: int):
 async def update_settings(request: Request, project_id: str, body: SettingsIn):
     project = _get(project_id, request)
     data = body.model_dump()
-    if data.get("music") and data["music"] not in {
-        t["id"] for t in pipeline.list_music()
-    }:
+    compte_reglages = _utilisateur(request)
+    if data.get("music") and (
+            not account.musique_autorisee(compte_reglages)
+            or data["music"] not in {t["id"] for t in pipeline.list_music()}):
         data["music"] = None
     data["music_volume"] = max(0.0, min(1.0, data["music_volume"]))
     data["mask_height_ratio"] = max(0.05, min(0.6, data["mask_height_ratio"]))
@@ -1027,6 +1053,18 @@ async def update_settings(request: Request, project_id: str, body: SettingsIn):
         data["mask_mode"] = "blur"
     if data["subtitle_preset"] not in config.SUBTITLE_PRESETS:
         data["subtitle_preset"] = config.DEFAULT_SUBTITLE_PRESET
+    # La formule décide, pas la requête : sans ce contrôle, un style réservé
+    # s'obtiendrait en postant son identifiant à la main.
+    compte = _utilisateur(request)
+    if not account.style_autorise(compte, data["subtitle_preset"]):
+        raise HTTPException(
+            status_code=402,
+            detail="Ce style de sous-titres demande la formule Créateur.",
+        )
+    if not account.debit_reglable(compte):
+        defauts = config.RenderSettings()
+        data["voice_rate"] = defauts.voice_rate
+        data["voice_pitch"] = defauts.voice_pitch
 
     project.settings = config.RenderSettings(**data)
     project.step = max(project.step, 4)
@@ -1100,6 +1138,16 @@ async def render(request: Request, project_id: str,
                    "illimités, et la page Abonnement permet de changer de formule.",
         )
 
+    # Un projet peut avoir été réglé sous une formule supérieure, puis le
+    # compte être redescendu : on vérifie au moment du rendu, pas seulement
+    # à l'enregistrement des réglages.
+    if not account.style_autorise(_utilisateur(request),
+                                  project.settings.subtitle_preset):
+        raise HTTPException(
+            status_code=402,
+            detail="Le style de sous-titres de ce projet demande la formule "
+                   "Créateur. Choisis-en un autre à l'étape Style.",
+        )
     if not project.script.strip() and project.settings.voice != voicestudio.VOICE_ID:
         raise HTTPException(status_code=400, detail="Valide d'abord un script.")
     if not project.ready_sources:
@@ -1122,14 +1170,24 @@ async def cancel_job(request: Request, project_id: str):
 
 
 @app.get("/api/presets")
-async def presets():
+async def presets(request: Request):
+    """Les styles, chacun marqué ouvert ou réservé selon la formule.
+
+    On renvoie la liste entière plutôt que la liste filtrée : voir ce que l'on
+    n'a pas est le propre d'une offre, et masquer les styles réservés rendrait
+    la différence entre formules invisible.
+    """
+    compte = _utilisateur(request)
+    ouverts = set(account.styles_autorises(compte))
     return {
         "subtitles": [
             {"id": name, "label": style.label, "description": style.description,
-             "font": style.font, "animate": style.animate}
+             "font": style.font, "animate": style.animate,
+             "verrouille": name not in ouverts}
             for name, style in config.SUBTITLE_PRESETS.items()
         ],
         "default": config.DEFAULT_SUBTITLE_PRESET,
+        "debit_reglable": account.debit_reglable(compte),
     }
 
 

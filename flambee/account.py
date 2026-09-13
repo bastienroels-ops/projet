@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 
-from . import plans, users
+from . import config, plans, users
 from .users import Utilisateur
 
 # Combien de rendus par mois selon la formule. None = sans limite.
@@ -20,6 +20,61 @@ QUOTAS: dict[str, int | None] = {
 
 # Les formules qui ouvrent Script Viral et Voice Studio.
 FORMULES_PRO = {"createur", "studio"}
+
+
+# --- Ce que chaque formule ouvre vraiment ----------------------------------
+# Jusqu'ici, seuls Script Viral, Voice Studio et le quota mensuel dépendaient
+# de la formule. Tout le reste de la page Tarifs annonçait des différences qui
+# n'existaient nulle part dans le code : styles limités, filigrane, voix
+# réservées, durée de conservation. Ces règles-là les rendent réelles.
+
+# Deux styles suffisent à juger de l'outil sans déflorer le catalogue.
+STYLES_ESSAI: tuple[str, ...] = ("punch", "minimal")
+
+# Deux voix en Essai : une féminine, une masculine.
+VOIX_ESSAI = 2
+
+# Combien de temps les projets sont conservés. None = sans effacement.
+RETENTION_JOURS: dict[str, int | None] = {
+    "essai": 7,
+    "createur": 90,
+    "studio": None,
+}
+
+
+def styles_autorises(utilisateur: Utilisateur) -> list[str]:
+    """Les styles de sous-titres ouverts à ce compte."""
+    if est_pro(utilisateur):
+        return list(config.SUBTITLE_PRESETS)
+    return [nom for nom in config.SUBTITLE_PRESETS if nom in STYLES_ESSAI]
+
+
+def style_autorise(utilisateur: Utilisateur, preset: str) -> bool:
+    return preset in styles_autorises(utilisateur)
+
+
+def nombre_de_voix(utilisateur: Utilisateur) -> int | None:
+    """Combien de voix de synthèse sont proposées. None = toutes."""
+    return None if est_pro(utilisateur) else VOIX_ESSAI
+
+
+def debit_reglable(utilisateur: Utilisateur) -> bool:
+    """Le réglage du débit de la voix est un raffinement, pas un essentiel."""
+    return est_pro(utilisateur)
+
+
+def musique_autorisee(utilisateur: Utilisateur) -> bool:
+    """La musique de fond et son mixage sous la parole sont une finition."""
+    return est_pro(utilisateur)
+
+
+def filigrane(utilisateur: Utilisateur) -> bool:
+    """Les rendus de l'Essai portent une mention discrète."""
+    return not est_pro(utilisateur)
+
+
+def retention_jours(utilisateur: Utilisateur) -> int | None:
+    return RETENTION_JOURS.get(utilisateur.plan, RETENTION_JOURS["essai"])
 
 
 def formule(utilisateur: Utilisateur) -> plans.Plan:

@@ -26,6 +26,11 @@ class Plan:
     note: str = ""
 
 
+# Chaque ligne ci-dessous correspond à une règle appliquée dans le code —
+# `account.py` pour les droits, `pipeline.py` pour le filigrane, `project.py`
+# pour la conservation. Rien n'y figure qui ne soit vérifié par un test : une
+# page de tarifs qui promet ce que le produit ne fait pas est un mensonge
+# vendu, et le premier client s'en aperçoit.
 PLANS: list[Plan] = [
     Plan(
         id="essai",
@@ -36,11 +41,13 @@ PLANS: list[Plan] = [
         videos="3 vidéos par mois",
         features=[
             "Montage automatique en 1080 × 1920",
-            "Voix de synthèse française",
-            "2 styles de sous-titres",
-            "Aperçu rapide illimité",
+            "Deux voix de synthèse françaises",
+            "Deux styles de sous-titres",
+            "Aperçus illimités, jamais décomptés",
         ],
         cta="Créer ma première vidéo",
+        note="Les rendus portent une mention « Flambée ». "
+             "Projets conservés 7 jours.",
     ),
     Plan(
         id="createur",
@@ -50,12 +57,13 @@ PLANS: list[Plan] = [
         price_yearly=15,
         videos="30 vidéos par mois",
         features=[
-            "Tout l'Essai, sans filigrane",
-            "Les 6 styles de sous-titres",
-            "Toutes les voix françaises et leurs débits",
-            "Bibliothèque musicale et mixage automatique",
-            "Coupes calées sur les changements de plan",
-            "Conservation des projets pendant 90 jours",
+            "Rendus sans filigrane",
+            "Les six styles de sous-titres",
+            "Les dix voix françaises, débit réglable",
+            "Script Viral : le texte minuté d'une vidéo",
+            "Voice Studio : ta voix, sous-titres calés dessus",
+            "Musique de fond et mixage automatique",
+            "Projets conservés 90 jours",
         ],
         cta="Passer au rythme quotidien",
         highlight=True,
@@ -64,19 +72,18 @@ PLANS: list[Plan] = [
     Plan(
         id="studio",
         name="Studio",
-        tagline="Pour ceux qui produisent pour plusieurs comptes ou clients.",
+        tagline="Pour ceux qui publient sans compter.",
         price_monthly=49,
         price_yearly=39,
         videos="Vidéos illimitées",
         features=[
-            "Tout le Créateur",
-            "Plusieurs marques, chacune avec son style",
-            "Styles de sous-titres sur mesure",
-            "Rendu prioritaire",
-            "Export en lot",
-            "Accès à l'API",
+            "Tout le Créateur, sans plafond mensuel",
+            "Projets conservés sans limite de durée",
         ],
         cta="Parler à quelqu'un",
+        note="Profils de marque, styles sur mesure, export en lot et accès "
+             "à l'API sont en cours de développement, et ne sont pas encore "
+             "compris.",
     ),
 ]
 

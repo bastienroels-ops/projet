@@ -169,6 +169,18 @@ class Project:
         project.job = JobState(**(data.get("job") or {}))
         return project
 
+    def derniere_activite(self) -> float:
+        """Date du dernier enregistrement, à défaut celle de la création.
+
+        Un projet rouvert et modifié ne doit pas être effacé parce qu'il a été
+        créé il y a longtemps.
+        """
+        fichier = self.dir / "project.json"
+        try:
+            return max(self.created_at, fichier.stat().st_mtime)
+        except OSError:
+            return self.created_at
+
     def save(self) -> None:
         with _LOCK:
             self.ensure_dirs()
@@ -240,6 +252,25 @@ class ProjectStore:
                 projects.append(project)
         projects.sort(key=lambda p: p.created_at, reverse=True)
         return projects[:limit]
+
+    def purge(self, owner: int, jours: int | None) -> list[str]:
+        """Efface les projets d'un compte plus vieux que `jours`.
+
+        `jours=None` ne supprime rien : c'est la conservation sans limite de la
+        formule Studio. Retourne les identifiants effacés, pour le journal.
+        """
+        if not jours or jours <= 0:
+            return []
+        limite = time.time() - jours * 86400
+        effaces = []
+        for chemin in Project.base_dir(owner).glob("*/project.json"):
+            projet = self.get(chemin.parent.name, owner=owner)
+            # Un projet qu'on vient de rouvrir n'est pas un projet oublié :
+            # c'est la dernière activité qui compte, pas la date de création.
+            if projet and projet.derniere_activite() < limite:
+                if self.delete(projet.id, owner=owner):
+                    effaces.append(projet.id)
+        return effaces
 
     def delete(self, project_id: str, owner: int = 0) -> bool:
         import shutil

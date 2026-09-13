@@ -4,7 +4,16 @@
 <div class="page">
   <div class="page-titre"><h1>Mes <em>créations</em></h1></div>
   <p class="page-accroche">Tous les projets de cet atelier, du plus récent au plus ancien.
-    Les fichiers rendus restent accessibles tant que tu ne les effaces pas.</p>
+    {% if retention %}Ta formule les conserve <b>{{ retention }} jours</b> après
+    la dernière modification ; télécharge les vidéos que tu veux garder.
+    {% else %}Ta formule les conserve sans limite de durée.{% endif %}</p>
+
+  {% if effaces %}
+  <div class="avis">
+    {{ effaces }} projet(s) dépassant {{ retention }} jours viennent d'être
+    effacés. Les vidéos déjà téléchargées ne sont pas concernées.
+  </div>
+  {% endif %}
 
   {% if creations %}
   <div class="creations">

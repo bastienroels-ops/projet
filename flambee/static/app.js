@@ -352,11 +352,24 @@ async function loadVoices() {
 }
 
 async function loadPresets() {
-  const { subtitles, default: def } = await api("/api/presets");
+  const { subtitles, default: def, debit_reglable } = await api("/api/presets");
   state.presets = subtitles;
+  /* Les styles réservés restent visibles mais non sélectionnables : les
+     masquer rendrait la différence entre formules invisible, et l'on choisit
+     mal ce qu'on ne voit pas. */
   $("#subtitle_preset").innerHTML = subtitles
-    .map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join("");
-  $("#subtitle_preset").value = def;
+    .map((p) => `<option value="${p.id}"${p.verrouille ? " disabled" : ""}>`
+      + escapeHtml(p.label) + (p.verrouille ? " — Créateur" : "")
+      + "</option>").join("");
+  const ouvert = subtitles.find((p) => !p.verrouille);
+  const defautOuvert = subtitles.some((p) => p.id === def && !p.verrouille);
+  $("#subtitle_preset").value = defautOuvert ? def : (ouvert ? ouvert.id : def);
+
+  const reserves = subtitles.some((p) => p.verrouille);
+  const note = $("#styles-reserves");
+  if (note) note.hidden = !reserves;
+  const debit = $("#bloc-debit");
+  if (debit) debit.hidden = !debit_reglable;
   describePreset();
 }
 
@@ -406,9 +419,20 @@ function paintRange(input) {
 }
 
 async function loadMusic() {
-  const { tracks } = await api("/api/music");
-  $("#music").innerHTML = `<option value="">Aucune</option>` +
+  const { tracks, autorisee } = await api("/api/music");
+  const choix = $("#music");
+  choix.innerHTML = `<option value="">Aucune</option>` +
     tracks.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`).join("");
+  /* Une liste vide sans explication passe pour une panne : on dit laquelle
+     des deux raisons s'applique. */
+  choix.disabled = !autorisee;
+  const note = $("#note-musique");
+  if (note) {
+    note.hidden = autorisee && tracks.length > 0;
+    note.textContent = !autorisee
+      ? "La musique de fond et son mixage sous la parole font partie de la formule Créateur."
+      : "Aucune piste pour l'instant : dépose tes fichiers audio dans le dossier des musiques.";
+  }
 }
 
 async function newProject() {
