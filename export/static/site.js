@@ -456,3 +456,68 @@ if (entete) {
   window.addEventListener("scroll", planifier, { passive: true });
   window.addEventListener("resize", planifier, { passive: true });
 })();
+
+
+/* ---------------------------------------------- Le test de l'accroche ------
+   Trois manches de deux boutons. Un clic verrouille la manche, ouvre les deux
+   verdicts et compte le point. Tout le contenu est déjà dans la page : sans
+   JavaScript, les six accroches et leurs raisons restent lisibles, le test
+   devient une simple liste commentée. */
+(function () {
+  "use strict";
+  const manches = [...document.querySelectorAll(".duel-manche")];
+  if (!manches.length) return;
+
+  const bilan = document.getElementById("duel-bilan");
+  const final = document.getElementById("duel-final");
+  let jouees = 0;
+  let points = 0;
+
+  // Tant que le test n'est pas joué, les verdicts sont repliés : on les cache
+  // aussi aux lecteurs d'écran, sinon la réponse est lue avant la question.
+  manches.forEach((manche) => {
+    manche.querySelectorAll(".duel-verdict, .duel-badge")
+      .forEach((e) => e.setAttribute("aria-hidden", "true"));
+
+    manche.querySelectorAll(".duel-choix").forEach((bouton) => {
+      bouton.addEventListener("click", () => {
+        if (manche.classList.contains("jouee")) return;
+        manche.classList.add("jouee");
+        bouton.classList.add("choisi");
+        manche.querySelectorAll(".duel-verdict, .duel-badge")
+          .forEach((e) => e.removeAttribute("aria-hidden"));
+        manche.querySelectorAll(".duel-choix").forEach((b) => {
+          b.setAttribute("aria-disabled", "true");
+          b.style.cursor = "default";
+        });
+        jouees++;
+        if (bouton.dataset.gagnante === "oui") points++;
+        annoncer(bouton.dataset.gagnante === "oui");
+      });
+    });
+  });
+
+  const VERDICTS = [
+    "Zéro sur trois. Rassure-toi : c'est exactement le tri que Flambée fait " +
+      "à ta place, sur tes propres rushes.",
+    "Un sur trois. L'accroche qui retient n'est presque jamais celle qui " +
+      "annonce le sujet.",
+    "Deux sur trois. Tu as l'instinct — Flambée a la patience de le faire " +
+      "sur chaque source, à chaque montage.",
+    "Trois sur trois. Tu as l'œil. Reste le temps de monter : c'est là que " +
+      "Flambée entre en scène.",
+  ];
+
+  function annoncer(juste) {
+    if (jouees < manches.length) {
+      bilan.innerHTML = juste
+        ? "Bien vu. <b>" + points + " / " + jouees + "</b>"
+        : "Raté — la raison est sous les deux phrases. <b>"
+          + points + " / " + jouees + "</b>";
+      return;
+    }
+    bilan.innerHTML = "<b>" + points + " / " + manches.length + "</b> — "
+      + VERDICTS[points];
+    if (final) final.hidden = false;
+  }
+})();

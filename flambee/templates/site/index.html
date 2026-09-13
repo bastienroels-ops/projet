@@ -99,6 +99,49 @@
   </div>
 </section>
 
+
+{# Le test de l'accroche. La séquence vient de montrer Flambée choisir entre
+   trois sources ; ici le visiteur choisit lui-même, et découvre le critère.
+   Les six accroches sont des exemples écrits pour la démonstration : elles
+   illustrent ce que le moteur cherche, elles ne rapportent aucune mesure. #}
+<section class="section duel" id="duel" aria-labelledby="duel-titre">
+  <p class="eyebrow">Le test de l'accroche</p>
+  <h2 id="duel-titre">Deux accroches. <em>Une seule retient.</em></h2>
+  <p class="section-accroche">Même sujet, même vidéo, deux premières secondes
+    différentes. Choisis celle qui, à ton avis, empêche de faire défiler. Trois
+    manches — et le critère se révèle tout seul.</p>
+
+  <ol class="duel-manches" id="duel-manches">
+    {% for manche in duel %}
+    <li class="duel-manche" data-manche="{{ loop.index }}">
+      <p class="duel-sujet"><span>Manche {{ loop.index }}</span>{{ manche.sujet }}</p>
+      <div class="duel-paire">
+        {% for accroche in manche.accroches %}
+        <button type="button" class="duel-choix{% if accroche.retenue %} gagnante{% endif %}"
+                data-gagnante="{{ 'oui' if accroche.retenue else 'non' }}">
+          <span class="duel-badge">{{ 'Retenue' if accroche.retenue else 'Écartée' }}</span>
+          <span class="duel-texte">{{ accroche.texte }}</span>
+          <span class="duel-verdict">
+            <span class="duel-jauge"><i style="--part: {{ accroche.note / 100 }}"></i></span>
+            <b>{{ accroche.note }}</b>
+            <em>{{ accroche.raison }}</em>
+          </span>
+        </button>
+        {% endfor %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+
+  <p class="duel-bilan" id="duel-bilan" role="status" aria-live="polite"></p>
+  {# L'appel n'apparaît qu'une fois les trois manches jouées : le lien
+     vit dans le gabarit, pas dans le script, pour que l'export statique
+     puisse le réécrire comme les autres. #}
+  <p class="duel-final" id="duel-final" hidden>
+    <a href="/inscription" class="button primary">Faire ce tri sur mes vidéos</a>
+  </p>
+</section>
+
 <section class="section" id="styles">
   <p class="eyebrow">Les sous-titres</p>
   <h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>

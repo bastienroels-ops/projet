@@ -139,6 +139,49 @@ STEPS: list[Step] = [
 
 
 @dataclass(frozen=True)
+class Accroche:
+    texte: str
+    note: int
+    raison: str
+    retenue: bool = False
+
+
+@dataclass(frozen=True)
+class Manche:
+    sujet: str
+    accroches: tuple[Accroche, ...]
+
+
+# Le test de l'accroche, sur la page d'accueil. Six phrases écrites pour la
+# démonstration : elles montrent ce que le moteur cherche dans les deux
+# premières secondes. Les notes illustrent ce raisonnement, elles ne mesurent
+# aucune vidéo réelle et ne promettent aucun résultat.
+DUEL: list[Manche] = [
+    Manche("Une vidéo sur la productivité", (
+        Accroche("Dans cette vidéo, je vais vous parler de productivité.", 24,
+                 "Annonce le sujet au lieu de l'ouvrir : il n'y a rien à attendre."),
+        Accroche("J'ai supprimé mon agenda pendant trente jours.", 86,
+                 "Une décision nette, une durée, et une conséquence qu'on veut "
+                 "connaître.", retenue=True),
+    )),
+    Manche("Une vidéo de cuisine", (
+        Accroche("Ton riz colle parce que tu sautes cette étape.", 83,
+                 "Elle nomme ton problème et promet la cause dans la seconde.",
+                 retenue=True),
+        Accroche("Le secret que les grands chefs ne veulent pas que tu saches.", 37,
+                 "Promesse creuse et déjà vue : l'œil la reconnaît et la saute."),
+    )),
+    Manche("Une vidéo sur le sommeil", (
+        Accroche("Trois astuces pour mieux dormir.", 49,
+                 "Une liste honnête, mais sans tension : on peut partir après la "
+                 "première."),
+        Accroche("J'ai testé la méthode de l'armée pour m'endormir en deux minutes.", 78,
+                 "Un essai, un enjeu chiffré : on reste pour le résultat.",
+                 retenue=True),
+    )),
+]
+
+@dataclass(frozen=True)
 class Question:
     q: str
     a: str

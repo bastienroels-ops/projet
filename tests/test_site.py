@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import sys
 from pathlib import Path
 
@@ -150,3 +151,34 @@ def test_apercu_de_partage(client):
     assert '<meta property="og:image" content="http://testserver/api/demo/poster">' in texte
     assert '<meta property="og:title"' in texte
     assert '<link rel="canonical" href="http://testserver/">' in texte
+
+
+def test_le_test_de_laccroche_est_jouable(client):
+    """Six accroches, trois manches, une seule retenue par manche.
+
+    Deux retenues dans la même manche, ou aucune, et le test n'a plus de
+    réponse : le bilan compterait des points impossibles.
+    """
+    # Jinja échappe les apostrophes : on compare le texte, pas son encodage.
+    page = html.unescape(client.get("/").text)
+    assert page.count('class="duel-manche"') == len(plans.DUEL)
+    assert page.count("duel-choix") == 2 * len(plans.DUEL)
+    for manche in plans.DUEL:
+        retenues = [a for a in manche.accroches if a.retenue]
+        assert len(retenues) == 1, manche.sujet
+        for accroche in manche.accroches:
+            assert accroche.texte in page
+            assert accroche.raison in page
+
+
+def test_le_test_de_laccroche_ne_promet_aucun_chiffre(client):
+    """Les notes illustrent un critère éditorial ; elles ne mesurent rien.
+
+    Une note affichée comme une audience — « + de vues », « % » — ferait de la
+    démonstration une promesse de résultat, que rien ne garantit.
+    """
+    page = html.unescape(client.get("/").text)
+    debut = page.index('id="duel"')
+    section = page[debut:page.index("</section>", debut)]
+    for interdit in ("%", "vues", "abonnés", "garanti"):
+        assert interdit not in section.lower(), interdit

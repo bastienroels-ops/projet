@@ -317,6 +317,113 @@ def viewing_copy(source: Path, cache_dir: Path) -> Path:
         return out_path
 
 
+# --- Un coucher de soleil, calculé ------------------------------------------
+# La démonstration de la page d'accueil a besoin d'une vraie image, pas d'un
+# aplat abstrait : c'est elle qui doit donner envie. Aucune banque d'images
+# n'est utilisée — le plan est calculé pixel par pixel par ffmpeg, donc libre
+# de droits, léger à stocker et impossible à retrouver ailleurs.
+#
+# Cinq couches, du fond vers l'avant : le ciel dégradé, le soleil et son halo,
+# les bandes de nuages, la colline au loin, la mer et son chemin de lumière.
+# Les quatre dernières sont peintes en basse définition puis agrandies : leurs
+# contours sont doux par nature, l'agrandissement ne se voit pas et le calcul
+# reste rapide.
+
+HORIZON = 0.615        # hauteur de la ligne d'horizon, en fraction de l'image
+SOLEIL_X = 0.37        # le soleil décentré : le cadre respire mieux
+SOLEIL_Y = 0.578
+SOLEIL_R = 0.135       # rayon du disque, en fraction de la largeur
+
+# Du zénith à l'horizon : nuit, violet, braise, orange, or.
+CIEL_COULEURS = ("0x0d1230", "0x2a2050", "0x7d3355",
+                 "0xd65f34", "0xf59b3c", "0xffd27a")
+
+DEF_COUCHE = 270       # largeur de calcul des couches peintes
+
+
+def _couche(r: str, g: str, b: str, a: str, largeur: int, hauteur: int,
+            duree: float) -> str:
+    """Une couche RGBA peinte pixel par pixel, en basse définition."""
+    return (f"color=c=black@0:s={largeur}x{hauteur}:d={duree:.2f}:r=25,"
+            f"format=rgba,geq=r='{r}':g='{g}':b='{b}':a='{a}'")
+
+
+def sunset_filter(width: int, height: int, duration: float,
+                  *, tag: str = "fond") -> str:
+    """Chaîne de filtres produisant le plan de coucher de soleil.
+
+    N'attend aucune entrée : toutes les sources sont créées dans le graphe.
+    """
+    petit_l = DEF_COUCHE
+    petit_h = round(petit_l * height / width / 2) * 2
+    rapport = width / height          # pour que le soleil reste rond
+
+    def peindre(r, g, b, a):
+        return (_couche(r, g, b, a, petit_l, petit_h, duration)
+                + f",scale={width}:{height}:flags=bicubic")
+
+    ciel = (f"gradients=s={width}x{height}:d={duration:.2f}:r=25:speed=0.00001"
+            f":n={len(CIEL_COULEURS)}"
+            + "".join(f":c{i}={c}" for i, c in enumerate(CIEL_COULEURS))
+            + f":x0=0:y0=0:x1=0:y1={int(height * HORIZON)}")
+
+    # Le soleil : un disque net, un halo large, et la couleur qui passe du
+    # blanc chaud au cœur à l'orange sur les bords.
+    d = (f"(pow((X/W-{SOLEIL_X})/{SOLEIL_R}\\,2)"
+         f"+pow((Y/H-{SOLEIL_Y})/{SOLEIL_R * rapport:.4f}\\,2))")
+    soleil = peindre(
+        "255",
+        f"248-70*min(1\\,{d}/3)",
+        f"214-160*min(1\\,{d}/2.2)",
+        f"255*max(clip((1.05-{d})/0.08\\,0\\,1)\\,0.62*exp(-{d}/5))",
+    )
+
+    # Les nuages : des bandes fines, ondulées lentement, dont l'épaisseur
+    # varie le long de la bande pour qu'elles ne soient pas des rubans.
+    bande = ("max(0\\,sin(Y/H*46+1.4*sin(X/W*3.1+T*0.06)"
+             "+0.5*sin(X/W*1.3-T*0.04)))")
+    epaisseur = ("(0.30+0.70*pow(max(0\\,sin(X/W*2.3+Y/H*6.0+1.7))\\,1.4))")
+    enveloppe = "exp(-pow((Y/H-0.31)/0.21\\,2))"
+    altitude = "clip(Y/H/0.5\\,0\\,1)"
+    nuages = peindre(
+        f"190+65*{altitude}", f"150+22*{altitude}", f"192-84*{altitude}",
+        f"255*0.72*pow({bande}\\,3)*{epaisseur}*{enveloppe}",
+    )
+
+    # La colline : deux bosses, presque noires, qui posent la profondeur.
+    crete = (f"({HORIZON}-0.052*exp(-pow((X/W-0.87)/0.19\\,2))"
+             f"-0.030*exp(-pow((X/W-0.63)/0.085\\,2)))")
+    collines = peindre("26", "21", "48",
+                       f"255*clip((Y/H-{crete})*{petit_h * 0.9:.0f}\\,0\\,1)")
+
+    # La mer : chaude sous l'horizon, profonde au premier plan, avec le chemin
+    # de lumière qui s'élargit en venant vers l'objectif.
+    v = f"clip((Y/H-{HORIZON})/{1 - HORIZON:.3f}\\,0\\,1)"
+    # La chaleur de la mer vient du soleil : elle décroît avec la distance à
+    # sa verticale, sinon toute la bande sous l'horizon vire au brun uniforme.
+    lateral = f"exp(-pow((X/W-{SOLEIL_X})/0.5\\,2))"
+    profondeur = f"clip(pow({v}\\,0.5)+0.40*(1-{lateral})\\,0\\,1)"
+    chemin = f"exp(-pow((X/W-{SOLEIL_X})/(0.02+0.30*{v})\\,2))"
+    onde = "pow(max(0\\,sin(Y/H*230+T*1.3+0.8*sin(X/W*9)))\\,7)"
+    tirets = "(0.18+0.82*pow(max(0\\,sin(X/W*26+Y/H*55+T*0.5))\\,2))"
+    eclat = f"({chemin}*{onde}*{tirets})"
+    mer = peindre(
+        f"clip(216-198*{profondeur}+150*{eclat}\\,0\\,255)",
+        f"clip(152-136*{profondeur}+140*{eclat}\\,0\\,255)",
+        f"clip(100-56*{profondeur}+118*{eclat}\\,0\\,255)",
+        f"255*clip((Y/H-{HORIZON})*{petit_h * 1.6:.0f}\\,0\\,1)",
+    )
+
+    return (
+        f"{ciel}[s_ciel];{soleil}[s_soleil];{nuages}[s_nuages];"
+        f"{collines}[s_collines];{mer}[s_mer];"
+        f"[s_ciel][s_soleil]overlay[s_a];"
+        f"[s_a][s_nuages]overlay[s_b];"
+        f"[s_b][s_collines]overlay[s_c];"
+        f"[s_c][s_mer]overlay,vignette=PI/5,noise=alls=5:allf=t[{tag}]"
+    )
+
+
 # --- Démonstration de la page d'accueil ------------------------------------
 HERO_WIDTH = 404
 HERO_TEXT = "Voici l'astuce que personne ne connaît et qui change tout"
@@ -329,9 +436,30 @@ def build_hero() -> Path:
     chose que charge la page d'accueil.
     """
     style = config.subtitle_style("punch")
+    mots = [
+        Word(text=mot, start=i * WORD_DURATION, end=(i + 1) * WORD_DURATION)
+        for i, mot in enumerate(HERO_TEXT.split())
+    ]
+    duree = mots[-1].end + 0.8
+
+    fmt = config.FORMAT
+    hauteur = round(HERO_WIDTH * fmt.height / fmt.width / 2) * 2
+    # Le plan est peint plus large que le cadre, puis parcouru lentement de
+    # gauche à droite : un travelling de quelques pixels par seconde. Seul
+    # l'axe horizontal bouge — l'horizon doit rester d'aplomb, sinon le plan
+    # tangue. L'avance est adoucie aux deux bouts (3p²-2p³) pour qu'il n'y ait
+    # ni départ sec ni arrêt net.
+    large = int(fmt.width * 1.08) // 2 * 2
+    marge_x = large - fmt.width
+    p = f"min(1,t/{duree:.2f})"
+    avance = f"(3*pow({p},2)-2*pow({p},3))"
+    fond = sunset_filter(large, fmt.height, duree)
+
+    # Le fond entre entier dans l'empreinte : retoucher une seule constante du
+    # coucher de soleil suffit à périmer le cache, sans avoir à y penser.
     empreinte = hashlib.sha256(
         "|".join([repr(sorted(asdict(style).items())), HERO_TEXT,
-                  "".join(BACKDROP_COLORS), str(HERO_WIDTH)]).encode("utf-8")
+                  fond, str(HERO_WIDTH), avance]).encode("utf-8")
     ).hexdigest()[:12]
     out_path = config.WORK_DIR / ".samples" / f"hero-{empreinte}.mp4"
     if out_path.exists() and has_media_duration(out_path, minimum=0.5):
@@ -342,41 +470,26 @@ def build_hero() -> Path:
             return out_path
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        mots = [
-            Word(text=mot, start=i * WORD_DURATION, end=(i + 1) * WORD_DURATION)
-            for i, mot in enumerate(HERO_TEXT.split())
-        ]
-        duree = mots[-1].end + 0.8
         ass_path = out_path.with_suffix(".ass")
         subtitles.write_ass(mots, ass_path, style=style, max_duration=duree)
 
-        fmt = config.FORMAT
-        hauteur = round(HERO_WIDTH * fmt.height / fmt.width / 2) * 2
-
         from .assembler import _escape_filter_path
 
-        # Le fond est agrandi puis lentement balayé : sur une page d'accueil,
-        # une image parfaitement immobile a l'air en panne.
-        large, haut_large = int(fmt.width * 1.14), int(fmt.height * 1.14)
-        marge_x, marge_y = large - fmt.width, haut_large - fmt.height
-        avance = f"min(1,t/{duree:.2f})"
         graphe = (
-            backdrop_filter(large, haut_large)
-            + f";[fond]crop={fmt.width}:{fmt.height}"
-            f":x='{marge_x}*{avance}':y='{marge_y}*(1-{avance})',"
+            fond
+            + f";[fond]crop={fmt.width}:{fmt.height}:x='{marge_x}*{avance}':y=0,"
             f"subtitles=filename='{_escape_filter_path(ass_path)}'"
             f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
             f"scale={HERO_WIDTH}:{hauteur},format=yuv420p[o]"
         )
         try:
             ffmpeg([
-                *backdrop_inputs(duree),
                 "-t", f"{duree:.2f}",
                 "-filter_complex", graphe, "-map", "[o]",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
                 "-movflags", "+faststart", "-an",
                 str(out_path),
-            ], timeout=240)
+            ], timeout=300)
         finally:
             ass_path.unlink(missing_ok=True)
 

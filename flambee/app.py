@@ -179,6 +179,7 @@ def _contexte_site(page: str, request: Request | None = None, **extra) -> dict:
         "features": plans.FEATURES,
         "steps": plans.STEPS,
         "faq": plans.FAQ,
+        "duel": plans.DUEL,
         "presets": [
             {"id": nom, "label": style.label, "description": style.description}
             for nom, style in config.SUBTITLE_PRESETS.items()
