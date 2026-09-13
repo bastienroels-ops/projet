@@ -81,7 +81,24 @@ def test_notebook_valide():
     notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
     assert notebook["nbformat"] == 4
     types = [cell["cell_type"] for cell in notebook["cells"]]
-    assert types == ["markdown", "code", "markdown"]
+    assert types[0] == "markdown" and types[1] == "code"
+    assert types.count("code") == 1, "une seule cellule à exécuter, pas deux"
+
+
+def test_le_bouton_est_a_portee_du_premier_ecran():
+    """La cellule de code doit suivre une entrée brève.
+
+    Le carnet s'ouvrait sur quarante et une lignes de mode d'emploi : sur un
+    téléphone, le bouton ▶︎ — le seul geste à faire — tombait deux écrans plus
+    bas, et la cellule qu'on avait sous les yeux était du texte, sans rien à
+    toucher. Les explications se lisent très bien après, pendant que
+    l'installation défile.
+    """
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    entree = "".join(notebook["cells"][0]["source"])
+    lignes = len(entree.splitlines())
+    assert lignes <= 8, f"l'entrée fait {lignes} lignes et repousse le bouton"
+    assert "▶" in entree, "l'entrée ne dit pas sur quoi toucher"
 
 
 def test_cellule_de_code_compilable_et_complete():
@@ -105,11 +122,17 @@ def test_cellule_de_code_compilable_et_complete():
 
 
 def test_instructions_mentionnent_les_limites():
+    """Les avertissements peuvent vivre dans n'importe quelle cellule de texte.
+
+    Ils ont quitté l'en-tête pour laisser le bouton ▶︎ en vue ; ce qui compte
+    est qu'ils soient dans le carnet, pas qu'ils soient en premier.
+    """
     notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
-    intro = "".join(notebook["cells"][0]["source"])
+    texte = "".join("".join(cell["source"]) for cell in notebook["cells"]
+                    if cell["cell_type"] == "markdown")
     for rappel in ("Télécharge tes vidéos", "onglet Colab ouvert",
                    "Choisir des vidéos", "aperçu 540p"):
-        assert rappel in intro, f"rappel manquant : {rappel}"
+        assert rappel in texte, f"rappel manquant : {rappel}"
 
 
 def test_lien_de_secours_absent_hors_colab():
