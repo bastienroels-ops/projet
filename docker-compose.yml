@@ -1,0 +1,47 @@
+# Flambée en production : l'application derrière Caddy, qui obtient et
+# renouvelle le certificat TLS tout seul.
+#
+#   1. cp .env.exemple .env   puis renseigne DOMAINE et FLAMBEE_SECRET_KEY
+#   2. docker compose up -d
+#
+# Sans nom de domaine, `docker compose up flambee` suffit : le service écoute
+# alors en clair sur le port 8000, à réserver à un usage local.
+
+services:
+  flambee:
+    build: .
+    restart: unless-stopped
+    environment:
+      FLAMBEE_SECRET_KEY: ${FLAMBEE_SECRET_KEY:?definis une cle dans .env}
+      FLAMBEE_SIGNUP: ${FLAMBEE_SIGNUP:-ouvert}
+      FLAMBEE_INVITE_CODE: ${FLAMBEE_INVITE_CODE:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      FLAMBEE_WHISPER_MODEL: ${FLAMBEE_WHISPER_MODEL:-base}
+      FLAMBEE_NICE: ${FLAMBEE_NICE:-5}
+      FLAMBEE_MAX_UPLOAD_MB: ${FLAMBEE_MAX_UPLOAD_MB:-600}
+    volumes:
+      - donnees:/donnees
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"   # accessible en local ; Caddy fait le reste
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - flambee
+    environment:
+      DOMAINE: ${DOMAINE:?renseigne ton nom de domaine dans .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_donnees:/data
+      - caddy_config:/config
+
+volumes:
+  donnees:
+  caddy_donnees:
+  caddy_config:

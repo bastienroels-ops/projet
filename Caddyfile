@@ -1,0 +1,26 @@
+# Caddy obtient et renouvelle le certificat Let's Encrypt sans intervention.
+{$DOMAINE} {
+	encode zstd gzip
+
+	# En-têtes de sécurité : peu de lignes, beaucoup d'attaques écartées.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Les vidéos importées peuvent être volumineuses.
+	request_body {
+		max_size 700MB
+	}
+
+	reverse_proxy flambee:8000 {
+		# Le rendu d'une vidéo longue peut dépasser la minute.
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}

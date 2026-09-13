@@ -16,6 +16,14 @@ sur `http://127.0.0.1:8000`.
 | `/` | Le **site public** : accueil, fonctionnalités, tarifs, questions, pages légales, liste d'attente. |
 | `/studio` | **L'application** : menu latéral, crédits, abonnement, et les 5 étapes de création. |
 
+### Comptes
+
+L'atelier demande un compte. Les mots de passe sont dérivés par `scrypt`, les
+sessions tiennent dans un cookie signé (HttpOnly, SameSite=Lax, Secure en
+HTTPS), et chaque compte dispose d'un espace cloisonné : ses projets, sa voix
+importée, ses crédits. `FLAMBEE_SIGNUP=ferme` ou `FLAMBEE_INVITE_CODE`
+restreignent les inscriptions.
+
 ### Les rubriques de l'application
 
 | Rubrique | État |
@@ -35,7 +43,20 @@ Les formules, arguments et questions se modifient dans `flambee/plans.py` — un
 seul fichier, aucun HTML à toucher. Ce qu'il reste à brancher pour vendre
 réellement est listé dans [`docs/COMMERCIALISATION.md`](docs/COMMERCIALISATION.md).
 
-## Installation
+## Mettre en ligne
+
+Tout est prêt pour un déploiement en conteneur :
+
+```bash
+cp .env.exemple .env        # domaine + clé de signature
+docker compose up -d        # l'app, et Caddy qui gère le HTTPS
+```
+
+L'image a été construite et éprouvée : inscription, import de vidéos, import
+d'une voix avec transcription locale et rendu d'une vidéo 1080 × 1920 ont
+tourné dedans. Le détail est dans [`docs/HEBERGEMENT.md`](docs/HEBERGEMENT.md).
+
+## Installation en local
 
 ```bash
 # 1. ffmpeg (obligatoire)
@@ -244,6 +265,7 @@ flambee/
   samples.py      échantillons de sous-titres et démonstration d'accueil
   plans.py        formules, arguments, étapes, questions du site
   site.py         textes légaux et liste d'attente
+  users.py        comptes, mots de passe, sessions signées
   account.py      formule, quotas et historique des crédits
   transcribe.py   transcription locale (faster-whisper)
   voicestudio.py  voix importée et son minutage
@@ -277,8 +299,11 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 |---|---|---|
 | `FLAMBEE_PORT` | `8000` | port du serveur local |
 | `FLAMBEE_HOST` | `127.0.0.1` | `0.0.0.0` pour ouvrir l'accès au réseau local (téléphone) |
-| `FLAMBEE_PASSWORD` | — | protège l'accès (obligatoire dès que l'app sort de la machine) |
-| `FLAMBEE_USERNAME` | `flambee` | identifiant associé au mot de passe |
+| `FLAMBEE_SECRET_KEY` | engendrée | signe les sessions ; la changer déconnecte tout le monde |
+| `FLAMBEE_SIGNUP` | `ouvert` | `ferme` interdit toute nouvelle inscription |
+| `FLAMBEE_INVITE_CODE` | — | si défini, exigé à l'inscription |
+| `FLAMBEE_PASSWORD` | — | verrou global optionnel, en plus des comptes |
+| `FLAMBEE_USERNAME` | `flambee` | identifiant du verrou global |
 | `FLAMBEE_MAX_UPLOAD_MB` | `600` | taille maximale d'une vidéo importée |
 | `FLAMBEE_NICE` | `0` | priorité de l'encodage (`10` sur une machine distante, pour ne pas étrangler le réseau) |
 | `FLAMBEE_OUTPUT_DIR` | `./output` | dossier des rendus |

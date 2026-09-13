@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+work/
+output/
+flambee-data/
+colab/cloudflared
+.git/
+.github/
+tests/
+docs/
+*.md
+!README.md
+.env

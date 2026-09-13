@@ -53,3 +53,38 @@ if (bascule) {
     });
   });
 }
+
+
+/* 4. Révélation au défilement.
+      Chaque bloc se pose légèrement quand il entre à l'écran. L'effet est
+      désactivé si le système demande de réduire les animations. */
+const menage = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const aReveler = document.querySelectorAll(
+  ".section > .eyebrow, .section > h1, .section > h2, .section-accroche," +
+  " .atout, .etapes li, .style-carte, .tarif, .faq details, .appel > *," +
+  " .hero-texte > *, .telephone, .bande p");
+
+if (aReveler.length && !menage && "IntersectionObserver" in window) {
+  aReveler.forEach((element, index) => {
+    element.classList.add("a-reveler");
+    // Un léger décalage entre voisins : l'ensemble se pose en cascade.
+    element.style.setProperty("--retard", `${(index % 6) * 60}ms`);
+  });
+  const observateur = new IntersectionObserver((entrees) => {
+    entrees.forEach((entree) => {
+      if (entree.isIntersecting) {
+        entree.target.classList.add("revele");
+        observateur.unobserve(entree.target);
+      }
+    });
+  }, { rootMargin: "-40px 0px -60px 0px" });
+  aReveler.forEach((element) => observateur.observe(element));
+}
+
+/* 5. L'en-tête se densifie dès qu'on quitte le haut de page. */
+const entete = document.querySelector(".site-header");
+if (entete) {
+  const ajuster = () => entete.classList.toggle("pose", window.scrollY > 12);
+  ajuster();
+  window.addEventListener("scroll", ajuster, { passive: true });
+}
