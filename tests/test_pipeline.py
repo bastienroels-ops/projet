@@ -372,3 +372,72 @@ def test_le_rendu_transmet_la_limite_de_threads():
     assert '"-threads", str(config.FFMPEG_THREADS)' in source
     assert '"-filter_threads", str(config.FFMPEG_THREADS)' in source
     assert '"-threads", "0"' not in source, "limite ignorée, valeur écrite en dur"
+
+
+# --- La bibliothèque de musiques -------------------------------------------
+def test_la_bibliotheque_de_musiques_n_est_pas_vide():
+    """L'application vend la musique : elle doit en avoir.
+
+    Le dossier était vide et le menu ne proposait que « Aucune », alors que
+    les formules annonçaient « une musique qui s'efface sous la parole » et que
+    le code la réservait aux formules payantes. On verrouillait une
+    fonctionnalité sans contenu.
+    """
+    from flambee import pipeline
+
+    pistes = pipeline.list_music()
+    assert len(pistes) >= 3, f"seulement {len(pistes)} musique(s)"
+    for piste in pistes:
+        fichier = config.MUSIC_DIR / piste["id"]
+        assert fichier.exists(), piste["id"]
+        assert fichier.stat().st_size > 50_000, f"{piste['id']} est trop courte"
+        assert piste["label"], "une piste sans nom lisible"
+
+
+@pytest.mark.skipif(bool(media.ensure_tools()), reason="ffmpeg requis")
+def test_les_musiques_sont_au_niveau_de_la_voix():
+    """Une musique mastérisée trop bas devient inaudible dans le montage.
+
+    Le curseur « volume musique » n'est qu'une atténuation relative, et le
+    mixage ne renormalise pas (`amix ... normalize=0`). Une piste douze
+    décibels sous la cible se retrouvait donc trente décibels sous la voix :
+    présente dans le fichier, inaudible à l'oreille. Les deux doivent partir
+    du même niveau.
+    """
+    import re
+    import subprocess
+
+    from flambee import pipeline
+
+    cible = float(re.search(r"loudnorm=I=(-?\d+)", assembler.VOICE_LOUDNESS).group(1))
+    for piste in pipeline.list_music():
+        fichier = config.MUSIC_DIR / piste["id"]
+        sortie = subprocess.run(
+            [config.FFMPEG_BIN, "-hide_banner", "-i", str(fichier),
+             "-af", "ebur128=framelog=quiet", "-f", "null", "-"],
+            capture_output=True, text=True, timeout=120).stderr
+        mesure = re.findall(r"I:\s+(-?\d+\.\d+) LUFS", sortie)
+        assert mesure, f"niveau illisible pour {piste['id']}"
+        niveau = float(mesure[-1])
+        assert abs(niveau - cible) <= 2.0, (
+            f"{piste['id']} est à {niveau} LUFS, la voix vise {cible}")
+
+
+def test_les_musiques_sont_suivies_par_git():
+    """Ignorées par git, elles disparaîtraient au premier clone.
+
+    Le dossier `assets/music` est ignoré dans son ensemble — c'est voulu :
+    une musique trouvée ailleurs engage celui qui publie la vidéo et n'a rien
+    à faire dans le dépôt. Mais les pistes engendrées, elles, font partie du
+    produit. Sans exception explicite, Colab reclonerait un menu vide.
+    """
+    import subprocess
+
+    from flambee import pipeline
+
+    racine = Path(__file__).resolve().parent.parent
+    for piste in pipeline.list_music():
+        chemin = (config.MUSIC_DIR / piste["id"]).relative_to(racine)
+        ignore = subprocess.run(["git", "check-ignore", str(chemin)],
+                                cwd=racine, capture_output=True, text=True)
+        assert ignore.returncode != 0, f"{piste['id']} serait perdue au clone"

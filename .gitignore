@@ -7,8 +7,18 @@ venv/
 # Fichiers de travail et rendus : jamais versionnés
 work/
 output/
+# Les musiques de fond engendrées par outils/engendrer_musiques.py sont
+# suivies : elles font partie du produit, et sans elles le menu « Musique »
+# ne propose rien. Tout autre fichier déposé là reste ignoré — une musique
+# trouvée ailleurs engage celui qui publie la vidéo, elle n'a rien à faire
+# dans le dépôt.
 assets/music/*
 !assets/music/.gitkeep
+!assets/music/Braises.mp3
+!assets/music/Clair.mp3
+!assets/music/Nocturne.mp3
+!assets/music/Pulsation.mp3
+!assets/music/Ressort.mp3
 
 # Les rendus et la base des comptes d'une session Colab, écrits à côté du
 # dépôt quand le carnet tourne hors de /content.
