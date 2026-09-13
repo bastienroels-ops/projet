@@ -42,22 +42,35 @@ PAGES: dict[str, str] = {
 LIENS_ATELIER = ("/inscription", "/connexion", "/studio", "/mot-de-passe-oublie")
 
 
+def correspondances_medias() -> dict[str, str]:
+    """Table des adresses de l'application vers les fichiers du site statique.
+
+    Les noms portent une extension : un hébergeur statique choisit le type
+    MIME d'après elle, et « /api/demo » sans extension serait servi comme un
+    fichier à télécharger.
+
+    Séparée du rendu : la table est déductible sans ffmpeg, et le garde-fou
+    qui compare `export/` au code peut donc s'en servir sans rien calculer.
+    """
+    from flambee import config
+
+    correspondances = {"/api/demo/poster": "/media/demo.jpg",
+                       "/api/demo": "/media/demo.mp4"}
+    for preset in config.SUBTITLE_PRESETS:
+        correspondances[f"/api/presets/{preset}/sample"] = f"/media/{preset}-sample.mp4"
+        correspondances[f"/api/presets/{preset}/poster"] = f"/media/{preset}-poster.jpg"
+    return correspondances
+
+
 def fabriquer_medias(destination: Path) -> dict[str, str]:
-    """Calcule les clips et affiches une fois pour toutes, et les nomme avec
-    une extension : un hébergeur statique choisit le type MIME d'après elle,
-    et « /api/demo » sans extension serait servi comme un fichier à
-    télécharger."""
+    """Calcule les clips et affiches une fois pour toutes, et les dépose."""
     from flambee import config, samples
 
     destination.mkdir(parents=True, exist_ok=True)
-    correspondances: dict[str, str] = {}
 
     print("→ Démonstration de l'accroche…", flush=True)
-    clip = samples.build_hero()
-    shutil.copy2(clip, destination / "demo.mp4")
+    shutil.copy2(samples.build_hero(), destination / "demo.mp4")
     shutil.copy2(samples.hero_poster(), destination / "demo.jpg")
-    correspondances["/api/demo/poster"] = "/media/demo.jpg"
-    correspondances["/api/demo"] = "/media/demo.mp4"
 
     for preset in config.SUBTITLE_PRESETS:
         print(f"→ Style « {preset} »…", flush=True)
@@ -65,10 +78,8 @@ def fabriquer_medias(destination: Path) -> dict[str, str]:
                      destination / f"{preset}-sample.mp4")
         shutil.copy2(samples.sample_poster(preset),
                      destination / f"{preset}-poster.jpg")
-        correspondances[f"/api/presets/{preset}/sample"] = f"/media/{preset}-sample.mp4"
-        correspondances[f"/api/presets/{preset}/poster"] = f"/media/{preset}-poster.jpg"
 
-    return correspondances
+    return correspondances_medias()
 
 
 def reecrire(html: str, medias: dict[str, str], atelier: str, prefixe: str) -> str:

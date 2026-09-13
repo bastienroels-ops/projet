@@ -121,3 +121,48 @@ def test_toutes_les_pages_publiques_sont_exportees():
     attendues = {a for a in auth.PUBLIC if a not in ignorees}
     assert attendues == set(exporter_site.PAGES), (
         "l'export et les routes publiques ont divergé")
+
+
+# --- Le garde-fou de la publication ----------------------------------------
+# L'hébergeur ne sert pas le code : il sert `export/`, un instantané commité.
+# Modifier un gabarit sans relancer l'export laisserait donc le site publié
+# sur son ancienne version, sans que rien ne le signale. Ces deux tests
+# échouent dès que l'instantané s'écarte de la source.
+
+EXPORT = RACINE / "export"
+
+
+def _client():
+    from fastapi.testclient import TestClient
+
+    from flambee.app import app
+    return TestClient(app)
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_les_pages_publiees_sont_a_jour():
+    """Chaque page d'`export/` doit être celle que l'application rend là, maintenant."""
+    medias = exporter_site.correspondances_medias()
+    with _client() as client:
+        for adresse, fichier in exporter_site.PAGES.items():
+            reponse = client.get(adresse)
+            assert reponse.status_code == 200, adresse
+            attendu = exporter_site.reecrire(reponse.text, medias, "", "")
+            publie = (EXPORT / fichier).read_text(encoding="utf-8")
+            assert publie == attendu, (
+                f"{fichier} ne correspond plus à {adresse} — "
+                f"relance : python outils/exporter_site.py --sortie export")
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_les_ressources_publiees_sont_a_jour():
+    """Le CSS et le JavaScript publiés sont ceux du dépôt, octet pour octet."""
+    source = RACINE / "flambee" / "static"
+    for fichier in sorted(source.rglob("*")):
+        if not fichier.is_file():
+            continue
+        publie = EXPORT / "static" / fichier.relative_to(source)
+        assert publie.exists(), f"{publie} manque dans l'export"
+        assert publie.read_bytes() == fichier.read_bytes(), (
+            f"{publie.name} est périmé — "
+            f"relance : python outils/exporter_site.py --sortie export")
