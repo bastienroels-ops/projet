@@ -90,3 +90,23 @@ def test_l_installation_automatique_ecrit_les_reglages_essentiels():
     for reglage in ("FLAMBEE_SECRET_KEY=", "FLAMBEE_BASE_URL=",
                     "FLAMBEE_SIGNUP=", "FLAMBEE_SMTP_HOTE="):
         assert reglage in init, f"{reglage} absent du .env engendré"
+
+
+def test_la_sauvegarde_ne_devine_pas_le_nom_du_volume():
+    """Une archive vide qui se croit réussie est pire que pas de sauvegarde.
+
+    Docker crée sans un mot un volume vide sous un nom inconnu : un nom écrit
+    en dur produit alors une archive de quelques centaines d'octets, chaque
+    nuit, jusqu'au jour où l'on en a besoin. Le script doit lire le nom sur le
+    conteneur qui tourne, et refuser une archive sans la base des comptes.
+    """
+    init = (RACINE / "deploiement" / "oracle-cloud-init.yaml").read_text("utf-8")
+    debut = init.index("flambee-sauvegarde")
+    script = init[debut:init.index("- path:", debut)]
+
+    assert "docker inspect" in script, "le nom du volume n'est pas demandé à Docker"
+    assert 'Destination "/donnees"' in script, "le montage cherché n'est pas /donnees"
+    assert "travail/flambee.db" in script, \
+        "l'archive n'est pas vérifiée pour la base des comptes"
+    assert re.search(r'-v "\$VOLUME":/d:ro', script), \
+        "le volume devrait être monté en lecture seule pour une sauvegarde"

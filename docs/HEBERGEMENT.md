@@ -229,14 +229,46 @@ Un seul volume, `donnees`, contient tout l'état : la base des comptes
 (`flambee.db`), les projets, les voix importées et les vidéos rendues. L'image,
 elle, est jetable.
 
+Le nom exact du volume dépend du dossier où le dépôt est cloné : depuis
+`/opt/flambee`, c'est `flambee_donnees`. Demande-le plutôt que de le deviner —
+Docker crée sans rien dire un volume vide sous un nom inconnu, et la sauvegarde
+« réussit » en n'archivant rien :
+
 ```bash
+VOLUME=$(docker inspect -f \
+  '{{range .Mounts}}{{if eq .Destination "/donnees"}}{{.Name}}{{end}}{{end}}' \
+  "$(docker compose ps -q flambee)")
+
 # Sauvegarde
-docker run --rm -v flambee_donnees:/d -v "$PWD":/sortie alpine \
+docker run --rm -v "$VOLUME":/d:ro -v "$PWD":/sortie alpine \
   tar czf /sortie/flambee-sauvegarde.tar.gz -C /d .
+
+# Vérification : sans la base des comptes, l'archive ne vaut rien
+tar tzf flambee-sauvegarde.tar.gz | grep travail/flambee.db
 ```
 
 Sauvegarde la base **avant** toute mise à jour. Une perte de `flambee.db`, ce
 sont tous les comptes perdus.
+
+### Restaurer
+
+Vérifié de bout en bout : volume détruit, archive remontée, comptes et mots de
+passe retrouvés. L'application doit être arrêtée pendant l'opération, sinon
+elle écrit dans la base qu'on est en train de remplacer.
+
+```bash
+docker compose down
+docker volume create "$VOLUME"
+docker run --rm -v "$VOLUME":/d -v "$PWD":/sauv alpine \
+  sh -c 'tar xzf /sauv/flambee-sauvegarde.tar.gz -C /d && chown -R 10001:10001 /d'
+docker compose up -d
+```
+
+Le `chown` n'est pas décoratif : l'application tourne sous l'utilisateur 10001
+et non sous root. Sans lui, elle ne peut pas écrire dans les fichiers restaurés.
+
+L'installation automatique d'Oracle pose déjà une sauvegarde chaque nuit dans
+`/var/backups/flambee`, et en garde une semaine.
 
 ## Réglages qui comptent
 

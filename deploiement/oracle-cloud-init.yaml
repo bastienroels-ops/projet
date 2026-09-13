@@ -204,8 +204,41 @@ write_files:
       set -euo pipefail
       DEST=/var/backups/flambee
       mkdir -p "$DEST"
-      docker run --rm -v flambee_donnees:/d -v "$DEST":/sortie alpine \
-        tar czf "/sortie/flambee-$(date +%F).tar.gz" -C /d .
+
+      # Le nom du volume est demandé au conteneur qui tourne, jamais deviné.
+      # Écrit en dur, il suffisait que le dépôt soit cloné ailleurs qu'en
+      # /opt/flambee pour que Docker crée un volume vide de ce nom et archive
+      # ce vide : une sauvegarde qui réussit tous les soirs et ne contient
+      # rien, découverte le jour où l'on en a besoin.
+      CONTENEUR=$(docker compose -f /opt/flambee/docker-compose.yml ps -q flambee)
+      if [ -z "$CONTENEUR" ]; then
+        echo "!!! Flambée ne tourne pas : rien à sauvegarder." >&2
+        exit 1
+      fi
+      VOLUME=$(docker inspect -f \
+        '{{range .Mounts}}{{if eq .Destination "/donnees"}}{{.Name}}{{end}}{{end}}' \
+        "$CONTENEUR")
+      if [ -z "$VOLUME" ]; then
+        echo "!!! Aucun volume monté sur /donnees." >&2
+        exit 1
+      fi
+
+      ARCHIVE="$DEST/flambee-$(date +%F).tar.gz"
+      docker run --rm -v "$VOLUME":/d:ro -v "$DEST":/sortie alpine \
+        tar czf "/sortie/$(basename "$ARCHIVE")" -C /d .
+
+      # On vérifie ce qui compte, pas le poids : une base de comptes neuve se
+      # compresse à un millier d'octets, si bien qu'un seuil de taille refuse
+      # les bonnes sauvegardes des premiers jours tout en laissant passer une
+      # archive volumineuse mais sans la base. C'est donc sa présence qu'on
+      # exige.
+      if ! tar tzf "$ARCHIVE" | grep -q "travail/flambee.db"; then
+        echo "!!! La base des comptes est absente de l'archive." >&2
+        echo "!!! Archive conservée pour examen : $ARCHIVE" >&2
+        exit 1
+      fi
+      echo "Sauvegarde : $ARCHIVE ($(stat -c %s "$ARCHIVE") octets, volume $VOLUME)"
+
       # On garde une semaine de copies : au-delà, le disque se remplit.
       ls -1t "$DEST"/flambee-*.tar.gz | tail -n +8 | xargs -r rm --
 
