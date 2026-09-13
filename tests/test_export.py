@@ -130,6 +130,7 @@ def test_toutes_les_pages_publiques_sont_exportees():
 # échouent dès que l'instantané s'écarte de la source.
 
 EXPORT = RACINE / "export"
+SOURCE_STATIQUE = RACINE / "flambee" / "static"
 
 
 def _client():
@@ -142,7 +143,8 @@ def _client():
 @pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
 def test_les_pages_publiees_sont_a_jour():
     """Chaque page d'`export/` doit être celle que l'application rend là, maintenant."""
-    medias = exporter_site.correspondances_medias()
+    medias = {**exporter_site.correspondances_medias(),
+              **exporter_site.empreintes_ressources(SOURCE_STATIQUE)}
     with _client() as client:
         for adresse, fichier in exporter_site.PAGES.items():
             reponse = client.get(adresse)
@@ -156,13 +158,39 @@ def test_les_pages_publiees_sont_a_jour():
 
 @pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
 def test_les_ressources_publiees_sont_a_jour():
-    """Le CSS et le JavaScript publiés sont ceux du dépôt, octet pour octet."""
-    source = RACINE / "flambee" / "static"
-    for fichier in sorted(source.rglob("*")):
+    """Les ressources publiées sont celles du dépôt, octet pour octet.
+
+    Les CSS et JS sont publiés sous un nom qui porte l'empreinte de leur
+    contenu : retrouver ce nom dans `export/static` prouve à la fois que le
+    fichier est là et qu'il n'a pas bougé depuis.
+    """
+    empreintes = exporter_site.empreintes_ressources(SOURCE_STATIQUE)
+    for fichier in sorted(SOURCE_STATIQUE.rglob("*")):
         if not fichier.is_file():
             continue
-        publie = EXPORT / "static" / fichier.relative_to(source)
-        assert publie.exists(), f"{publie} manque dans l'export"
+        relatif = fichier.relative_to(SOURCE_STATIQUE)
+        publie = EXPORT / "static" / relatif
+        empreint = empreintes.get(f"/static/{relatif.as_posix()}")
+        if empreint:
+            publie = EXPORT / empreint.lstrip("/")
+        assert publie.exists(), (
+            f"{publie.name} manque dans l'export — "
+            f"relance : python outils/exporter_site.py --sortie export")
         assert publie.read_bytes() == fichier.read_bytes(), (
             f"{publie.name} est périmé — "
             f"relance : python outils/exporter_site.py --sortie export")
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_aucune_ressource_ne_traine_sous_son_ancien_nom():
+    """Un nom d'empreinte périmé serait servi un an : il ne doit pas rester.
+
+    Les CSS et JS publiés portent un cache d'un an. Si l'export gardait aussi
+    la version précédente d'un fichier, une page ancienne encore en cache
+    continuerait de la charger sans jamais expirer.
+    """
+    attendus = {Path(v).name
+                for v in exporter_site.empreintes_ressources(SOURCE_STATIQUE).values()}
+    trouves = {f.name for f in (EXPORT / "static").glob("*")
+               if f.suffix in (".css", ".js")}
+    assert trouves == attendus, f"en trop : {trouves - attendus}"

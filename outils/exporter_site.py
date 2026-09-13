@@ -18,6 +18,7 @@ mèneront à une page absente : le script le dit plutôt que de le taire.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import shutil
 import sys
@@ -40,6 +41,27 @@ PAGES: dict[str, str] = {
 
 # Les liens qui demandent un serveur : ils ne peuvent pas vivre en statique.
 LIENS_ATELIER = ("/inscription", "/connexion", "/studio", "/mot-de-passe-oublie")
+
+
+def empreintes_ressources(dossier: Path) -> dict[str, str]:
+    """Nomme chaque feuille de style et chaque script d'après son contenu.
+
+    Ces fichiers portaient un nom fixe et un cache d'un an : un visiteur déjà
+    venu gardait l'ancienne feuille de style pendant des mois, sur une page
+    neuve — donc une page cassée plutôt qu'une page à jour. Le nom changeant
+    avec le contenu, l'ancien cache ne peut plus être servi, et le nouveau
+    reste cachable aussi longtemps qu'on veut.
+
+    Les polices gardent leur nom : leur contenu ne change jamais à nom égal.
+    """
+    table: dict[str, str] = {}
+    for fichier in sorted(dossier.glob("*")):
+        if fichier.suffix not in (".css", ".js"):
+            continue
+        empreinte = hashlib.sha256(fichier.read_bytes()).hexdigest()[:10]
+        table[f"/static/{fichier.name}"] = (
+            f"/static/{fichier.stem}.{empreinte}{fichier.suffix}")
+    return table
 
 
 def correspondances_medias() -> dict[str, str]:
@@ -82,14 +104,19 @@ def fabriquer_medias(destination: Path) -> dict[str, str]:
     return correspondances_medias()
 
 
-def reecrire(html: str, medias: dict[str, str], atelier: str, prefixe: str) -> str:
-    """Adapte une page servie par l'application à une publication statique."""
-    # Les médias d'abord : les clés les plus longues en premier, sinon
+def reecrire(html: str, adresses: dict[str, str], atelier: str, prefixe: str) -> str:
+    """Adapte une page servie par l'application à une publication statique.
+
+    `adresses` fait correspondre ce que sert l'application — les points
+    d'entrée des médias, les ressources à leur nom d'origine — aux fichiers
+    publiés.
+    """
+    # Les adresses d'abord : les clés les plus longues en premier, sinon
     # « /api/demo » remplacerait le début de « /api/demo/poster ».
     # Le préfixe n'est pas posé ici : la passe finale s'en charge, et l'ajouter
     # aux deux endroits donnait « /projet/projet/media/… ».
-    for source in sorted(medias, key=len, reverse=True):
-        html = html.replace(f'"{source}"', f'"{medias[source]}"')
+    for source in sorted(adresses, key=len, reverse=True):
+        html = html.replace(f'"{source}"', f'"{adresses[source]}"')
 
     # L'essayage libre demande ffmpeg : on bascule sur les clips pré-calculés.
     html = html.replace(
@@ -118,21 +145,26 @@ def reecrire(html: str, medias: dict[str, str], atelier: str, prefixe: str) -> s
 def ecrire_reglages_cloudflare(sortie: Path, atelier: str) -> None:
     """Deux fichiers que Cloudflare Pages lit à la racine du site.
 
-    `_headers` fixe la durée de cache. Les médias portent une empreinte dans
-    leur nom et ne changent jamais à contenu égal : les garder un an évite de
-    les retélécharger à chaque visite. Les pages, elles, doivent être
-    revalidées, sinon une correction publiée resterait invisible.
+    `_headers` fixe la durée de cache. Les feuilles de style et les scripts
+    portent une empreinte de contenu dans leur nom : à nom égal leur contenu
+    ne bouge plus, on peut les garder un an. Les médias, eux, gardent un nom
+    fixe — le script d'essayage compose leurs adresses — donc ils sont
+    revalidés à chaque visite : sinon la démonstration republiée resterait
+    invisible pendant des mois pour qui est déjà venu.
+
+    Aucune règle ne fixe le cache des pages : les deux hébergeurs les
+    revalident par défaut, et une règle `/*` viendrait écraser les deux
+    précédentes, qu'elle soit lue avant ou après elles.
 
     `_redirects` rattrape les adresses de l'atelier : sans lui, un visiteur
     qui a gardé un lien vers /inscription tomberait sur une page d'erreur.
     """
     (sortie / "_headers").write_text(
         "/media/*\n"
-        "  Cache-Control: public, max-age=31536000, immutable\n"
+        "  Cache-Control: public, max-age=0, must-revalidate\n"
         "/static/*\n"
         "  Cache-Control: public, max-age=31536000, immutable\n"
         "/*\n"
-        "  Cache-Control: public, max-age=0, must-revalidate\n"
         "  X-Content-Type-Options: nosniff\n"
         "  Referrer-Policy: strict-origin-when-cross-origin\n",
         encoding="utf-8")
@@ -165,6 +197,10 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
 
     print("→ Ressources…", flush=True)
     shutil.copytree(RACINE / "flambee" / "static", sortie / "static")
+    ressources = empreintes_ressources(sortie / "static")
+    for origine, publie in ressources.items():
+        (sortie / origine.lstrip("/")).rename(sortie / publie.lstrip("/"))
+    adresses = {**medias, **ressources}
 
     with TestClient(app) as client:
         for adresse, fichier in PAGES.items():
@@ -174,7 +210,7 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
             cible = sortie / fichier
             cible.parent.mkdir(parents=True, exist_ok=True)
             cible.write_text(
-                reecrire(reponse.text, medias, atelier, prefixe), encoding="utf-8")
+                reecrire(reponse.text, adresses, atelier, prefixe), encoding="utf-8")
             print(f"   {adresse:22s} → {fichier}")
 
         for nom in ("robots.txt", "sitemap.xml"):
@@ -186,7 +222,7 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
     with TestClient(app) as client:
         reponse = client.get("/adresse-qui-nexiste-pas")
         (sortie / "404.html").write_text(
-            reecrire(reponse.text, medias, atelier, prefixe), encoding="utf-8")
+            reecrire(reponse.text, adresses, atelier, prefixe), encoding="utf-8")
 
     ecrire_reglages_cloudflare(sortie, atelier)
 
