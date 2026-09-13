@@ -1,0 +1,222 @@
+#cloud-config
+# ---------------------------------------------------------------------------
+# Flambée — installation automatique sur un serveur Oracle Cloud « Always Free »
+#
+# Ce fichier se colle dans le formulaire de création du serveur, à la rubrique
+# « Show advanced options » → « Paste cloud-init script ». Il n'y a aucune
+# commande à taper ensuite : la machine installe Docker, construit l'image,
+# obtient un certificat HTTPS et démarre le site toute seule.
+#
+# Compter environ dix minutes avant que l'adresse réponde (la construction de
+# l'image est le poste le plus long).
+# ---------------------------------------------------------------------------
+
+write_files:
+  # Les réglages, au même endroit, pour être relus et modifiés facilement.
+  - path: /etc/flambee/parametres
+    permissions: "0600"
+    content: |
+      # ---- À REMPLIR AVANT DE COLLER CE FICHIER -----------------------------
+
+      # Ton dépôt. S'il est privé, insère un jeton GitHub :
+      #   https://<jeton>@github.com/bastienroels-ops/projet.git
+      # (le jeton est alors écrit sur le disque du serveur : donne-lui le seul
+      #  droit de lecture du contenu, et révoque-le après l'installation)
+      DEPOT="https://github.com/bastienroels-ops/projet.git"
+      BRANCHE="claude/fastapi-viral-video-montage-e9x7i8"
+
+      # Génération de script en un clic. Laisse vide si tu n'en veux pas.
+      ANTHROPIC_API_KEY=""
+
+      # Adresse du site. Deux façons de l'obtenir sans rien acheter.
+      #
+      # 1) DuckDNS — recommandé. Va sur https://www.duckdns.org depuis Safari,
+      #    connecte-toi (GitHub ou Google), choisis un nom, et recopie ici ce
+      #    nom puis le jeton affiché en haut de la page. Le serveur tiendra
+      #    l'adresse à jour tout seul, même si son IP change.
+      DUCKDNS_SOUS_DOMAINE=""
+      DUCKDNS_JETON=""
+      #
+      # 2) Ou bien ton propre nom de domaine, le jour où tu en achètes un.
+      #    Crée un enregistrement A vers l'IP du serveur, puis renseigne-le.
+      DOMAINE=""
+      #
+      # Si les trois champs restent vides, le script se rabat sur sslip.io, qui
+      # ne demande aucune inscription — mais dont le quota de certificats est
+      # partagé par tous ses utilisateurs : le HTTPS peut échouer certains
+      # jours. À réserver à un essai rapide.
+
+      # ---- Fin de la partie à remplir --------------------------------------
+
+  - path: /usr/local/bin/flambee-installer
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Installation de Flambée. Relançable sans dommage.
+      set -euo pipefail
+      exec > >(tee -a /var/log/flambee-installation.log) 2>&1
+      echo "=== Installation de Flambée : $(date -Is) ==="
+
+      source /etc/flambee/parametres
+
+      # --- 1. Docker ------------------------------------------------------
+      if ! command -v docker >/dev/null; then
+        echo "--- Installation de Docker"
+        curl -fsSL https://get.docker.com | sh
+      fi
+      systemctl enable --now docker
+
+      # --- 2. Ouverture des ports 80 et 443 -------------------------------
+      # Les images Oracle arrivent avec un pare-feu local qui rejette tout
+      # sauf SSH. C'est la cause n°1 d'un site « injoignable » alors que le
+      # conteneur tourne : la règle REJECT finale doit être contournée, donc
+      # on insère les autorisations avant elle.
+      ouvrir_port() {
+        local port="$1"
+        iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null && return 0
+        local rang
+        rang=$(iptables -L INPUT --line-numbers -n \
+               | awk '/REJECT/ {print $1; exit}')
+        if [ -n "$rang" ]; then
+          iptables -I INPUT "$rang" -p tcp --dport "$port" -j ACCEPT
+        else
+          iptables -A INPUT -p tcp --dport "$port" -j ACCEPT
+        fi
+      }
+      ouvrir_port 80
+      ouvrir_port 443
+      if command -v netfilter-persistent >/dev/null; then
+        netfilter-persistent save || true
+      else
+        mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4
+      fi
+
+      # --- 3. Le domaine --------------------------------------------------
+      adresse_publique() {
+        local ip
+        ip=$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || true)
+        if [ -z "$ip" ]; then
+          ip=$(curl -fsS --max-time 10 -H "Authorization: Bearer Oracle" \
+               http://169.254.169.254/opc/v2/vnics/ 2>/dev/null \
+               | grep -o '"publicIp"[^,]*' | head -1 | cut -d'"' -f4 || true)
+        fi
+        echo "$ip"
+      }
+
+      if [ -n "${DUCKDNS_SOUS_DOMAINE}" ] && [ -n "${DUCKDNS_JETON}" ]; then
+        # DuckDNS figure sur la Public Suffix List : chaque sous-domaine a son
+        # propre quota de certificats Let's Encrypt. C'est ce qui le rend
+        # fiable, là où sslip.io partage un quota unique entre tous.
+        DOMAINE="${DUCKDNS_SOUS_DOMAINE}.duckdns.org"
+        cat > /usr/local/bin/flambee-duckdns <<DUCK
+      #!/usr/bin/env bash
+      curl -fsS "https://www.duckdns.org/update?domains=${DUCKDNS_SOUS_DOMAINE}&token=${DUCKDNS_JETON}&ip="
+      DUCK
+        chmod 700 /usr/local/bin/flambee-duckdns
+        reponse=$(/usr/local/bin/flambee-duckdns || true)
+        if [ "$reponse" != "OK" ]; then
+          echo "!!! DuckDNS a répondu « ${reponse:-rien} » au lieu de « OK »."
+          echo "!!! Vérifie le nom et le jeton dans /etc/flambee/parametres,"
+          echo "!!! puis relance : systemctl restart flambee-installation"
+          exit 1
+        fi
+        # L'adresse est retenue toutes les cinq minutes : une IP qui change
+        # ne coupe pas le site.
+        # Sur une machine neuve, « crontab -l » ne renvoie rien et « grep -v »
+        # sort alors en erreur : sans le repli, set -e couperait l'installation
+        # ici même, sans un mot.
+        (crontab -l 2>/dev/null | grep -v flambee-duckdns || true; \
+         echo "*/5 * * * * /usr/local/bin/flambee-duckdns >/dev/null 2>&1") \
+         | crontab -
+        echo "--- DuckDNS à jour"
+      elif [ -z "${DOMAINE}" ]; then
+        IP=$(adresse_publique)
+        if [ -z "$IP" ]; then
+          echo "!!! Adresse IP publique introuvable. Renseigne DOMAINE à la main."
+          exit 1
+        fi
+        DOMAINE="${IP//./-}.sslip.io"
+        echo "--- Repli sur sslip.io : quota de certificats partagé, le HTTPS"
+        echo "--- peut échouer. Passe à DuckDNS si c'est le cas."
+      fi
+      echo "--- Domaine retenu : ${DOMAINE}"
+
+      # --- 4. Le code -----------------------------------------------------
+      if [ ! -d /opt/flambee/.git ]; then
+        echo "--- Récupération du dépôt"
+        git clone --branch "${BRANCHE}" --depth 1 "${DEPOT}" /opt/flambee
+      else
+        git -C /opt/flambee fetch origin "${BRANCHE}" --depth 1
+        git -C /opt/flambee reset --hard FETCH_HEAD
+      fi
+      cd /opt/flambee
+
+      # --- 5. Les réglages ------------------------------------------------
+      # La clé de signature est engendrée ici, une fois : elle ne transite
+      # jamais par un formulaire, et elle survit aux redémarrages.
+      if [ ! -f /opt/flambee/.env ]; then
+        CLE=$(head -c 48 /dev/urandom | base64 | tr -d '=+/' | cut -c1-64)
+        cat > /opt/flambee/.env <<ENV
+      DOMAINE=${DOMAINE}
+      FLAMBEE_SECRET_KEY=${CLE}
+      ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      FLAMBEE_SIGNUP=ouvert
+      FLAMBEE_NICE=5
+      FLAMBEE_WHISPER_MODEL=base
+      FLAMBEE_MAX_UPLOAD_MB=600
+      ENV
+        chmod 600 /opt/flambee/.env
+      else
+        # Au redémarrage, l'adresse publique peut avoir changé.
+        sed -i "s|^DOMAINE=.*|DOMAINE=${DOMAINE}|" /opt/flambee/.env
+      fi
+
+      # --- 6. Démarrage ---------------------------------------------------
+      echo "--- Construction de l'image (plusieurs minutes)"
+      docker compose up -d --build
+
+      echo "=== Flambée écoute sur https://${DOMAINE} ==="
+      echo "${DOMAINE}" > /etc/flambee/adresse
+
+  # Sauvegarde : les comptes et les rendus vivent dans un volume Docker.
+  # Sans copie, une fausse manœuvre les emporte définitivement.
+  - path: /usr/local/bin/flambee-sauvegarde
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      DEST=/var/backups/flambee
+      mkdir -p "$DEST"
+      docker run --rm -v flambee_donnees:/d -v "$DEST":/sortie alpine \
+        tar czf "/sortie/flambee-$(date +%F).tar.gz" -C /d .
+      # On garde une semaine de copies : au-delà, le disque se remplit.
+      ls -1t "$DEST"/flambee-*.tar.gz | tail -n +8 | xargs -r rm --
+
+  - path: /etc/systemd/system/flambee-installation.service
+    content: |
+      [Unit]
+      Description=Installation de Flambee
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/flambee-installer
+      RemainAfterExit=yes
+      TimeoutStartSec=3600
+
+      [Install]
+      WantedBy=multi-user.target
+
+packages:
+  - git
+  - curl
+  - iptables-persistent
+
+runcmd:
+  - systemctl daemon-reload
+  # L'installation tourne comme un service : elle reprend d'elle-même si le
+  # serveur redémarre au milieu, et son journal reste consultable.
+  - systemctl enable --now flambee-installation.service
+  # Une sauvegarde chaque nuit à 3 h 20.
+  - (crontab -l 2>/dev/null; echo "20 3 * * * /usr/local/bin/flambee-sauvegarde") | crontab -

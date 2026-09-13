@@ -3,6 +3,71 @@
 Tout est prêt pour un déploiement en conteneur : `Dockerfile`, `docker-compose.yml`
 et un `Caddyfile` qui obtient le certificat HTTPS tout seul.
 
+## Gratuit, depuis un iPhone : Oracle Cloud
+
+Oracle offre, sans limite de durée, un serveur ARM de 4 cœurs et 24 Go de
+mémoire — plus puissant que la plupart des offres payantes d'entrée de gamme.
+Toute la chaîne de Flambée existe en ARM64, transcription comprise : les roues
+`ctranslate2`, `onnxruntime`, `av` et `tokenizers` ont toutes une version
+`aarch64`, ce qui a été vérifié avant d'écrire ce chapitre.
+
+L'installation ne demande aucun terminal : le fichier
+[`deploiement/oracle-cloud-init.yaml`](../deploiement/oracle-cloud-init.yaml)
+se colle dans le formulaire de création du serveur, et la machine fait le reste
+— Docker, construction de l'image, pare-feu, certificat HTTPS, sauvegarde
+nocturne.
+
+### La marche à suivre
+
+1. **Une adresse gratuite.** Sur [duckdns.org](https://www.duckdns.org),
+   connecte-toi (GitHub ou Google), choisis un nom — `flambee-bastien` par
+   exemple — et note le jeton affiché en haut de la page.
+2. **Le serveur.** Crée une instance *Ampere A1* (ARM) sous Ubuntu 22.04 ou
+   24.04, avec 2 à 4 cœurs et 6 à 24 Go.
+3. **Le fichier.** Ouvre `deploiement/oracle-cloud-init.yaml`, renseigne les
+   deux champs DuckDNS en haut, puis colle tout le contenu dans
+   *Show advanced options* → *Paste cloud-init script*.
+4. **Attendre.** Compter une dizaine de minutes : la construction de l'image
+   est le poste le plus long. Le site répond ensuite sur
+   `https://<ton-nom>.duckdns.org`.
+
+Le premier compte créé est le tien : ferme les inscriptions juste après
+(`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env`).
+
+### Pourquoi DuckDNS et pas sslip.io
+
+`sslip.io` ne demande aucune inscription et transforme une IP en nom de
+domaine, ce qui est séduisant. Mais il ne figure pas sur la *Public Suffix
+List* : tous ses sous-domaines partagent donc le même quota de certificats
+Let's Encrypt, et l'obtention du HTTPS échoue de façon imprévisible.
+`duckdns.org` y figure, et chaque sous-domaine dispose de son propre quota.
+Le fichier accepte les deux, mais se rabat sur `sslip.io` uniquement si rien
+n'est renseigné, en le signalant dans le journal.
+
+### Ce que le fichier fait, et ses limites
+
+Il ouvre les ports 80 et 443 dans le pare-feu local — c'est la cause numéro un
+d'un site injoignable alors que le conteneur tourne, les images Oracle rejetant
+tout sauf SSH. Il engendre la clé de signature des sessions sur la machine,
+pour qu'elle ne transite par aucun formulaire. Il installe une sauvegarde
+quotidienne du volume dans `/var/backups/flambee`, et garde une semaine.
+
+Reste à faire de ton côté : ouvrir aussi les ports 80 et 443 dans la *Security
+List* du réseau virtuel, côté console Oracle — le pare-feu de la machine ne
+suffit pas, celui du réseau compte aussi.
+
+Ce fichier a été relu et ses chemins testés un par un (adresse DuckDNS valide,
+jeton refusé, domaine propre, repli), mais **il n'a pas été exécuté sur une
+vraie instance Oracle** : je n'y ai pas accès. En cas d'échec, le journal se
+lit dans `/var/log/flambee-installation.log`.
+
+### Si le serveur gratuit n'est pas disponible
+
+Les instances ARM gratuites sont souvent en rupture dans les régions
+populaires. Deux replis : essayer une autre région, ou rester sur Google Colab
+(voir le README) — gratuit aussi, mais l'adresse change à chaque lancement et
+la machine est reprise au bout de quelques heures.
+
 ## Ce qui a été vérifié
 
 L'image a été construite et exécutée, et le parcours complet a tourné dedans :
