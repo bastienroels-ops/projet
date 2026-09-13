@@ -1,0 +1,22 @@
+# Vercel ne doit voir que le site déjà construit.
+#
+# Sans cela, il repère `flambee/app.py` et `requirements.txt`, en déduit une
+# application FastAPI, et tente de la construire comme un service Python —
+# c'est l'erreur « No FastAPI entrypoint found ». Il n'y a rien à construire
+# ici : le site est dans `export/`, prêt à être servi.
+
+flambee/
+outils/
+tests/
+colab/
+deploiement/
+docs/
+assets/
+flambee-data/
+requirements.txt
+requirements-optional.txt
+Dockerfile
+docker-compose.yml
+Caddyfile
+.dockerignore
+.env.exemple
