@@ -300,3 +300,41 @@ def test_la_voix_en_cache_conserve_le_recalage(tmp_path, monkeypatch):
 
     piste = pipeline._voice_track(projet)
     assert piste.lead_in == 0.21
+
+
+def test_deux_lignes_ne_se_superposent_jamais():
+    """Sans pause entre les mots, la ligne précédente débordait sur la suivante :
+    les deux textes s'affichaient l'un sur l'autre."""
+    import re as _re
+
+    mots = [Word(text=m, start=i * 0.34, end=(i + 1) * 0.34) for i, m in
+            enumerate("Voici l'astuce que personne ne connaît et qui change tout".split())]
+    contenu = subtitles.build_ass(mots)
+
+    def secondes(horodatage: str) -> float:
+        h, m, s = horodatage.split(":")
+        return int(h) * 3600 + int(m) * 60 + float(s)
+
+    intervalles: dict[str, list[tuple[float, float]]] = {}
+    for ligne in contenu.splitlines():
+        if not ligne.startswith("Dialogue"):
+            continue
+        champs = ligne.split(",", 9)
+        texte = _re.sub(r"\{[^}]*\}", "", champs[9]).strip()
+        intervalles.setdefault(texte, []).append((secondes(champs[1]), secondes(champs[2])))
+
+    bornes = sorted((min(d for d, _ in v), max(f for _, f in v))
+                    for v in intervalles.values())
+    assert len(bornes) >= 3, "l'exemple doit produire plusieurs lignes"
+    for (debut, _), (_, fin_precedente) in zip(bornes[1:], bornes[:-1]):
+        assert debut >= fin_precedente, "deux lignes affichées en même temps"
+
+
+def test_la_ligne_reste_lisible_quand_une_pause_suit():
+    """Quand rien ne suit tout de suite, la ligne garde son temps de lecture."""
+    mots = [Word(text="bonjour", start=0.0, end=0.5),
+            Word(text="ensuite", start=3.0, end=3.5)]
+    contenu = subtitles.build_ass(mots)
+    fins = [ligne.split(",")[2] for ligne in contenu.splitlines()
+            if ligne.startswith("Dialogue")]
+    assert fins[0] == "0:00:00.68"          # 0,50 s + les 0,18 s de lecture

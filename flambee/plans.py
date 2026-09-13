@@ -1,0 +1,162 @@
+"""Formules d'abonnement et contenu du site public.
+
+Tout est défini ici plutôt que dans les gabarits : changer un prix, une limite
+ou un argument se fait à un seul endroit, sans toucher au HTML.
+
+⚠️ Les tarifs ci-dessous sont une proposition de départ, à ajuster. Aucun
+paiement n'est encore branché : voir `docs/COMMERCIALISATION.md`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class Plan:
+    id: str
+    name: str
+    tagline: str
+    price_monthly: int          # en euros, 0 = gratuit
+    price_yearly: int           # par mois, facturé à l'année
+    videos: str
+    features: list[str]
+    cta: str = "Commencer"
+    highlight: bool = False     # la formule mise en avant
+    note: str = ""
+
+
+PLANS: list[Plan] = [
+    Plan(
+        id="essai",
+        name="Essai",
+        tagline="Pour voir ce que ça donne sur tes propres vidéos.",
+        price_monthly=0,
+        price_yearly=0,
+        videos="3 vidéos par mois",
+        features=[
+            "Montage automatique en 1080 × 1920",
+            "Voix de synthèse française",
+            "2 styles de sous-titres",
+            "Aperçu rapide illimité",
+        ],
+        cta="Créer ma première vidéo",
+    ),
+    Plan(
+        id="createur",
+        name="Créateur",
+        tagline="Le rythme de publication quotidien, sans y passer les soirées.",
+        price_monthly=19,
+        price_yearly=15,
+        videos="30 vidéos par mois",
+        features=[
+            "Tout l'Essai, sans filigrane",
+            "Les 6 styles de sous-titres",
+            "Toutes les voix françaises et leurs débits",
+            "Bibliothèque musicale et mixage automatique",
+            "Coupes calées sur les changements de plan",
+            "Conservation des projets pendant 90 jours",
+        ],
+        cta="Passer au rythme quotidien",
+        highlight=True,
+        note="Le choix de la plupart des créateurs réguliers.",
+    ),
+    Plan(
+        id="studio",
+        name="Studio",
+        tagline="Pour ceux qui produisent pour plusieurs comptes ou clients.",
+        price_monthly=49,
+        price_yearly=39,
+        videos="Vidéos illimitées",
+        features=[
+            "Tout le Créateur",
+            "Plusieurs marques, chacune avec son style",
+            "Styles de sous-titres sur mesure",
+            "Rendu prioritaire",
+            "Export en lot",
+            "Accès à l'API",
+        ],
+        cta="Parler à quelqu'un",
+    ),
+]
+
+
+@dataclass(frozen=True)
+class Feature:
+    title: str
+    body: str
+    icon: str
+
+
+FEATURES: list[Feature] = [
+    Feature("Les coupes tombent juste", "Les changements de plan de chaque source "
+            "sont détectés, et le montage y cale ses coupes. Rien n'est tranché au "
+            "milieu d'un geste.", "✂️"),
+    Feature("L'accroche est notée", "Les trois premières secondes de chaque source "
+            "sont mesurées — mouvement, énergie sonore, popularité — et la plus "
+            "percutante t'est proposée en tête.", "⚡"),
+    Feature("Des sous-titres au mot près", "Le minutage vient de la synthèse vocale "
+            "elle-même : chaque mot s'allume quand il est prononcé. Six styles, du "
+            "plus viral au plus sobre.", "✍️"),
+    Feature("Un son de vraie production", "Voix normalisée aux standards de "
+            "diffusion, musique qui s'efface d'elle-même sous la parole, limiteur "
+            "en sortie.", "🎚️"),
+    Feature("Un seul encodage", "Découpe, recadrage, montage, sous-titres et mixage "
+            "tiennent dans une seule passe : c'est plus rapide, et l'image ne "
+            "subit aucune perte de génération.", "⚙️"),
+    Feature("Vertical par construction", "Tout est pensé pour le 9:16 : recadrage "
+            "centré, masquage des sous-titres d'origine, léger travelling sur les "
+            "plans fixes.", "📱"),
+]
+
+
+@dataclass(frozen=True)
+class Step:
+    number: str
+    title: str
+    body: str
+
+
+STEPS: list[Step] = [
+    Step("01", "Tu donnes la matière", "Deux à cinq liens sur une même thématique, "
+         "ou des vidéos déjà sur ton téléphone."),
+    Step("02", "Tu choisis l'accroche", "Les premières secondes de chaque source, "
+         "côte à côte, classées par impact."),
+    Step("03", "Tu poses le style", "Voix, sous-titres, musique, travelling. "
+         "Un aperçu montre le rendu exact."),
+    Step("04", "Tu valides le script", "Sujet et consignes suffisent. Le texte "
+         "reste éditable jusqu'au bout."),
+    Step("05", "Tu récupères le fichier", "Un .mp4 vertical, sous-titré, mixé, "
+         "prêt à publier."),
+]
+
+
+@dataclass(frozen=True)
+class Question:
+    q: str
+    a: str
+
+
+FAQ: list[Question] = [
+    Question("Faut-il installer quelque chose ?",
+             "Non. Flambée tourne dans le navigateur, y compris sur téléphone. "
+             "Le montage s'effectue côté serveur."),
+    Question("D'où viennent les vidéos sources ?",
+             "De liens que tu colles, ou de fichiers déjà enregistrés sur ton "
+             "appareil. Tu restes responsable des droits sur ce que tu importes : "
+             "réutiliser la vidéo d'un tiers sans son accord n'est pas permis, et "
+             "Flambée ne te couvre pas là-dessus."),
+    Question("La voix est-elle vraiment naturelle ?",
+             "Ce sont des voix de synthèse neuronales françaises, avec plusieurs "
+             "timbres et débits. Elles conviennent au format court ; elles ne "
+             "remplacent pas un comédien."),
+    Question("Puis-je modifier le script avant le rendu ?",
+             "Oui, à tout moment. Le texte est éditable, et le compteur t'indique "
+             "la durée de voix off correspondante."),
+    Question("Combien de temps prend un rendu ?",
+             "Quelques dizaines de secondes pour une vidéo d'une minute. L'aperçu "
+             "en 540p, lui, arrive en quelques secondes."),
+    Question("Puis-je annuler mon abonnement ?",
+             "Oui, à tout moment et sans justification. L'accès reste ouvert "
+             "jusqu'à la fin de la période déjà réglée."),
+]

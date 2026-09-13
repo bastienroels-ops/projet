@@ -121,3 +121,103 @@ def clear_cache() -> int:
     for fichier in fichiers:
         fichier.unlink(missing_ok=True)
     return len(fichiers)
+
+
+# --- Copie de visionnage ---------------------------------------------------
+VIEWING_WIDTH = 540
+
+
+def viewing_copy(source: Path, cache_dir: Path) -> Path:
+    """Version allégée d'un rendu, destinée à la lecture dans la page.
+
+    Lire un fichier 1080p à travers un tunnel saturé, sur une machine distante
+    déjà occupée à encoder, met le lecteur du navigateur en difficulté et peut
+    désynchroniser l'image et le son. La copie de visionnage supprime ce
+    goulot ; le téléchargement, lui, sert toujours le fichier pleine qualité.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    empreinte = hashlib.sha256(
+        f"{source.name}:{source.stat().st_mtime_ns}:{source.stat().st_size}"
+        .encode("utf-8")
+    ).hexdigest()[:12]
+    out_path = cache_dir / f"visionnage-{empreinte}.mp4"
+    if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+        return out_path
+
+    with _lock_for(f"viewing:{empreinte}"):
+        if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+            return out_path
+        for ancien in cache_dir.glob("visionnage-*.mp4"):
+            ancien.unlink(missing_ok=True)      # une seule copie à la fois
+        ffmpeg([
+            "-i", str(source),
+            "-vf", f"scale={VIEWING_WIDTH}:-2",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
+            "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart",
+            str(out_path),
+        ], timeout=900)
+        if not has_media_duration(out_path, minimum=0.5):
+            raise MediaError("Copie de visionnage vide.")
+        return out_path
+
+
+# --- Démonstration de la page d'accueil ------------------------------------
+HERO_WIDTH = 404
+HERO_TEXT = "Voici l'astuce que personne ne connaît et qui change tout"
+
+
+def build_hero() -> Path:
+    """Clip vertical de démonstration : le vrai moteur de sous-titres à l'œuvre.
+
+    Rendu une fois puis mis en cache. Volontairement léger : c'est la première
+    chose que charge la page d'accueil.
+    """
+    style = config.subtitle_style("punch")
+    empreinte = hashlib.sha256(
+        (repr(sorted(asdict(style).items())) + HERO_TEXT).encode("utf-8")
+    ).hexdigest()[:12]
+    out_path = config.WORK_DIR / ".samples" / f"hero-{empreinte}.mp4"
+    if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+        return out_path
+
+    with _lock_for("hero"):
+        if out_path.exists() and has_media_duration(out_path, minimum=0.5):
+            return out_path
+
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        mots = [
+            Word(text=mot, start=i * WORD_DURATION, end=(i + 1) * WORD_DURATION)
+            for i, mot in enumerate(HERO_TEXT.split())
+        ]
+        duree = mots[-1].end + 0.8
+        ass_path = out_path.with_suffix(".ass")
+        subtitles.write_ass(mots, ass_path, style=style, max_duration=duree)
+
+        fmt = config.FORMAT
+        hauteur = round(HERO_WIDTH * fmt.height / fmt.width / 2) * 2
+
+        from .assembler import _escape_filter_path
+
+        chaine = (
+            f"subtitles=filename='{_escape_filter_path(ass_path)}'"
+            f":fontsdir='{_escape_filter_path(config.FONTS_DIR)}':alpha=1,"
+            f"scale={HERO_WIDTH}:{hauteur},format=yuv420p"
+        )
+        try:
+            ffmpeg([
+                # Un fond qui bouge lentement : le cadre ne paraît pas figé.
+                "-f", "lavfi", "-i",
+                f"gradients=s={fmt.width}x{fmt.height}:c0=0x241a12:c1=0x0d1119"
+                f":c2=0x3a1f0e:n=3:d={duree:.2f}:r=25:speed=0.05",
+                "-t", f"{duree:.2f}",
+                "-vf", chaine,
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+                "-movflags", "+faststart", "-an",
+                str(out_path),
+            ], timeout=240)
+        finally:
+            ass_path.unlink(missing_ok=True)
+
+        if not has_media_duration(out_path, minimum=0.5):
+            raise MediaError("Démonstration d'accueil vide.")
+        return out_path

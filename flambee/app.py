@@ -6,17 +6,19 @@ import asyncio
 import logging
 import os
 import shutil
+import time
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import RedirectResponse
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import (__version__, config, downloader, media, pipeline, samples,
-               scriptgen, voice)
+from . import (__version__, config, downloader, media, pipeline, plans,
+               samples, scriptgen, site, voice)
 from .auth import install_auth
 from .project import Project, store
 
@@ -115,6 +117,7 @@ def _project_payload(project: Project) -> dict:
         source.pop("path", None)          # chemin disque : inutile côté client
     if project.output_path:
         data["output_url"] = f"/api/projects/{project.id}/output"
+        data["viewing_url"] = f"/api/projects/{project.id}/viewing"
         data["output_name"] = Path(project.output_path).name
     if project.preview_path and Path(project.preview_path).exists():
         data["preview_url"] = f"/api/projects/{project.id}/preview"
@@ -126,9 +129,112 @@ def _project_payload(project: Project) -> dict:
     return data
 
 
-# --- Pages ----------------------------------------------------------------
+# --- Site public ----------------------------------------------------------
+def _contexte_site(page: str, **extra) -> dict:
+    """Contexte commun à toutes les pages publiques."""
+    return {
+        "page": page,
+        "annee": time.strftime("%Y"),
+        "plans": plans.PLANS,
+        "features": plans.FEATURES,
+        "steps": plans.STEPS,
+        "faq": plans.FAQ,
+        "presets": [
+            {"id": nom, "label": style.label, "description": style.description}
+            for nom, style in config.SUBTITLE_PRESETS.items()
+        ],
+        **extra,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def accueil(request: Request):
+    return templates.TemplateResponse(request, "site/index.html",
+                                      _contexte_site("accueil"))
+
+
+@app.get("/fonctionnalites", response_class=HTMLResponse)
+async def fonctionnalites(request: Request):
+    return templates.TemplateResponse(request, "site/fonctionnalites.html",
+                                      _contexte_site("fonctionnalites"))
+
+
+@app.get("/tarifs", response_class=HTMLResponse)
+async def tarifs(request: Request):
+    return templates.TemplateResponse(request, "site/tarifs.html",
+                                      _contexte_site("tarifs"))
+
+
+@app.get("/faq", response_class=HTMLResponse)
+async def faq(request: Request):
+    return templates.TemplateResponse(request, "site/faq.html",
+                                      _contexte_site("faq"))
+
+
+@app.get("/connexion", response_class=HTMLResponse)
+async def connexion(request: Request):
+    return templates.TemplateResponse(request, "site/connexion.html",
+                                      _contexte_site("connexion"))
+
+
+@app.get("/inscription", response_class=HTMLResponse)
+async def inscription(request: Request, formule: str = ""):
+    return templates.TemplateResponse(
+        request, "site/inscription.html",
+        _contexte_site("inscription", formule=formule),
+    )
+
+
+@app.post("/inscription", response_class=HTMLResponse)
+async def inscription_envoi(
+    request: Request,
+    email: str = Form(""),
+    formule: str = Form(""),
+    usage: str = Form(""),
+):
+    """Enregistre une inscription à la liste d'attente."""
+    if not site.register(email, formule, usage):
+        return templates.TemplateResponse(
+            request, "site/inscription.html",
+            _contexte_site("inscription", formule=formule,
+                           erreur="Cette adresse e-mail ne semble pas valide."),
+            status_code=400,
+        )
+    return templates.TemplateResponse(request, "site/merci.html",
+                                      _contexte_site("merci"))
+
+
+def _page_legale(request: Request, page: str) -> HTMLResponse:
+    """Rend l'une des pages légales. Routes explicites : une route attrape-tout
+    masquerait /studio et toute page ajoutée ensuite."""
+    surtitre, titre, sections = site.PAGES_LEGALES[page]
+    return templates.TemplateResponse(
+        request, "site/legal.html",
+        _contexte_site(page, surtitre=surtitre, titre=titre, sections=sections,
+                       a_completer=any(site.A_COMPLETER in paragraphe
+                                       for bloc in sections
+                                       for paragraphe in bloc.paragraphes)),
+    )
+
+
+@app.get("/mentions-legales", response_class=HTMLResponse)
+async def mentions_legales(request: Request):
+    return _page_legale(request, "mentions-legales")
+
+
+@app.get("/conditions", response_class=HTMLResponse)
+async def conditions(request: Request):
+    return _page_legale(request, "conditions")
+
+
+@app.get("/confidentialite", response_class=HTMLResponse)
+async def confidentialite(request: Request):
+    return _page_legale(request, "confidentialite")
+
+
+# --- L'atelier ------------------------------------------------------------
+@app.get("/studio", response_class=HTMLResponse)
+async def studio(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -184,6 +290,19 @@ async def music():
 
 
 # --- Projets --------------------------------------------------------------
+@app.get("/api/demo")
+async def demo_accueil():
+    """Clip de démonstration de la page d'accueil (rendu réel, mis en cache)."""
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.build_hero)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="video/mp4",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/presets/{preset}/sample")
 async def preset_sample(preset: str):
     """Échantillon vidéo du style de sous-titres, rendu par ffmpeg et mis en cache.
@@ -468,6 +587,21 @@ async def download_output(project_id: str, download: bool = False):
         media_type="video/mp4",
         filename=Path(project.output_path).name if download else None,
     )
+
+
+@app.get("/api/projects/{project_id}/viewing")
+async def viewing_copy(project_id: str):
+    """Copie allégée du rendu final, pour la lecture dans la page."""
+    project = _get(project_id)
+    if not project.output_path or not Path(project.output_path).exists():
+        raise HTTPException(status_code=404, detail="Aucun rendu disponible.")
+    try:
+        chemin = await asyncio.to_thread(
+            samples.viewing_copy, Path(project.output_path), project.dir / ".viewing"
+        )
+    except media.MediaError:
+        chemin = Path(project.output_path)      # à défaut, le fichier d'origine
+    return FileResponse(chemin, media_type="video/mp4")
 
 
 @app.get("/api/projects/{project_id}/preview")

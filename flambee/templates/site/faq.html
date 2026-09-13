@@ -1,0 +1,16 @@
+{% extends "site/base.html" %}
+{% block title %}Questions fréquentes — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere">
+  <p class="eyebrow">Questions</p>
+  <h1>Ce qu'on nous demande <em>le plus souvent</em>.</h1>
+  {% include "site/_faq.html" %}
+</section>
+
+<section class="appel">
+  <h2>Une question qui n'est pas là ?</h2>
+  <p>Écris-nous, on répond.</p>
+  <a href="/studio" class="button primary grand">Ouvrir l'atelier</a>
+</section>
+{% endblock %}

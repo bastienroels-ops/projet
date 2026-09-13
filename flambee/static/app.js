@@ -171,7 +171,10 @@ function renderResult(project) {
   // L'aperçu ne s'affiche que tant qu'aucun rendu définitif n'existe.
   const isPreview = !project.output_url;
   const video = $("#result-video");
-  const src = `${url}?t=${Math.round(project.job.updated_at || 0)}`;
+  // Lecture sur une copie allégée : le 1080p reste réservé au téléchargement,
+  // qu'aucune connexion lente ne vient perturber.
+  const lecture = project.viewing_url || url;
+  const src = `${lecture}?t=${Math.round(project.job.updated_at || 0)}`;
   if (video.getAttribute("src") !== src) video.setAttribute("src", src);
   video.classList.toggle("preview", isPreview);
 
@@ -180,7 +183,7 @@ function renderResult(project) {
     : project.output_name || "";
   $("#result-badge").textContent = isPreview
     ? "Lance le rendu pour obtenir le .mp4 en 1080×1920 dans /output."
-    : "";
+    : "Lecture en version allégée. Le téléchargement livre le 1080×1920.";
   $("#result-download").classList.toggle("hidden", isPreview);
   if (!isPreview) $("#result-download").href = `${project.output_url}?download=true`;
 }

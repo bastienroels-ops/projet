@@ -1,0 +1,363 @@
+/* ==========================================================================
+   Flambée — le site public
+   Prolonge les tokens de style.css : même identité, échelle plus ample.
+   ========================================================================== */
+
+body.site { padding: 0; }
+
+/* --------------------------------------------------------------- En-tête --- */
+.site-header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; padding: 18px 36px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(8, 9, 12, .72);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+.site-header .brand {
+  font-family: var(--serif); font-size: 26px; color: var(--text);
+  text-decoration: none; display: flex; align-items: center; gap: 9px;
+}
+.site-nav { display: flex; align-items: center; gap: 30px; }
+.site-nav a {
+  color: var(--text-soft); text-decoration: none;
+  font-size: 14.5px; font-weight: 500;
+  transition: color .2s;
+}
+.site-nav a:hover { color: var(--text); }
+.site-nav a.courant { color: var(--ember-2); }
+/* `.site-nav a` est plus spécifique que `.primary` : sans cette règle, le
+   bouton hérite du gris de la navigation et devient illisible sur l'orange. */
+.site-nav a.button.primary { color: #180d05; }
+.site-nav a.button.ghost { color: var(--text); }
+.button.petit { padding: 10px 20px; font-size: 13.5px; }
+.button.grand { padding: 16px 32px; font-size: 15.5px; }
+
+.menu-bouton {
+  display: none; background: none; border: none; padding: 10px;
+  flex-direction: column; gap: 5px; cursor: pointer;
+}
+.menu-bouton span {
+  display: block; width: 22px; height: 2px; border-radius: 2px;
+  background: var(--text); transition: transform .3s, opacity .2s;
+}
+.menu-bouton[aria-expanded="true"] span:first-child { transform: translateY(3.5px) rotate(45deg); }
+.menu-bouton[aria-expanded="true"] span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+
+/* ------------------------------------------------------------------ Hero --- */
+.hero {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 1.05fr .95fr;
+  align-items: center; gap: 60px;
+  max-width: 1180px; margin: 0 auto; padding: 90px 36px 70px;
+}
+.hero h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(46px, 6.4vw, 82px); line-height: 1.02;
+  letter-spacing: -.025em; margin: 0 0 24px;
+}
+.hero h1 em { font-style: italic; color: var(--gold); }
+.hero-accroche {
+  font-size: 18px; line-height: 1.65; color: var(--text-soft);
+  max-width: 46ch; margin: 0 0 34px;
+}
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.hero-note { margin: 20px 0 0; font-size: 13px; color: var(--text-faint); }
+
+/* Le téléphone : un cadre sobre, la vidéo respire dedans. */
+.hero-visuel { display: flex; justify-content: center; }
+.telephone {
+  position: relative; width: 272px; padding: 11px;
+  border-radius: 40px;
+  background: linear-gradient(160deg, #2a2d36, #101116 55%, #24262e);
+  box-shadow: 0 44px 90px -34px rgba(0, 0, 0, .95),
+              0 0 0 1px rgba(255, 255, 255, .07),
+              0 0 90px -30px rgba(255, 122, 47, .45);
+  animation: flotte 7s ease-in-out infinite;
+}
+@keyframes flotte {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-11px); }
+}
+.telephone video {
+  display: block; width: 100%; aspect-ratio: 9 / 16;
+  border-radius: 30px; background: #0b0c10; object-fit: cover;
+}
+.telephone-reflet {
+  position: absolute; inset: 11px; border-radius: 30px; pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .12), transparent 42%);
+}
+
+/* ------------------------------------------------------------- Sections --- */
+.bande {
+  border-block: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, .015);
+  padding: 40px 36px; text-align: center;
+}
+.bande p {
+  font-family: var(--serif); font-size: clamp(21px, 3vw, 30px);
+  font-style: italic; color: var(--text-soft); margin: 0;
+}
+
+.section {
+  position: relative; z-index: 1;
+  max-width: 1120px; margin: 0 auto; padding: 92px 36px;
+}
+.section-premiere { padding-top: 72px; }
+.section.etroit { max-width: 700px; }
+.section h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(38px, 5.4vw, 62px); line-height: 1.06;
+  letter-spacing: -.02em; margin: 0 0 20px;
+}
+.section h1 em, .section h2 em, .appel h2 em { font-style: italic; color: var(--gold); }
+.section h2 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(31px, 4.2vw, 46px); line-height: 1.1;
+  letter-spacing: -.02em; margin: 0 0 18px;
+}
+.section-accroche {
+  font-size: 17px; color: var(--text-soft); max-width: 62ch;
+  margin: 0 0 44px; line-height: 1.65;
+}
+
+/* --------------------------------------------------------------- Étapes --- */
+.etapes {
+  list-style: none; padding: 0; margin: 46px 0 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 30px;
+}
+.etapes li { position: relative; padding-top: 26px; border-top: 1px solid var(--hairline); }
+.etape-numero {
+  font-family: var(--serif); font-size: 15px; color: var(--ember);
+  letter-spacing: .1em;
+}
+.etapes h3 { font-size: 17px; font-weight: 600; margin: 12px 0 8px; }
+.etapes p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.6; }
+
+/* --------------------------------------------------------------- Atouts --- */
+.atouts-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
+  gap: 22px; margin-top: 46px;
+}
+.atout {
+  padding: 30px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+  transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s;
+}
+.atout:hover { transform: translateY(-4px); border-color: var(--hairline-2); }
+.atout-icone { font-size: 26px; display: block; margin-bottom: 16px; }
+.atout h3 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+.atout p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
+
+/* ------------------------------------------------------- Styles vidéo ----- */
+.styles-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
+  gap: 22px; margin-top: 40px;
+}
+.style-carte {
+  margin: 0; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: rgba(0, 0, 0, .3);
+}
+.style-carte video {
+  width: 100%; aspect-ratio: 54 / 35; display: block;
+  border-radius: 11px; background: #12131a;
+}
+.style-carte figcaption {
+  padding: 14px 4px 2px; font-size: 13.5px; color: var(--text-soft);
+  line-height: 1.55;
+}
+.style-carte figcaption b {
+  display: block; font-family: var(--serif); font-weight: 400;
+  font-size: 21px; color: var(--text); margin-bottom: 5px;
+}
+
+/* --------------------------------------------------------------- Tarifs --- */
+.bascule-facturation {
+  display: inline-flex; gap: 4px; padding: 5px; margin-bottom: 38px;
+  border: 1px solid var(--hairline); border-radius: 999px;
+  background: var(--surface);
+}
+.bascule-facturation button {
+  padding: 9px 20px; border: none; border-radius: 999px;
+  background: transparent; color: var(--text-soft);
+  font: 500 13.5px var(--sans); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.bascule-facturation button.actif {
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  color: #150d05; font-weight: 600;
+}
+.remise {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(95, 214, 164, .16); color: var(--ok);
+}
+.bascule-facturation button.actif .remise { background: rgba(0,0,0,.2); color: #150d05; }
+
+.tarifs-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
+  gap: 22px; align-items: start;
+}
+.tarif {
+  position: relative; padding: 34px 30px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+}
+.tarif.vedette {
+  border-color: rgba(255, 122, 47, .45);
+  box-shadow: 0 26px 70px -34px rgba(255, 122, 47, .7);
+}
+.ruban {
+  position: absolute; top: -11px; left: 30px;
+  padding: 5px 13px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--ember-2), var(--ember));
+  color: #150d05; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.tarif h3 {
+  font-family: var(--serif); font-weight: 400; font-size: 28px;
+  margin: 0 0 8px;
+}
+.tarif-accroche { font-size: 14px; color: var(--text-soft); margin: 0 0 24px; min-height: 42px; line-height: 1.55; }
+.tarif-prix { display: flex; align-items: baseline; gap: 9px; margin: 0 0 6px; }
+.tarif-prix b { font-size: 44px; font-weight: 600; letter-spacing: -.03em; }
+.tarif-prix span { font-size: 13.5px; color: var(--text-faint); }
+.tarif-volume {
+  font-size: 12px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ember-2); margin: 0 0 26px;
+}
+.tarif .button { width: 100%; margin-bottom: 26px; }
+.tarif-liste { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.tarif-liste li {
+  position: relative; padding-left: 26px;
+  font-size: 14px; color: var(--text-soft); line-height: 1.5;
+}
+.tarif-liste li::before {
+  content: "→"; position: absolute; left: 0; top: 0;
+  color: var(--ember); font-size: 13px;
+}
+.tarif-note { margin: 22px 0 0; font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+
+/* ------------------------------------------------------------------ FAQ --- */
+.faq { margin-top: 36px; border-top: 1px solid var(--hairline); }
+.faq details { border-bottom: 1px solid var(--hairline); }
+.faq summary {
+  padding: 24px 40px 24px 0; cursor: pointer; position: relative;
+  font-size: 17px; font-weight: 500; list-style: none;
+  transition: color .2s;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+"; position: absolute; right: 6px; top: 50%;
+  transform: translateY(-50%); font-size: 22px; color: var(--ember);
+  transition: transform .25s;
+}
+.faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.faq summary:hover { color: var(--ember-2); }
+.faq details p {
+  margin: 0; padding: 0 40px 26px 0;
+  font-size: 15px; color: var(--text-soft); line-height: 1.7;
+}
+
+/* ----------------------------------------------------------- Formulaire --- */
+.formulaire { margin-top: 34px; display: flex; flex-direction: column; gap: 4px; }
+.formulaire .button, .formulaire button { margin-top: 20px; align-self: flex-start; }
+.mention { font-size: 12.5px; color: var(--text-faint); margin: 16px 0 0; line-height: 1.6; }
+
+.avis {
+  padding: 20px 24px; margin: 28px 0;
+  border: 1px solid rgba(232, 200, 122, .3); border-radius: var(--radius-sm);
+  background: rgba(232, 200, 122, .06);
+  color: #e6dcc4; font-size: 14.5px; line-height: 1.65;
+}
+.avis b { color: var(--gold); display: block; margin-bottom: 5px; }
+.avis.erreur {
+  border-color: rgba(255, 107, 107, .3); background: rgba(255, 107, 107, .07);
+  color: #ffb4b4;
+}
+
+.texte-legal { margin-top: 34px; }
+.texte-legal h2 {
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ember);
+  margin: 44px 0 14px;
+}
+.texte-legal p { font-size: 15px; color: var(--text-soft); line-height: 1.75; margin: 0 0 14px; }
+
+/* ----------------------------------------------------------- Appel final --- */
+.appel {
+  position: relative; z-index: 1;
+  max-width: 780px; margin: 0 auto; padding: 100px 36px 110px;
+  text-align: center;
+}
+.appel h2 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(33px, 5vw, 52px); line-height: 1.08;
+  letter-spacing: -.02em; margin: 0 0 16px;
+}
+.appel p { color: var(--text-soft); font-size: 17px; margin: 0 0 32px; }
+
+/* ------------------------------------------------------------ Pied de page --- */
+.site-footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--hairline);
+  background: rgba(0, 0, 0, .3);
+  padding: 64px 36px 30px;
+}
+.footer-grille {
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 44px; max-width: 1120px; margin: 0 auto 48px;
+}
+.footer-marque .brand { font-family: var(--serif); font-size: 24px; margin-bottom: 14px; }
+.footer-marque p { font-size: 14px; color: var(--text-faint); max-width: 34ch; line-height: 1.65; margin: 0; }
+.site-footer h4 {
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint); margin: 0 0 16px;
+}
+.site-footer a {
+  display: block; color: var(--text-soft); text-decoration: none;
+  font-size: 14px; margin-bottom: 11px; transition: color .2s;
+}
+.site-footer a:hover { color: var(--ember-2); }
+.footer-bas {
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  max-width: 1120px; margin: 0 auto; padding-top: 26px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12.5px; color: var(--text-faint);
+}
+
+/* ------------------------------------------------------------ Téléphone --- */
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 46px; padding: 56px 20px 50px; text-align: center; }
+  .hero-accroche { margin-inline: auto; }
+  .hero-actions { justify-content: center; }
+  .footer-grille { grid-template-columns: 1fr 1fr; gap: 34px; }
+}
+
+@media (max-width: 680px) {
+  .site-header { padding: 14px 18px; }
+  .site-header .brand { font-size: 22px; }
+  .menu-bouton { display: flex; }
+  .site-nav {
+    position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 0;
+    padding: 10px 18px 22px;
+    background: rgba(8, 9, 12, .97);
+    backdrop-filter: blur(22px);
+    border-bottom: 1px solid var(--hairline);
+    display: none;
+  }
+  .site-nav.ouvert { display: flex; }
+  .site-nav a { padding: 15px 0; border-bottom: 1px solid var(--hairline); font-size: 16px; }
+  .site-nav a.button { margin-top: 16px; border-bottom: none; text-align: center; }
+  .section { padding: 62px 20px; }
+  .appel { padding: 70px 20px 80px; }
+  .hero-actions .button { flex: 1 1 100%; }
+  .footer-grille { grid-template-columns: 1fr; gap: 30px; }
+  .site-footer { padding: 46px 20px 24px; }
+  .tarif { padding: 28px 22px; }
+}

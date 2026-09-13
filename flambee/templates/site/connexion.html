@@ -1,0 +1,22 @@
+{% extends "site/base.html" %}
+{% block title %}Connexion — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit">
+  <p class="eyebrow">Connexion</p>
+  <h1>Content de <em>te revoir</em>.</h1>
+
+  <div class="avis">
+    <b>Les comptes ne sont pas encore ouverts.</b>
+    Flambée fonctionne pour l'instant avec un accès unique : l'atelier s'ouvre
+    directement, protégé par un mot de passe défini à l'installation. Les
+    comptes individuels et la facturation arrivent ensuite — laisse ton adresse
+    pour être prévenu.
+  </div>
+
+  <div class="row">
+    <a href="/studio" class="button primary grand">Ouvrir l'atelier</a>
+    <a href="/inscription" class="button ghost grand">Être prévenu</a>
+  </div>
+</section>
+{% endblock %}

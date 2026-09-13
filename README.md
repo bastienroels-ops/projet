@@ -9,6 +9,17 @@ sur `http://127.0.0.1:8000`.
 
 ---
 
+## Deux faces
+
+| Adresse | Ce que c'est |
+|---|---|
+| `/` | Le **site public** : accueil, fonctionnalités, tarifs, questions, pages légales, liste d'attente. |
+| `/studio` | **L'atelier** : les 5 étapes de création, protégé par `FLAMBEE_PASSWORD` si défini. |
+
+Les formules, arguments et questions se modifient dans `flambee/plans.py` — un
+seul fichier, aucun HTML à toucher. Ce qu'il reste à brancher pour vendre
+réellement est listé dans [`docs/COMMERCIALISATION.md`](docs/COMMERCIALISATION.md).
+
 ## Installation
 
 ```bash
@@ -215,7 +226,10 @@ flambee/
   analyzer.py     détection des plans + score d'accroche
   downloader.py   étape 1 — wrapper yt-dlp
   auth.py         mot de passe optionnel (HTTP Basic)
-  samples.py      échantillons de sous-titres pour l'interface
+  samples.py      échantillons de sous-titres et démonstration d'accueil
+  plans.py        formules, arguments, étapes, questions du site
+  site.py         textes légaux et liste d'attente
+  templates/site/ gabarits du site public
 colab/            carnet Colab + lanceur (serveur derrière un tunnel HTTPS)
   trimmer.py      étape 2 — hooks + planification/découpe des extraits
   scriptgen.py    étape 4 — API Claude (+ mode manuel)

@@ -1,0 +1,39 @@
+{% extends "site/base.html" %}
+{% block title %}Créer un compte — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit">
+  <p class="eyebrow">Inscription</p>
+  <h1>Les comptes ouvrent <em>bientôt</em>.</h1>
+  <p class="section-accroche">
+    Le moteur de montage est terminé et fonctionne. Ce qu'il reste à brancher,
+    ce sont les comptes et le paiement. Laisse ton adresse : tu seras prévenu
+    en premier, et la formule que tu choisis ici nous dit par quoi commencer.
+  </p>
+
+  {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+
+  <form class="formulaire" method="post" action="/inscription">
+    <label class="block"><span>Adresse e-mail</span>
+      <input type="email" name="email" required autocomplete="email"
+             placeholder="toi@exemple.fr">
+    </label>
+    <label class="block"><span>Formule qui t'intéresse</span>
+      <select name="formule">
+        {% for plan in plans %}
+        <option value="{{ plan.id }}" {% if plan.id == formule %}selected{% endif %}>
+          {{ plan.name }} — {% if plan.price_monthly %}{{ plan.price_monthly }} € / mois{% else %}gratuit{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block"><span>Ce que tu publies (facultatif)</span>
+      <input type="text" name="usage" placeholder="ex. contenus sport, compte de marque…">
+    </label>
+    <button class="primary grand" type="submit">M'inscrire sur la liste</button>
+    <p class="mention">Ton adresse sert uniquement à te prévenir de l'ouverture.
+      Elle n'est ni revendue, ni utilisée pour autre chose, et tu peux demander
+      son effacement à tout moment.</p>
+  </form>
+</section>
+{% endblock %}

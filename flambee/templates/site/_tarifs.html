@@ -1,0 +1,29 @@
+<div class="bascule-facturation">
+  <button class="actif" data-periode="mensuel">Mensuel</button>
+  <button data-periode="annuel">Annuel <span class="remise">−20 %</span></button>
+</div>
+
+<div class="tarifs-grille">
+  {% for plan in plans %}
+  <article class="tarif {% if plan.highlight %}vedette{% endif %}">
+    {% if plan.highlight %}<span class="ruban">Le plus choisi</span>{% endif %}
+    <h3>{{ plan.name }}</h3>
+    <p class="tarif-accroche">{{ plan.tagline }}</p>
+    <p class="tarif-prix">
+      {% if plan.price_monthly == 0 %}
+        <b>Gratuit</b>
+      {% else %}
+        <b data-mensuel="{{ plan.price_monthly }}" data-annuel="{{ plan.price_yearly }}">{{ plan.price_monthly }} €</b>
+        <span>par mois</span>
+      {% endif %}
+    </p>
+    <p class="tarif-volume">{{ plan.videos }}</p>
+    <a href="/inscription?formule={{ plan.id }}"
+       class="button {% if plan.highlight %}primary{% else %}ghost{% endif %}">{{ plan.cta }}</a>
+    <ul class="tarif-liste">
+      {% for point in plan.features %}<li>{{ point }}</li>{% endfor %}
+    </ul>
+    {% if plan.note %}<p class="tarif-note">{{ plan.note }}</p>{% endif %}
+  </article>
+  {% endfor %}
+</div>

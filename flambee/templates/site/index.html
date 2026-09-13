@@ -1,0 +1,89 @@
+{% extends "site/base.html" %}
+{% block title %}Flambée — des vidéos courtes qui tiennent en haleine{% endblock %}
+
+{% block contenu %}
+<section class="hero">
+  <div class="hero-texte">
+    <p class="eyebrow">Montage vertical automatisé</p>
+    <h1>Trois vidéos.<br>Une voix.<br><em>Une vidéo qui prend.</em></h1>
+    <p class="hero-accroche">
+      Tu donnes des liens. Flambée choisit l'accroche, coupe au bon endroit,
+      pose la voix et les sous-titres, mixe le son. Tu récupères un fichier
+      prêt à publier.
+    </p>
+    <div class="hero-actions">
+      <a href="/studio" class="button primary grand">Créer ma première vidéo</a>
+      <a href="/tarifs" class="button ghost grand">Voir les tarifs</a>
+    </div>
+    <p class="hero-note">Essai gratuit — aucune carte bancaire demandée.</p>
+  </div>
+
+  <div class="hero-visuel">
+    <div class="telephone">
+      <video id="hero-video" muted loop autoplay playsinline preload="auto"
+             src="/api/demo"></video>
+      <div class="telephone-reflet"></div>
+    </div>
+  </div>
+</section>
+
+<section class="bande">
+  <p>« Le montage tue plus d'idées que le manque d'idées. »</p>
+</section>
+
+<section class="section" id="etapes">
+  <p class="eyebrow">Comment ça marche</p>
+  <h2>Cinq étapes, <em>pas une de plus</em>.</h2>
+  <ol class="etapes">
+    {% for etape in steps %}
+    <li>
+      <span class="etape-numero">{{ etape.number }}</span>
+      <h3>{{ etape.title }}</h3>
+      <p>{{ etape.body }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section class="section" id="styles">
+  <p class="eyebrow">Les sous-titres</p>
+  <h2>Six écritures, <em>un seul clic</em>.</h2>
+  <p class="section-accroche">Chaque style est rendu par le moteur vidéo lui-même :
+    ce que tu vois ici est exactement ce que ta vidéo produira.</p>
+  <div class="styles-grille">
+    {% for preset in presets %}
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             data-src="/api/presets/{{ preset.id }}/sample"></video>
+      <figcaption><b>{{ preset.label }}</b>{{ preset.description }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section" id="atouts">
+  <p class="eyebrow">Sous le capot</p>
+  <h2>Le soin est <em>dans les détails</em>.</h2>
+  <div class="atouts-grille">
+    {% for f in features %}
+    <article class="atout">
+      <span class="atout-icone">{{ f.icon }}</span>
+      <h3>{{ f.title }}</h3>
+      <p>{{ f.body }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section section-tarifs">
+  <p class="eyebrow">Tarifs</p>
+  <h2>Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>
+  {% include "site/_tarifs.html" %}
+</section>
+
+<section class="appel">
+  <h2>Ta prochaine vidéo est à <em>cinq minutes</em>.</h2>
+  <p>Ouvre l'atelier, colle deux liens, regarde ce qu'il en sort.</p>
+  <a href="/studio" class="button primary grand">Ouvrir l'atelier</a>
+</section>
+{% endblock %}

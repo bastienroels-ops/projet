@@ -415,3 +415,32 @@ def test_cache_invalide_si_le_style_change(monkeypatch):
     style = flambee_config.SUBTITLE_PRESETS["punch"]
     monkeypatch.setattr(style, "font_size", style.font_size + 10)
     assert samples.sample_path("punch") != avant
+
+
+def test_copie_de_visionnage_est_plus_legere(tmp_path):
+    """La lecture dans la page ne doit pas passer par le 1080p."""
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    from flambee import samples
+
+    source = tmp_path / "rendu.mp4"
+    media.ffmpeg([
+        "-f", "lavfi", "-i", "testsrc2=s=1080x1920:r=30:d=3",
+        "-f", "lavfi", "-t", "3", "-i", "anullsrc=r=48000:cl=stereo",
+        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-shortest", str(source),
+    ])
+    legere = samples.viewing_copy(source, tmp_path / "cache")
+    info = media.probe(legere)
+    assert info.width == samples.VIEWING_WIDTH
+    assert legere.stat().st_size < source.stat().st_size
+    assert info.duration == pytest.approx(media.probe(source).duration, abs=0.2)
+
+    # Deuxième appel : le fichier est réutilisé tel quel.
+    horodatage = legere.stat().st_mtime_ns
+    assert samples.viewing_copy(source, tmp_path / "cache").stat().st_mtime_ns == horodatage
+
+
+def test_visionnage_absent_sans_rendu(client):
+    project_id = _create(client)
+    assert client.get(f"/api/projects/{project_id}/viewing").status_code == 404

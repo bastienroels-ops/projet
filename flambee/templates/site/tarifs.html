@@ -1,0 +1,31 @@
+{% extends "site/base.html" %}
+{% block title %}Tarifs — Flambée{% endblock %}
+{% block description %}Trois formules, de l'essai gratuit au studio. Résiliable à tout moment.{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere">
+  <p class="eyebrow">Tarifs</p>
+  <h1>Un prix par <em>rythme de publication</em>.</h1>
+  <p class="section-accroche">Commence gratuitement. Change de formule ou arrête
+    quand tu veux — l'accès reste ouvert jusqu'à la fin de la période réglée.</p>
+  {% include "site/_tarifs.html" %}
+</section>
+
+<section class="section">
+  <h2>Ce que toutes les formules <em>partagent</em></h2>
+  <div class="atouts-grille">
+    {% for f in features %}
+    <article class="atout">
+      <span class="atout-icone">{{ f.icon }}</span>
+      <h3>{{ f.title }}</h3>
+      <p>{{ f.body }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <h2>Questions sur <em>la facturation</em></h2>
+  {% include "site/_faq.html" %}
+</section>
+{% endblock %}

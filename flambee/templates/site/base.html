@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="{% block description %}Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.{% endblock %}">
+  <title>{% block title %}Flambée{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/site.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+</head>
+<body class="site">
+
+<header class="site-header">
+  <a class="brand" href="/"><span class="flame">🔥</span> Flambée</a>
+  <nav class="site-nav" id="site-nav">
+    <a href="/fonctionnalites" {% if page == 'fonctionnalites' %}class="courant"{% endif %}>Fonctionnalités</a>
+    <a href="/tarifs" {% if page == 'tarifs' %}class="courant"{% endif %}>Tarifs</a>
+    <a href="/faq" {% if page == 'faq' %}class="courant"{% endif %}>Questions</a>
+    <a href="/connexion" {% if page == 'connexion' %}class="courant"{% endif %}>Connexion</a>
+    <a href="/studio" class="button primary petit">Ouvrir l'atelier</a>
+  </nav>
+  <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
+    <span></span><span></span>
+  </button>
+</header>
+
+{% block contenu %}{% endblock %}
+
+<footer class="site-footer">
+  <div class="footer-grille">
+    <div class="footer-marque">
+      <div class="brand"><span class="flame">🔥</span> Flambée</div>
+      <p>L'atelier qui transforme des vidéos éparses en un format vertical
+         qui tient en haleine.</p>
+    </div>
+    <div>
+      <h4>Produit</h4>
+      <a href="/fonctionnalites">Fonctionnalités</a>
+      <a href="/tarifs">Tarifs</a>
+      <a href="/studio">Ouvrir l'atelier</a>
+    </div>
+    <div>
+      <h4>Aide</h4>
+      <a href="/faq">Questions fréquentes</a>
+      <a href="/connexion">Connexion</a>
+      <a href="/inscription">Créer un compte</a>
+    </div>
+    <div>
+      <h4>Cadre légal</h4>
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/conditions">Conditions d'utilisation</a>
+      <a href="/confidentialite">Confidentialité</a>
+    </div>
+  </div>
+  <div class="footer-bas">
+    <span>© {{ annee }} Flambée</span>
+    <span>Fait en France</span>
+  </div>
+</footer>
+
+<script src="/static/site.js"></script>
+</body>
+</html>

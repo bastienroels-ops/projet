@@ -1,0 +1,53 @@
+{% extends "site/base.html" %}
+{% block title %}Fonctionnalités — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere">
+  <p class="eyebrow">Fonctionnalités</p>
+  <h1>Ce que fait Flambée <em>pendant que tu fais autre chose</em>.</h1>
+  <p class="section-accroche">Chaque étape du montage est automatisée, mais
+    aucune n'est verrouillée : tu peux reprendre la main partout.</p>
+  <div class="atouts-grille">
+    {% for f in features %}
+    <article class="atout">
+      <span class="atout-icone">{{ f.icon }}</span>
+      <h3>{{ f.title }}</h3>
+      <p>{{ f.body }}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <p class="eyebrow">Le déroulé</p>
+  <h2>Cinq étapes, <em>pas une de plus</em>.</h2>
+  <ol class="etapes">
+    {% for etape in steps %}
+    <li>
+      <span class="etape-numero">{{ etape.number }}</span>
+      <h3>{{ etape.title }}</h3>
+      <p>{{ etape.body }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section class="section">
+  <p class="eyebrow">Les sous-titres</p>
+  <h2>Six écritures, <em>rendues par le moteur vidéo</em>.</h2>
+  <div class="styles-grille">
+    {% for preset in presets %}
+    <figure class="style-carte">
+      <video muted loop autoplay playsinline preload="none"
+             data-src="/api/presets/{{ preset.id }}/sample"></video>
+      <figcaption><b>{{ preset.label }}</b>{{ preset.description }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="appel">
+  <h2>Le plus simple reste <em>d'essayer</em>.</h2>
+  <a href="/studio" class="button primary grand">Ouvrir l'atelier</a>
+</section>
+{% endblock %}

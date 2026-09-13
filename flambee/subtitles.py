@@ -32,6 +32,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
 _SENTENCE_END = re.compile(r"[.!?…:;]$")
+
+LINE_HOLD = 0.18   # temps de lecture accordé après le dernier mot d'une ligne
+LINE_GAP = 0.02    # écart minimal entre deux lignes, pour ne jamais les superposer
 _LEADING_PUNCT = re.compile(r"^[,;:.!?…»\)\]]+")
 
 
@@ -157,15 +160,23 @@ def build_ass(
     normal = _inline_color(style.primary_color)
     events: list[str] = []
 
-    for line in group_words(words, style):
+    lines = group_words(words, style)
+    for index, line in enumerate(lines):
         line_start = line.start + offset
         line_end = line.end + offset
         if max_duration is not None:
             if line_start >= max_duration:
                 break
             line_end = min(line_end, max_duration)
-        # Laisse la ligne un court instant de plus à l'écran (lisibilité).
-        line_end = line_end + 0.18
+
+        # On laisse la ligne un court instant de plus à l'écran, mais jamais
+        # au-delà du début de la suivante : deux lignes affichées en même temps
+        # se superposent à l'image, et le texte devient illisible. À l'intérieur
+        # d'une phrase, les lignes s'enchaînent sans pause — le cas est donc la
+        # règle, pas l'exception.
+        line_end += LINE_HOLD
+        if index + 1 < len(lines):
+            line_end = min(line_end, lines[index + 1].start + offset - LINE_GAP)
         if max_duration is not None:
             line_end = min(line_end, max_duration)
         if line_end <= line_start:

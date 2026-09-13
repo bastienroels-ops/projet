@@ -1,0 +1,26 @@
+{% extends "site/base.html" %}
+{% block title %}{{ titre }} — Flambée{% endblock %}
+
+{% block contenu %}
+<section class="section section-premiere etroit">
+  <p class="eyebrow">{{ surtitre }}</p>
+  <h1>{{ titre }}</h1>
+
+  {% if a_completer %}
+  <div class="avis">
+    <b>Document à compléter.</b>
+    Les zones entre crochets demandent des informations que seul l'éditeur du
+    service peut fournir (identité, statut juridique, hébergeur). Tant qu'elles
+    ne sont pas renseignées, ce texte n'a pas de valeur légale — et la loi
+    française impose ces mentions dès qu'un service est ouvert au public.
+  </div>
+  {% endif %}
+
+  <div class="texte-legal">
+    {% for bloc in sections %}
+    <h2>{{ bloc.titre }}</h2>
+    {% for paragraphe in bloc.paragraphes %}<p>{{ paragraphe }}</p>{% endfor %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
