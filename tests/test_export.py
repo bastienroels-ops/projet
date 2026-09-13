@@ -257,6 +257,9 @@ PROMESSES_INTERDITES = (
     "Créer un compte", "Créer mon compte", "Créer ma première vidéo",
     "carte bancaire", "Essai gratuit", "Le plus choisi", "Ouvrir l'atelier",
     "Commence gratuitement", "Résiliable à tout moment",
+    # Le champ de saisie est masqué sans serveur : l'inviter à écrire serait
+    # promettre la seule chose qu'on demande vraiment au visiteur de faire.
+    "Écris ta phrase", "Tape ce que tu veux",
 )
 
 

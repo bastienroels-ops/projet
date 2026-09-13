@@ -162,6 +162,13 @@ _PROMESSES = {
     # Un produit que personne n'a encore pu acheter n'a pas de formule
     # « la plus choisie » : le ruban invente une preuve sociale.
     '<span class="ruban">Le plus choisi</span>': "",
+    # L'essayage libre demande ffmpeg à chaque phrase : sans serveur, le champ
+    # de saisie est masqué et seuls les six clips déjà calculés défilent. Le
+    # titre, lui, continuait de dire « écris ta phrase » au-dessus d'un bloc
+    # où il n'y a rien où écrire — l'invitation la plus frustrante du site,
+    # puisqu'elle porte sur la seule chose qu'on demande vraiment au visiteur.
+    "<h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>":
+        "<h2>Six écritures, <em>au mot près</em>.</h2>",
     # Les titres et l'accroche des tarifs, qui invitent à commencer.
     "<h2>Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>":
         "<h2>Les formules prévues, <em>et ce qu'elles contiendront</em>.</h2>",
@@ -224,6 +231,14 @@ def _en_vitrine(html: str) -> str:
         r'<p class="section-accroche">Commence gratuitement\..*?</p>',
         '<p class="section-accroche">Voici les formules prévues pour Flambée, '
         "et ce que chacune contiendra. Aucune n'est ouverte pour l'instant.</p>",
+        html, flags=re.S)
+    html = re.sub(
+        r'<p class="section-accroche">Six écritures\. Tape ce que tu veux.*?</p>',
+        '<p class="section-accroche">Chaque clip ci-dessous est calculé par le '
+        "moteur vidéo lui-même, pas imité en HTML : c'est exactement ce que "
+        "produirait ton montage. Choisis une écriture pour la voir tourner — "
+        "y taper ta propre phrase demande l'atelier, qui n'est pas encore "
+        "ouvert.</p>",
         html, flags=re.S)
     for promesse, honnete in _PROMESSES.items():
         html = html.replace(promesse, honnete)
