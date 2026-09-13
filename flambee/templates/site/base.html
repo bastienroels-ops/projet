@@ -65,7 +65,9 @@
     <a href="/studio" class="button primary petit">Ouvrir l'atelier</a>
     {% else %}
     <a href="/connexion" {% if page == 'connexion' %}class="courant"{% endif %}>Connexion</a>
+    {% if inscriptions %}
     <a href="/inscription" class="button primary petit">Créer un compte</a>
+    {% endif %}
     {% endif %}
   </nav>
   <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
@@ -92,7 +94,7 @@
       <h4>Aide</h4>
       <a href="/faq">Questions fréquentes</a>
       <a href="/connexion">Connexion</a>
-      <a href="/inscription">Créer un compte</a>
+      {% if inscriptions %}<a href="/inscription">Créer un compte</a>{% endif %}
       <a href="/studio">Ouvrir l'atelier</a>
     </div>
     <div>

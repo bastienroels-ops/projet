@@ -86,6 +86,7 @@ def ensure_transcription() -> bool:
     vérifiant le résultat par un import réel, et l'on dit ce qui a manqué.
     """
     ensure_dependencies()
+    preparer_environnement()          # avant le premier import de `flambee`
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     from flambee import transcribe
@@ -154,6 +155,25 @@ def data_dir() -> Path:
     (folder / "work").mkdir(parents=True, exist_ok=True)
     (folder / "music").mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def preparer_environnement() -> Path:
+    """Fixe les dossiers de travail avant que `flambee.config` soit importé.
+
+    `config` lit ces variables une seule fois, à l'import. Or la vérification
+    du moteur de transcription importe `flambee.transcribe` — donc `config` —
+    bien avant qu'on ait besoin de la base des comptes. Quand le réglage
+    arrivait après, il ne servait plus à rien : le dossier restait celui du
+    dépôt cloné, et le compte créé automatiquement atterrissait dans une base
+    que le serveur n'ouvrirait jamais. Ce compte n'a donc jamais existé sur
+    Colab, sans le moindre message.
+
+    Appelé au tout début, et avant chaque import de `flambee` par précaution.
+    """
+    data = data_dir()
+    os.environ.setdefault("FLAMBEE_WORK_DIR", str(data / "work"))
+    os.environ.setdefault("FLAMBEE_OUTPUT_DIR", str(data / "output"))
+    return data
 
 
 def start_server(
@@ -311,8 +331,7 @@ def ouvrir_un_compte(password: str) -> str | None:
     Étant le premier compte, il est celui de l'administrateur : crédits
     illimités et toutes les rubriques ouvertes.
     """
-    dossier = data_dir() / "work"
-    os.environ["FLAMBEE_WORK_DIR"] = str(dossier)
+    dossier = Path(preparer_environnement() / "work")
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     try:
@@ -322,11 +341,13 @@ def ouvrir_un_compte(password: str) -> str | None:
         return None
 
     if config.WORK_DIR != dossier:
-        # `flambee.config` lit le dossier à l'import : s'il a été importé plus
-        # tôt, il pointe ailleurs et le compte irait dans une autre base que
-        # celle du serveur. Mieux vaut ne rien faire que créer un compte
-        # fantôme et afficher des identifiants qui ne mènent nulle part.
-        log("⚠️  Dossier de travail déjà fixé ailleurs : inscription manuelle.")
+        # Filet de sécurité : `preparer_environnement()` doit avoir été appelé
+        # avant le premier import de `flambee`. Si ce n'est pas le cas, le
+        # compte irait dans une base que le serveur n'ouvrira pas. Mieux vaut
+        # ne rien faire que d'afficher des identifiants qui ne mènent nulle
+        # part — mais c'est un défaut de code, pas une situation normale.
+        log(f"⚠️  Dossier de travail figé sur {config.WORK_DIR} au lieu de "
+            f"{dossier} : inscription manuelle.")
         return None
 
     try:
@@ -387,6 +408,7 @@ def start_all(
     vient d'être récupéré. Le faire à cet endroit garantit que Script Viral et
     Voice Studio fonctionnent même avec une vieille cellule.
     """
+    preparer_environnement()          # avant tout import de `flambee`
     ensure_ffmpeg()
     ensure_dependencies()
     if transcription:

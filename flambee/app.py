@@ -172,6 +172,10 @@ def _contexte_site(page: str, request: Request | None = None, **extra) -> dict:
     return {
         "page": page,
         "connecte": connecte,
+        # Inviter à créer un compte quand les inscriptions sont fermées mène à
+        # une page qui refuse. Sur un déploiement privé — Colab, un serveur
+        # personnel — c'est la situation normale, pas l'exception.
+        "inscriptions": users.inscriptions_ouvertes(),
         "base_url": _base_url(request),
         "chemin": request.url.path if request is not None else "/",
         "annee": time.strftime("%Y"),

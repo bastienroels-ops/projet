@@ -339,3 +339,19 @@ def test_la_formule_du_proprietaire_est_reglable(client, monkeypatch):
     inscrire(client, email="sobre@exemple.fr")
     assert users.par_email("sobre@exemple.fr").plan == "essai"
 
+
+
+def test_les_liens_d_inscription_disparaissent_quand_elle_est_fermee(client, monkeypatch):
+    """Inviter à créer un compte impossible mène à une page qui refuse.
+
+    Sur un déploiement privé — Colab, un serveur personnel — les inscriptions
+    fermées sont la situation normale. Le menu et le pied de page ne doivent
+    alors rien proposer qui n'aboutisse pas.
+    """
+    ouverte = client.get("/").text
+    assert "Créer un compte" in ouverte
+
+    monkeypatch.setenv("FLAMBEE_SIGNUP", "ferme")
+    fermee = client.get("/").text
+    assert "Créer un compte" not in fermee, "le menu mène à une page qui refuse"
+    assert 'href="/connexion"' in fermee, "la connexion doit rester offerte"

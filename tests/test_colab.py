@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -265,3 +266,40 @@ def test_le_demarrage_relaie_avant_d_attendre():
     corps = source[debut:source.index("def keep_alive(")]
     assert corps.index("relayer(server)") < corps.index("wait_for_server(port)"), \
         "le relais doit démarrer avant l'attente"
+
+
+def test_les_dossiers_sont_fixes_avant_le_premier_import():
+    """`flambee.config` lit les dossiers à l'import, une seule fois.
+
+    La vérification du moteur de transcription importe `flambee.transcribe` —
+    donc `config` — bien avant qu'on touche à la base des comptes. Quand le
+    réglage arrivait après, il ne servait plus à rien : le compte créé
+    automatiquement atterrissait dans une base que le serveur n'ouvrait jamais.
+    Ce compte n'a donc jamais existé sur Colab, sans le moindre message.
+    """
+    source = (ROOT / "colab" / "launch.py").read_text(encoding="utf-8")
+    corps = source[source.index("def start_all("):source.index("def keep_alive(")]
+    assert corps.index("preparer_environnement()") < corps.index("ensure_transcription()"), \
+        "les dossiers doivent être fixés avant la transcription"
+
+    transcription = source[source.index("def ensure_transcription("):
+                           source.index("def ensure_cloudflared(")]
+    assert transcription.index("preparer_environnement()") \
+        < transcription.index("from flambee import"), \
+        "les dossiers doivent être fixés avant d'importer flambee"
+
+
+def test_le_compte_est_cree_dans_la_base_du_serveur(tmp_path, monkeypatch):
+    """Le compte doit atterrir là où le serveur ira le chercher.
+
+    Vérifié pour de vrai : on fixe l'environnement comme le fait `start_all`,
+    on importe `flambee` comme le fait la transcription, puis on crée le compte
+    et on relit la base par le même chemin que le serveur.
+    """
+    monkeypatch.delenv("FLAMBEE_WORK_DIR", raising=False)
+    monkeypatch.delenv("FLAMBEE_OUTPUT_DIR", raising=False)
+    monkeypatch.setattr(launch, "data_dir", lambda: tmp_path)
+    (tmp_path / "work").mkdir(parents=True, exist_ok=True)
+
+    launch.preparer_environnement()
+    assert os.environ["FLAMBEE_WORK_DIR"] == str(tmp_path / "work")
