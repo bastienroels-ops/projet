@@ -117,6 +117,34 @@ if (entete) {
   let minuterie = null;
   let demande = 0;
 
+  /* Version figée : le site public peut être publié en pages statiques, sans
+     Python ni ffmpeg derrière. L'essayage libre demande un serveur ; on garde
+     alors les six clips déjà calculés, que les puces font défiler. Le bloc
+     reste vivant au lieu de disparaître. */
+  const fige = bloc.dataset.fige === "1";
+  if (fige) {
+    const champBloc = bloc.querySelector(".essayage-champ");
+    if (champBloc) champBloc.hidden = true;
+    const montrer = () => {
+      video.removeAttribute("poster");
+      video.src = `${bloc.dataset.echantillons || "media"}/${style}-sample.mp4`;
+      video.play().catch(() => {});
+      if (legende && descriptions[style]) legende.textContent = descriptions[style];
+    };
+    puces.forEach((puce) => {
+      puce.addEventListener("click", () => {
+        puces.forEach((p) => {
+          p.classList.toggle("actif", p === puce);
+          p.setAttribute("aria-selected", p === puce ? "true" : "false");
+        });
+        style = puce.dataset.style;
+        montrer();
+      });
+    });
+    montrer();
+    return;
+  }
+
   const majCompteur = () => {
     compteur.textContent = `${champ.value.length}/${MAX}`;
     compteur.classList.toggle("proche", champ.value.length > MAX - 10);

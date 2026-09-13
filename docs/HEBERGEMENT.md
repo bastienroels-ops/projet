@@ -3,6 +3,61 @@
 Tout est prêt pour un déploiement en conteneur : `Dockerfile`, `docker-compose.yml`
 et un `Caddyfile` qui obtient le certificat HTTPS tout seul.
 
+## Le moins cher de tout : publier le site public en pages statiques
+
+Il faut distinguer deux choses, parce qu'elles n'ont pas du tout le même coût.
+
+| | Ce que c'est | Ce qu'il faut |
+|---|---|---|
+| **Le site public** | Accueil, fonctionnalités, tarifs, questions, pages légales | Rien. Du HTML et des fichiers. |
+| **L'atelier** | Créer un compte, monter une vidéo, transcrire | Python, ffmpeg, un disque — un serveur. |
+
+Le site public ne calcule rien : une fois les clips de démonstration rendus,
+il ne reste que des pages. Un hébergeur de pages statiques suffit, et ils sont
+gratuits — pour de bon, sans carte bancaire ni période d'essai.
+
+### Fabriquer la version statique
+
+```bash
+python outils/exporter_site.py --sortie export
+```
+
+Compte une minute : le script rend les six échantillons de style et la
+démonstration de l'accroche, copie les ressources, fige les sept pages, et
+produit une page 404. Le tout tient dans **environ un demi-mégaoctet**.
+
+Quand l'atelier tournera quelque part, donne son adresse pour que les boutons
+« Créer un compte » et « Connexion » y mènent :
+
+```bash
+python outils/exporter_site.py --sortie export \
+    --atelier https://flambee-bastien.duckdns.org
+```
+
+Sans cette option, le script prévient : ces boutons pointeraient vers des
+pages absentes du site statique.
+
+### Où le publier, gratuitement
+
+| Hébergeur | Coût | Remarque |
+|---|---|---|
+| **Cloudflare Pages** | 0 € | Le plus adapté : trafic illimité, nom de domaine personnalisé gratuit, HTTPS compris, publication depuis GitHub à chaque commit. |
+| **GitHub Pages** | 0 € | Ton dépôt y est déjà. Publié sous `nom.github.io/projet`, il faut alors exporter avec `--prefixe /projet`. |
+| **Netlify** | 0 € | 100 Go de trafic par mois, largement au-dessus du besoin. |
+
+Sur Cloudflare Pages : créer un projet, le relier au dépôt GitHub, indiquer
+`python outils/exporter_site.py --sortie export` comme commande de
+construction et `export` comme dossier publié. Chaque commit republie le site.
+L'adresse `quelquechose.pages.dev` est fournie ; un domaine à toi coûte une
+dizaine d'euros par an, et rien de plus.
+
+### Ce que la version statique ne fait pas
+
+L'essayage libre des sous-titres demande ffmpeg à chaque phrase : impossible
+sans serveur. Le bloc reste vivant — les six écritures défilent sur les clips
+déjà calculés — mais le champ de saisie disparaît. Il retrouve toute sa
+fonction dès que le site est servi par l'application.
+
 ## Gratuit, depuis un iPhone : Oracle Cloud
 
 Oracle offre, sans limite de durée, un serveur ARM de 4 cœurs et 24 Go de
