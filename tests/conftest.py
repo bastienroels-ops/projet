@@ -22,6 +22,9 @@ def espace(monkeypatch, tmp_path):
         monkeypatch.setattr(module, "WORK_DIR", tmp_path, raising=False)
     monkeypatch.setattr(users._local, "db", None, raising=False)
     monkeypatch.setattr(config, "PASSWORD", "")
+    # Les tests décrivent le parcours d'un client : sans cela, le premier
+    # compte de chaque base neuve serait celui de l'administrateur, en Studio.
+    monkeypatch.setattr(users, "PLAN_PROPRIETAIRE", "essai")
     store._cache.clear()
     yield tmp_path
     store._cache.clear()

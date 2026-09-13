@@ -36,6 +36,12 @@ _local = threading.local()
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$")
 MIN_PASSWORD = 8
+# Le premier compte créé est celui de la personne qui installe Flambée : elle
+# administre le service, elle n'est pas sa propre cliente. Elle reçoit donc la
+# formule la plus complète, sans quoi elle devrait contourner à la main, à
+# chaque nouvelle installation, un verrou qu'elle a elle-même posé.
+PLAN_PROPRIETAIRE = os.environ.get("FLAMBEE_PLAN_PROPRIETAIRE", "studio").strip()
+
 SESSION_COOKIE = "flambee_session"
 SESSION_DAYS = 30
 
@@ -173,18 +179,24 @@ def creer(email: str, mot_de_passe: str, nom: str = "",
 
     with _LOCK:
         base = connexion()
+        # Le décompte est lu sous le verrou : deux inscriptions simultanées sur
+        # une base vide ne peuvent pas se croire toutes deux « la première ».
+        plan = PLAN_PROPRIETAIRE if compter() == 0 else "essai"
         try:
             curseur = base.execute(
-                "INSERT INTO utilisateurs (email, mot_de_passe, nom, cree_le) "
-                "VALUES (?, ?, ?, ?)",
-                (email, hacher(mot_de_passe), nom.strip()[:80],
+                "INSERT INTO utilisateurs (email, mot_de_passe, nom, plan, cree_le) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (email, hacher(mot_de_passe), nom.strip()[:80], plan,
                  time.strftime("%Y-%m-%d")),
             )
             base.commit()
         except sqlite3.IntegrityError as exc:
             raise CompteError("Un compte existe déjà avec cette adresse.") from exc
 
-    log.info("Compte créé : %s", email)
+    if plan != "essai":
+        log.info("Compte créé : %s — administrateur, formule %s", email, plan)
+    else:
+        log.info("Compte créé : %s", email)
     return par_id(curseur.lastrowid)        # type: ignore[arg-type]
 
 

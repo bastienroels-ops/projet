@@ -31,7 +31,8 @@ nocturne.
    est le poste le plus long. Le site répond ensuite sur
    `https://<ton-nom>.duckdns.org`.
 
-Le premier compte créé est le tien : ferme les inscriptions juste après
+Le premier compte créé est le tien, et il reçoit d'office la formule Studio :
+crédits illimités, toutes les rubriques. Ferme les inscriptions juste après
 (`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env`).
 
 ### Pourquoi DuckDNS et pas sslip.io

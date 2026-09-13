@@ -23,6 +23,9 @@ def client(monkeypatch, tmp_path):
         monkeypatch.setattr(module, "WORK_DIR", tmp_path, raising=False)
     monkeypatch.setattr(users._local, "db", None, raising=False)
     monkeypatch.setattr(config, "PASSWORD", "")
+    # Les tests décrivent le parcours d'un client : sans cela, le premier
+    # compte de chaque base neuve serait celui de l'administrateur, en Studio.
+    monkeypatch.setattr(users, "PLAN_PROPRIETAIRE", "essai")
     store._cache.clear()
     with TestClient(app_module.app) as test_client:
         yield test_client
@@ -297,3 +300,42 @@ def test_la_page_dit_ou_trouver_le_lien_sans_smtp(client, monkeypatch):
     page = client.post("/mot-de-passe-oublie", data={"email": "a@exemple.fr"})
     assert page.status_code == 200
     assert "journal" in page.text.lower()
+
+
+# --- Le compte administrateur ---------------------------------------------
+def test_le_premier_compte_est_celui_de_l_administrateur(client, monkeypatch):
+    """Qui installe Flambée administre le service : il n'est pas son client."""
+    monkeypatch.setattr(users, "PLAN_PROPRIETAIRE", "studio")
+
+    inscrire(client, email="patron@exemple.fr")
+    patron = users.par_email("patron@exemple.fr")
+    assert patron.plan == "studio"
+    assert account.quota(patron) is None          # crédits illimités
+    assert account.peut_rendre(patron)
+    assert account.est_pro(patron)                # Script Viral et Voice Studio
+
+    # Les rubriques réservées s'ouvrent sans avoir à changer de formule.
+    for rubrique in ("voix", "script-viral"):
+        page = client.get(f"/studio/{rubrique}")
+        assert page.status_code == 200
+        assert "Disponible à partir de" not in page.text
+
+
+def test_les_comptes_suivants_sont_des_clients(client, monkeypatch):
+    monkeypatch.setattr(users, "PLAN_PROPRIETAIRE", "studio")
+    inscrire(client, email="patron@exemple.fr")
+    client.cookies.clear()
+
+    inscrire(client, email="client@exemple.fr")
+    suivant = users.par_email("client@exemple.fr")
+    assert suivant.plan == "essai"
+    assert account.quota(suivant) == 3
+    assert not account.est_pro(suivant)
+
+
+def test_la_formule_du_proprietaire_est_reglable(client, monkeypatch):
+    """Un opérateur qui veut un premier compte ordinaire doit pouvoir le dire."""
+    monkeypatch.setattr(users, "PLAN_PROPRIETAIRE", "essai")
+    inscrire(client, email="sobre@exemple.fr")
+    assert users.par_email("sobre@exemple.fr").plan == "essai"
+
