@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flambee import app as app_module  # noqa: E402
-from flambee import media, pipeline  # noqa: E402
+from flambee import config, media, pipeline  # noqa: E402
 from flambee.downloader import Source  # noqa: E402
 from flambee.project import Project  # noqa: E402
 
@@ -374,6 +374,33 @@ def test_echantillon_vient_du_cache(compte):
     horodatage = chemin.stat().st_mtime
     compte.get("/api/presets/minimal/sample")
     assert chemin.stat().st_mtime == horodatage
+
+
+def test_affiche_de_style_montre_le_texte(compte):
+    """L'affiche ne doit pas tomber entre deux lignes : elle serait vide."""
+    if media.ensure_tools():
+        pytest.skip("ffmpeg requis")
+    from flambee import samples
+
+    samples.clear_cache()
+    for preset in config.SUBTITLE_PRESETS:
+        reponse = compte.get(f"/api/presets/{preset}/poster")
+        assert reponse.status_code == 200
+        assert reponse.headers["content-type"] == "image/jpeg"
+        # Une image de fond seul pèse environ 1 ko ; avec le texte, plusieurs.
+        assert len(reponse.content) > 2500, f"affiche vide pour {preset}"
+
+    assert compte.get("/api/presets/inexistant/poster").status_code == 404
+
+
+def test_l_instant_de_l_affiche_tombe_dans_une_ligne(compte):
+    from flambee import samples
+    from flambee.subtitles import group_words
+
+    for preset in config.SUBTITLE_PRESETS:
+        instant = samples._poster_time(preset)
+        lignes = group_words(samples.sample_words(), config.subtitle_style(preset))
+        assert any(ligne.start <= instant <= ligne.end for ligne in lignes), preset
 
 
 def test_cache_invalide_si_le_style_change(monkeypatch):

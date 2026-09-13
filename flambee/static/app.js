@@ -375,6 +375,8 @@ function describePreset() {
   if (video.dataset.preset === id) return;      // déjà à l'écran
 
   video.dataset.preset = id;
+  // L'affiche s'affiche pendant le rendu : le cadre ne reste jamais noir.
+  video.poster = `/api/presets/${encodeURIComponent(id)}/poster`;
   const cadre = $("#preset-preview");
   cadre.classList.add("loading");
   cadre.classList.remove("unplayable");

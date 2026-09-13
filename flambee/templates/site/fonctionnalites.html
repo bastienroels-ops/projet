@@ -39,6 +39,7 @@
     {% for preset in presets %}
     <figure class="style-carte">
       <video muted loop autoplay playsinline preload="none"
+             poster="/api/presets/{{ preset.id }}/poster"
              data-src="/api/presets/{{ preset.id }}/sample"></video>
       <figcaption><b>{{ preset.label }}</b>{{ preset.description }}</figcaption>
     </figure>

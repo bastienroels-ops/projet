@@ -58,7 +58,6 @@ def backdrop_filter(width: int, height: int, *, tag: str = "fond") -> str:
 
 
 _locks: dict[str, threading.Lock] = {}
-_locks: dict[str, threading.Lock] = {}
 _guard = threading.Lock()
 
 
@@ -161,7 +160,7 @@ def clear_cache() -> int:
     folder = config.WORK_DIR / ".samples"
     if not folder.exists():
         return 0
-    fichiers = list(folder.glob("*.mp4"))
+    fichiers = list(folder.glob("*.mp4")) + list(folder.glob("*.jpg"))
     for fichier in fichiers:
         fichier.unlink(missing_ok=True)
     return len(fichiers)
@@ -271,6 +270,40 @@ def build_hero() -> Path:
         if not has_media_duration(out_path, minimum=0.5):
             raise MediaError("Démonstration d'accueil vide.")
         return out_path
+
+
+def _poster_time(preset: str) -> float:
+    """Instant où saisir l'affiche : le milieu de la ligne la plus longue.
+
+    Un instant fixe tombe facilement dans l'intervalle qui sépare deux lignes,
+    où le texte a fini de s'effacer : l'affiche serait alors vide. On vise donc
+    le cœur d'une ligne, là où elle est pleinement posée.
+    """
+    lignes = subtitles.group_words(sample_words(), config.subtitle_style(preset))
+    if not lignes:
+        return 0.5
+    ligne = max(lignes, key=lambda l: l.end - l.start)
+    return (ligne.start + ligne.end) / 2
+
+
+def sample_poster(preset: str) -> Path:
+    """Première image d'un échantillon de style, servie en affiche.
+
+    Sans elle, les six vignettes de la page d'accueil restent noires tant que
+    les clips n'ont pas commencé — c'est la première chose que voit un visiteur.
+    """
+    clip = build_sample(preset)
+    poster = clip.with_suffix(".jpg")
+    if poster.exists() and poster.stat().st_size > 500:
+        return poster
+    with _lock_for(f"{preset}-poster"):
+        if poster.exists() and poster.stat().st_size > 500:
+            return poster
+        ffmpeg(["-ss", f"{_poster_time(preset):.2f}", "-i", str(clip),
+                "-frames:v", "1", "-q:v", "4", str(poster)], timeout=120)
+        if not poster.exists():
+            raise MediaError(f"Affiche manquante pour le style {preset}.")
+        return poster
 
 
 def hero_poster() -> Path:

@@ -787,6 +787,21 @@ async def demo_affiche():
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.get("/api/presets/{preset}/poster")
+async def preset_affiche(preset: str):
+    """Image fixe d'un style : la vignette n'est jamais un rectangle noir."""
+    if preset not in config.SUBTITLE_PRESETS:
+        raise HTTPException(status_code=404, detail="Style inconnu.")
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.sample_poster, preset)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/presets/{preset}/sample")
 async def preset_sample(preset: str):
     """Échantillon vidéo du style de sous-titres, rendu par ffmpeg et mis en cache.
