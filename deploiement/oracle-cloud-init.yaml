@@ -59,6 +59,20 @@ write_files:
 
       source /etc/flambee/parametres
 
+      # --- 0. La bonne distribution ---------------------------------------
+      # Oracle propose sa propre distribution par défaut à la création d'une
+      # instance. Ce script attend Ubuntu : « iptables-persistent » n'existe
+      # pas ailleurs, et l'installation échouerait plus loin sur une erreur
+      # sans rapport apparent avec la cause.
+      if ! command -v apt-get >/dev/null; then
+        systeme=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME")
+        echo "!!! Cette installation attend Ubuntu 22.04 ou 24.04."
+        echo "!!! Cette machine tourne sous : ${systeme:-système inconnu}"
+        echo "!!! Recrée l'instance en choisissant l'image « Canonical Ubuntu »"
+        echo "!!! dans la rubrique Image and shape."
+        exit 1
+      fi
+
       # --- 1. Docker ------------------------------------------------------
       if ! command -v docker >/dev/null; then
         echo "--- Installation de Docker"

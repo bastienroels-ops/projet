@@ -110,3 +110,15 @@ def test_la_sauvegarde_ne_devine_pas_le_nom_du_volume():
         "l'archive n'est pas vérifiée pour la base des comptes"
     assert re.search(r'-v "\$VOLUME":/d:ro', script), \
         "le volume devrait être monté en lecture seule pour une sauvegarde"
+
+
+def test_l_installation_refuse_une_distribution_inattendue():
+    """Oracle propose sa propre distribution par défaut, pas Ubuntu.
+
+    Sans ce contrôle, l'installation partait et échouait bien plus loin, sur
+    un paquet introuvable — une erreur dont la cause réelle, le choix de
+    l'image, n'apparaissait nulle part.
+    """
+    init = (RACINE / "deploiement" / "oracle-cloud-init.yaml").read_text("utf-8")
+    assert "command -v apt-get" in init, "la distribution n'est pas vérifiée"
+    assert "Canonical Ubuntu" in init, "le message ne dit pas quoi choisir"
