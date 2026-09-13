@@ -157,6 +157,33 @@ def data_dir() -> Path:
     return folder
 
 
+def mot_de_passe_persistant(fourni: str = "") -> str:
+    """Le même mot de passe d'un lancement à l'autre, tant que la machine vit.
+
+    Il était engendré à neuf à chaque exécution de la cellule : Safari ne
+    pouvait donc jamais le retenir, et il fallait le recopier à la main après
+    chaque relance — y compris celles dues à une chute de tunnel. Il est
+    désormais conservé à côté des vidéos.
+
+    Une nouvelle machine Colab repart de zéro : son disque est effacé avec
+    elle. Pour un mot de passe vraiment stable, il faut le saisir dans la
+    cellule, où il a priorité sur celui-ci.
+    """
+    fichier = data_dir() / ".motdepasse"
+    if fourni:
+        fichier.write_text(fourni, encoding="utf-8")
+    elif fichier.exists():
+        return fichier.read_text(encoding="utf-8").strip() or generate_password()
+    else:
+        fourni = generate_password()
+        fichier.write_text(fourni, encoding="utf-8")
+    try:
+        fichier.chmod(0o600)
+    except OSError:                    # systèmes sans permissions POSIX
+        pass
+    return fourni
+
+
 def preparer_environnement() -> Path:
     """Fixe les dossiers de travail avant que `flambee.config` soit importé.
 
@@ -196,6 +223,7 @@ def start_server(
         "FLAMBEE_FFMPEG_THREADS": os.environ.get("FLAMBEE_FFMPEG_THREADS", "1"),
         "FLAMBEE_PASSWORD": password,
         "FLAMBEE_USERNAME": username,
+        "FLAMBEE_AUTO_SESSION": os.environ.get("FLAMBEE_AUTO_SESSION", ""),
         "FLAMBEE_HOST": "127.0.0.1",
         "FLAMBEE_PORT": str(port),
         "PYTHONUNBUFFERED": "1",
@@ -444,7 +472,7 @@ def start_all(
             ensure_transcription()
         except Exception as exc:        # jamais bloquant : le reste doit tourner
             log(f"⚠️  Moteur de transcription : {exc}")
-    password = password or generate_password()
+    password = mot_de_passe_persistant(password.strip())
 
     # Le compte est créé avant le serveur : celui-ci démarre alors avec les
     # inscriptions fermées, et l'adresse publique du tunnel ne permet à
@@ -453,6 +481,10 @@ def start_all(
     _COMPTE = ouvrir_un_compte(password)
     if _COMPTE:
         os.environ["FLAMBEE_SIGNUP"] = "ferme"
+        # Le verrou du tunnel vient d'être franchi : redemander une connexion
+        # par formulaire n'ajoute rien, et l'adresse changeant à chaque
+        # lancement, le cookie ne survivrait pas de toute façon.
+        os.environ["FLAMBEE_AUTO_SESSION"] = _COMPTE
 
     server = start_server(port, password, username, anthropic_key)
     # Le relais démarre avant l'attente : c'est pendant le démarrage que les

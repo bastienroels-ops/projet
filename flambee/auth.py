@@ -107,6 +107,15 @@ def _autorise_basic(entete: str | None) -> bool:
             and secrets.compare_digest(mot_de_passe, config.PASSWORD))
 
 
+def _poser_session(reponse: Response, utilisateur: Utilisateur | None,
+                   request: Request) -> Response:
+    """Dépose le cookie de la session ouverte d'office, s'il y en a une."""
+    if utilisateur is None:
+        return reponse
+    return ouvrir_session(reponse, utilisateur,
+                          securise=requete_securisee(request))
+
+
 def install_auth(app: FastAPI) -> None:
     """Installe les deux contrôles : verrou global puis session."""
 
@@ -118,10 +127,23 @@ def install_auth(app: FastAPI) -> None:
                                 content={"detail": "Authentification requise."},
                                 headers=_CHALLENGE)
 
+        # 1 bis. Session ouverte d'office, sur un déploiement d'une seule
+        # personne. Le verrou vient d'être franchi : redemander une connexion
+        # par formulaire n'ajoute aucune sécurité, et comme l'adresse change à
+        # chaque lancement — un tunnel Colab — le cookie ne survit jamais. Sans
+        # verrou global, on ne fait rien : ce serait une porte ouverte.
+        ouverture = None
+        if (config.AUTO_SESSION and config.PASSWORD
+                and utilisateur_courant(request) is None):
+            ouverture = users.par_email(config.AUTO_SESSION)
+            if ouverture is not None:
+                request.state.utilisateur = ouverture
+
         chemin = request.url.path
         if (_est_public(chemin) or request.method == "OPTIONS"
                 or not _route_connue(app, request)):
-            return await call_next(request)
+            reponse = await call_next(request)
+            return _poser_session(reponse, ouverture, request)
 
         # 2. Session : tout ce qui touche à l'atelier exige un compte.
         if utilisateur_courant(request) is None:
@@ -133,10 +155,16 @@ def install_auth(app: FastAPI) -> None:
                 suite += "?" + request.url.query
             return RedirectResponse(f"/connexion?suite={suite}", status_code=303)
 
-        return await call_next(request)
+        reponse = await call_next(request)
+        return _poser_session(reponse, ouverture, request)
 
     if config.PASSWORD:
         log.info("Verrou global actif (utilisateur « %s »).", config.USERNAME)
+    if config.AUTO_SESSION and not config.PASSWORD:
+        log.warning("FLAMBEE_AUTO_SESSION ignoré : sans verrou global, il "
+                    "ouvrirait l'atelier à tout le monde.")
+    elif config.AUTO_SESSION:
+        log.info("Session ouverte d'office pour « %s ».", config.AUTO_SESSION)
     log.info("Comptes : %s inscription(s) %s.",
              users.compter() if config.WORK_DIR.exists() else 0,
              "ouvertes" if users.inscriptions_ouvertes() else "fermées")

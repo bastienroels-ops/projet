@@ -322,3 +322,39 @@ def test_le_tunnel_passe_avant_l_encodage():
     corps = source[debut:source.index("def start_tunnel(", debut)]
     assert '"FLAMBEE_FFMPEG_THREADS": os.environ.get("FLAMBEE_FFMPEG_THREADS", "1")' \
         in corps, "la limite doit être imposée, pas devinée"
+
+
+def test_le_mot_de_passe_survit_a_une_relance(tmp_path, monkeypatch):
+    """Il était engendré à neuf à chaque exécution de la cellule.
+
+    Safari ne pouvait donc jamais le retenir, et il fallait le recopier à la
+    main après chaque relance — y compris celles dues à une chute de tunnel.
+    """
+    monkeypatch.setattr(launch, "data_dir", lambda: tmp_path)
+
+    premier = launch.mot_de_passe_persistant()
+    assert premier, "aucun mot de passe engendré"
+    assert launch.mot_de_passe_persistant() == premier, "il change à chaque fois"
+
+    choisi = launch.mot_de_passe_persistant("le-mien")
+    assert choisi == "le-mien", "un mot de passe saisi doit primer"
+    assert launch.mot_de_passe_persistant() == "le-mien", "il n'a pas été retenu"
+
+
+def test_la_session_d_office_exige_le_verrou(tmp_path, monkeypatch):
+    """Colab n'arme la session automatique qu'avec un mot de passe de tunnel.
+
+    Sans cette condition, l'adresse publique donnerait l'atelier à quiconque
+    la devine.
+    """
+    source = (ROOT / "colab" / "launch.py").read_text(encoding="utf-8")
+    debut = source.index("def start_all(")
+    corps = source[debut:source.index("def keep_alive(")]
+    assert 'os.environ["FLAMBEE_AUTO_SESSION"] = _COMPTE' in corps
+    assert corps.index("_COMPTE = ouvrir_un_compte(password)") \
+        < corps.index('os.environ["FLAMBEE_AUTO_SESSION"]'), \
+        "la session ne doit s'armer qu'une fois le compte créé"
+
+    auth = (ROOT / "flambee" / "auth.py").read_text(encoding="utf-8")
+    assert "config.AUTO_SESSION and config.PASSWORD" in auth, \
+        "le verrou global doit conditionner la session d'office"

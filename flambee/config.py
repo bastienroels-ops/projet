@@ -81,6 +81,14 @@ MAX_UPLOAD_BYTES = int(os.environ.get("FLAMBEE_MAX_UPLOAD_MB", "600")) * 1024 * 
 PASSWORD = os.environ.get("FLAMBEE_PASSWORD", "").strip()
 USERNAME = os.environ.get("FLAMBEE_USERNAME", "flambee").strip() or "flambee"
 
+# Ouvre d'office la session de ce compte, une fois le verrou global franchi.
+# Réservé aux déploiements d'une seule personne — Colab, une machine privée —
+# où l'on vient déjà de prouver qu'on connaît le mot de passe : redemander une
+# connexion par formulaire n'ajoute rien, et l'adresse du tunnel changeant à
+# chaque lancement, le cookie ne survit de toute façon jamais. Sans verrou
+# global, ce réglage est ignoré : il ouvrirait la porte à tout le monde.
+AUTO_SESSION = os.environ.get("FLAMBEE_AUTO_SESSION", "").strip()
+
 
 # --- Contraintes sources --------------------------------------------------
 MIN_SOURCES = 2

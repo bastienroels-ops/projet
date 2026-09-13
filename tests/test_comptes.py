@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import sys
 from pathlib import Path
 
@@ -355,3 +356,76 @@ def test_les_liens_d_inscription_disparaissent_quand_elle_est_fermee(client, mon
     fermee = client.get("/").text
     assert "Créer un compte" not in fermee, "le menu mène à une page qui refuse"
     assert 'href="/connexion"' in fermee, "la connexion doit rester offerte"
+
+
+# --- Session ouverte d'office, derrière le verrou global --------------------
+def _verrou(monkeypatch, mot_de_passe="secret-du-tunnel", compte=""):
+    """Le middleware lit ces réglages à chaque requête : on peut les poser ici."""
+    from flambee import config
+
+    monkeypatch.setattr(config, "PASSWORD", mot_de_passe)
+    monkeypatch.setattr(config, "USERNAME", "flambee")
+    monkeypatch.setattr(config, "AUTO_SESSION", compte)
+    jeton = base64.b64encode(f"flambee:{mot_de_passe}".encode()).decode()
+    return {"Authorization": f"Basic {jeton}"}
+
+
+def test_la_session_s_ouvre_d_office_derriere_le_verrou(client, monkeypatch):
+    """Sur une machine d'une seule personne, le formulaire n'apporte rien.
+
+    Le verrou du tunnel vient d'être franchi : redemander une connexion
+    n'ajoute aucune sécurité. Et comme l'adresse change à chaque lancement —
+    un tunnel Colab — le cookie ne survit jamais d'une fois sur l'autre.
+    """
+    client.post("/inscription", data={"email": "moi@flambee.local",
+                                      "mot_de_passe": "motdepasse1", "nom": "Toi"},
+                follow_redirects=True)
+    client.get("/deconnexion", follow_redirects=True)
+    client.cookies.clear()
+
+    entetes = _verrou(monkeypatch, compte="moi@flambee.local")
+    reponse = client.get("/studio", headers=entetes, follow_redirects=False)
+    assert reponse.status_code == 200, "on redemande une connexion inutilement"
+    assert users.SESSION_COOKIE in reponse.cookies, "la session n'est pas posée"
+
+
+def test_la_session_d_office_ne_dispense_pas_du_verrou(client, monkeypatch):
+    """Le mot de passe du tunnel reste exigé : il passe avant tout le reste."""
+    client.post("/inscription", data={"email": "moi@flambee.local",
+                                      "mot_de_passe": "motdepasse1", "nom": "Toi"},
+                follow_redirects=True)
+    client.cookies.clear()
+    _verrou(monkeypatch, compte="moi@flambee.local")
+
+    assert client.get("/studio", follow_redirects=False).status_code == 401
+    mauvais = base64.b64encode(b"flambee:pas-le-bon").decode()
+    refuse = client.get("/studio", headers={"Authorization": f"Basic {mauvais}"},
+                        follow_redirects=False)
+    assert refuse.status_code == 401
+
+
+def test_sans_verrou_global_la_session_d_office_est_ignoree(client, monkeypatch):
+    """Sans verrou, ce réglage ouvrirait l'atelier à n'importe qui.
+
+    C'est la garantie qui permet de s'en servir sur Colab sans risque : il ne
+    fait quelque chose que lorsqu'un mot de passe a déjà été vérifié.
+    """
+    from flambee import config
+
+    client.post("/inscription", data={"email": "moi@flambee.local",
+                                      "mot_de_passe": "motdepasse1", "nom": "Toi"},
+                follow_redirects=True)
+    client.cookies.clear()
+    monkeypatch.setattr(config, "PASSWORD", "")
+    monkeypatch.setattr(config, "AUTO_SESSION", "moi@flambee.local")
+
+    reponse = client.get("/studio", follow_redirects=False)
+    assert reponse.status_code == 303, "l'atelier serait ouvert sans mot de passe"
+    assert "/connexion" in reponse.headers["location"]
+
+
+def test_un_compte_inconnu_n_ouvre_aucune_session(client, monkeypatch):
+    """Une adresse mal saisie ne doit pas faire entrer quelqu'un d'autre."""
+    entetes = _verrou(monkeypatch, compte="fantome@nulle.part")
+    reponse = client.get("/studio", headers=entetes, follow_redirects=False)
+    assert reponse.status_code == 303
