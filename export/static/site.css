@@ -662,6 +662,7 @@ input[type=email]:focus, input[type=password]:focus {
 /* Le verdict tombe à l'acte du choix, pas à celui d'après. */
 .acte-1 .source-2 .source-retenue,
 .acte-2 .source-2 .source-retenue { opacity: 1; transform: none; }
+.source-retenue i { font-style: normal; }
 
 .montage { width: 196px; }
 .montage-cadre {
@@ -716,6 +717,10 @@ input[type=email]:focus, input[type=password]:focus {
   .sequence-plateau { height: min(38vh, 320px); }
   .source { width: 108px; }
   .montage { width: 128px; }
+  /* « Accroche retenue » passe sur deux lignes dans une carte de 108 px et
+     l'écrase : le premier mot disparaît, le sens reste. */
+  .source-retenue { inset: auto 6px 30px; font-size: 8.5px; letter-spacing: .04em; }
+  .source-retenue i { display: none; }
 }
 
 /* Sans mouvement : on montre l'aboutissement, qui est le propos, et les cinq
