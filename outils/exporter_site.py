@@ -132,8 +132,13 @@ def reecrire(html: str, adresses: dict[str, str], atelier: str, prefixe: str) ->
         # Vitrine seule : ces adresses n'existent pas ici. Plutôt qu'un 404 au
         # premier clic, les boutons descendent à l'essayage — on montre le
         # produit au lieu de mener nulle part.
+        #
+        # L'ancre doit être absolue. L'essayage ne vit que sur l'accueil :
+        # « #essayage » depuis /tarifs cherche une ancre absente de la page et
+        # ne fait donc rien — un bouton mort, ce qui est pire que le 404 qu'on
+        # voulait éviter. « /#essayage » ramène à l'accueil, puis descend.
         for lien in LIENS_ATELIER:
-            html = re.sub(rf'href="{lien}[^"]*"', 'href="#essayage"', html)
+            html = re.sub(rf'href="{lien}[^"]*"', 'href="/#essayage"', html)
     if prefixe:
         # `poster` et `data-src` portent aussi des adresses de médias : les
         # oublier laisserait les clips pointer à la racine du domaine.

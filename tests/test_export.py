@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -68,7 +69,7 @@ def test_sans_atelier_les_boutons_menent_a_l_essayage():
             '<a href="/inscription?formule=createur">Choisir</a>'
             '<a href="/connexion">Entrer</a>')
     rendu = exporter_site.reecrire(html, MEDIAS, "", "")
-    assert rendu.count('href="#essayage"') == 3
+    assert rendu.count('href="/#essayage"') == 3
     assert "/inscription" not in rendu and "/connexion" not in rendu
 
 
@@ -194,3 +195,27 @@ def test_aucune_ressource_ne_traine_sous_son_ancien_nom():
     trouves = {f.name for f in (EXPORT / "static").glob("*")
                if f.suffix in (".css", ".js")}
     assert trouves == attendus, f"en trop : {trouves - attendus}"
+
+
+def test_les_boutons_de_compte_menent_a_une_ancre_qui_existe():
+    """Sans atelier, les boutons descendent à l'essayage — encore faut-il y aller.
+
+    L'essayage ne vit que sur l'accueil. Une ancre relative « #essayage »
+    depuis /tarifs désigne une ancre absente de cette page : le navigateur ne
+    bouge pas, le bouton ne fait rien. Un lien mort sur la page des prix est
+    pire que l'erreur 404 qu'on cherchait à éviter.
+    """
+    html = exporter_site.reecrire(
+        '<a href="/inscription">Créer un compte</a>', MEDIAS, "", "")
+    assert 'href="/#essayage"' in html
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_aucune_page_publiee_ne_pointe_vers_une_ancre_absente():
+    """Vérifié sur les pages réellement publiées, pas seulement sur la règle."""
+    for fichier in sorted(EXPORT.rglob("*.html")):
+        html = fichier.read_text(encoding="utf-8")
+        for ancre in set(re.findall(r'href="#([^"]+)"', html)):
+            assert f'id="{ancre}"' in html, (
+                f"{fichier.relative_to(EXPORT)} pointe vers #{ancre}, "
+                f"qui n'existe pas sur cette page")
