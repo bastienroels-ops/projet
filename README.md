@@ -37,6 +37,27 @@ La réponse est la même que l'adresse soit inscrite ou non, pour que le
 formulaire ne dise pas qui a un compte. Sans `FLAMBEE_SMTP_HOTE`, le lien est
 écrit dans le journal du serveur et la page l'annonce clairement.
 
+### La transcription
+
+Script Viral et Voice Studio reposent sur un moteur de reconnaissance vocale.
+Deux sont acceptés, essayés dans cet ordre :
+
+| Moteur | Quand |
+|---|---|
+| `faster-whisper` | Le choix par défaut : environ quatre fois plus rapide, sans PyTorch. Installé dans l'image Docker. |
+| `openai-whisper` | Le filet. Plus lourd, mais PyTorch est déjà présent sur Google Colab, où les roues de CTranslate2 entrent parfois en conflit avec la version de numpy imposée. |
+
+Si aucun n'est utilisable, la rubrique le dit — en distinguant **absent** de
+**installé mais hors d'état**, ce qui n'est pas le même problème — et propose
+au compte administrateur un bouton qui lance l'installation sans quitter la
+page. Trois stratégies sont essayées, chacune vérifiée par un import réel :
+pip peut réussir en laissant le module inutilisable. Le processus en cours
+prend le paquet en compte sans redémarrage.
+
+Ce bouton lance `pip` côté serveur. Il n'est proposé qu'au premier compte, et
+n'installe qu'une liste de paquets figée dans le code — jamais un nom venu de
+la requête. `FLAMBEE_INSTALL_MOTEUR=0` le retire complètement.
+
 ### Les rubriques de l'application
 
 | Rubrique | État |
@@ -316,6 +337,7 @@ possibles : Pixabay Music, Free Music Archive, YouTube Audio Library.
 | `FLAMBEE_SIGNUP` | `ouvert` | `ferme` interdit toute nouvelle inscription |
 | `FLAMBEE_INVITE_CODE` | — | si défini, exigé à l'inscription |
 | `FLAMBEE_PLAN_PROPRIETAIRE` | `studio` | formule du premier compte créé ; `essai` pour n'accorder aucun privilège |
+| `FLAMBEE_INSTALL_MOTEUR` | `1` | `0` retire le bouton qui installe le moteur de transcription depuis l'interface |
 | `FLAMBEE_PASSWORD` | — | verrou global optionnel, en plus des comptes |
 | `FLAMBEE_USERNAME` | `flambee` | identifiant du verrou global |
 | `FLAMBEE_MAX_UPLOAD_MB` | `600` | taille maximale d'une vidéo importée |
