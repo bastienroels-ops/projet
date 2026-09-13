@@ -6,17 +6,26 @@
   <p class="eyebrow">Connexion</p>
   <h1>Content de <em>te revoir</em>.</h1>
 
-  <div class="avis">
-    <b>Les comptes ne sont pas encore ouverts.</b>
-    Flambée fonctionne pour l'instant avec un accès unique : l'atelier s'ouvre
-    directement, protégé par un mot de passe défini à l'installation. Les
-    comptes individuels et la facturation arrivent ensuite — laisse ton adresse
-    pour être prévenu.
+  {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+  {% if bienvenue %}<div class="avis reussite"><b>Compte créé.</b>
+    Connecte-toi avec l'adresse que tu viens d'enregistrer.</div>{% endif %}
+
+  <div class="carte-formulaire">
+    <form method="post" action="/connexion" class="formulaire">
+      <input type="hidden" name="suite" value="{{ suite }}">
+      <label class="block"><span>Adresse e-mail</span>
+        <input type="email" name="email" value="{{ email }}" required
+               autocomplete="email" autofocus placeholder="toi@exemple.fr">
+      </label>
+      <label class="block"><span>Mot de passe</span>
+        <input type="password" name="mot_de_passe" required
+               autocomplete="current-password" placeholder="••••••••">
+      </label>
+      <button class="primary grand" type="submit">Se connecter</button>
+    </form>
   </div>
 
-  <div class="row">
-    <a href="/studio" class="button primary grand">Ouvrir l'atelier</a>
-    <a href="/inscription" class="button ghost grand">Être prévenu</a>
-  </div>
+  <p class="sous-formulaire">Pas encore de compte ?
+    <a href="/inscription">En créer un</a></p>
 </section>
 {% endblock %}

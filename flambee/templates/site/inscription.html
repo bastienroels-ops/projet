@@ -4,36 +4,41 @@
 {% block contenu %}
 <section class="section section-premiere etroit">
   <p class="eyebrow">Inscription</p>
-  <h1>Les comptes ouvrent <em>bientôt</em>.</h1>
-  <p class="section-accroche">
-    Le moteur de montage est terminé et fonctionne. Ce qu'il reste à brancher,
-    ce sont les comptes et le paiement. Laisse ton adresse : tu seras prévenu
-    en premier, et la formule que tu choisis ici nous dit par quoi commencer.
-  </p>
+  <h1>Ta première vidéo est <em>à cinq minutes</em>.</h1>
+  <p class="section-accroche">Trois vidéos par mois, gratuitement, sans carte
+    bancaire. Tu changes de formule le jour où tu en as besoin.</p>
 
   {% if erreur %}<div class="avis erreur">{{ erreur }}</div>{% endif %}
+  {% if not ouvert %}<div class="avis"><b>Inscriptions fermées.</b>
+    Un code d'invitation est nécessaire pour l'instant.</div>{% endif %}
 
-  <form class="formulaire" method="post" action="/inscription">
-    <label class="block"><span>Adresse e-mail</span>
-      <input type="email" name="email" required autocomplete="email"
-             placeholder="toi@exemple.fr">
-    </label>
-    <label class="block"><span>Formule qui t'intéresse</span>
-      <select name="formule">
-        {% for plan in plans %}
-        <option value="{{ plan.id }}" {% if plan.id == formule %}selected{% endif %}>
-          {{ plan.name }} — {% if plan.price_monthly %}{{ plan.price_monthly }} € / mois{% else %}gratuit{% endif %}
-        </option>
-        {% endfor %}
-      </select>
-    </label>
-    <label class="block"><span>Ce que tu publies (facultatif)</span>
-      <input type="text" name="usage" placeholder="ex. contenus sport, compte de marque…">
-    </label>
-    <button class="primary grand" type="submit">M'inscrire sur la liste</button>
-    <p class="mention">Ton adresse sert uniquement à te prévenir de l'ouverture.
-      Elle n'est ni revendue, ni utilisée pour autre chose, et tu peux demander
-      son effacement à tout moment.</p>
-  </form>
+  <div class="carte-formulaire">
+    <form method="post" action="/inscription" class="formulaire">
+      <label class="block"><span>Nom affiché</span>
+        <input type="text" name="nom" value="{{ nom }}" autocomplete="name"
+               placeholder="ex. Bastien">
+      </label>
+      <label class="block"><span>Adresse e-mail</span>
+        <input type="email" name="email" value="{{ email }}" required
+               autocomplete="email" placeholder="toi@exemple.fr">
+      </label>
+      <label class="block"><span>Mot de passe</span>
+        <input type="password" name="mot_de_passe" required minlength="8"
+               autocomplete="new-password" placeholder="au moins 8 caractères">
+      </label>
+      {% if invitation_requise %}
+      <label class="block"><span>Code d'invitation</span>
+        <input type="text" name="invitation" placeholder="fourni par l'équipe">
+      </label>
+      {% endif %}
+      <button class="primary grand" type="submit">Créer mon compte</button>
+      <p class="mention">En créant un compte, tu acceptes les
+        <a href="/conditions">conditions d'utilisation</a> et la
+        <a href="/confidentialite">politique de confidentialité</a>.</p>
+    </form>
+  </div>
+
+  <p class="sous-formulaire">Déjà inscrit ?
+    <a href="/connexion">Se connecter</a></p>
 </section>
 {% endblock %}

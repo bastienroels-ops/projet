@@ -267,6 +267,11 @@ body.site { padding: 0; }
 .formulaire { margin-top: 34px; display: flex; flex-direction: column; gap: 4px; }
 .formulaire .button, .formulaire button { margin-top: 20px; align-self: flex-start; }
 .mention { font-size: 12.5px; color: var(--text-faint); margin: 16px 0 0; line-height: 1.6; }
+.mention a, .texte-legal a, .carte p a {
+  color: var(--ember-2); text-decoration: none;
+  border-bottom: 1px solid rgba(255, 182, 72, .3);
+}
+.mention a:hover, .texte-legal a:hover { border-bottom-color: var(--ember-2); }
 
 .avis {
   padding: 20px 24px; margin: 28px 0;
@@ -361,3 +366,38 @@ body.site { padding: 0; }
   .site-footer { padding: 46px 20px 24px; }
   .tarif { padding: 28px 22px; }
 }
+
+/* ------------------------------------------------- Formulaires de compte --- */
+.carte-formulaire {
+  margin-top: 30px; padding: 32px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  box-shadow: var(--shadow);
+}
+.carte-formulaire .formulaire { margin-top: 0; }
+.carte-formulaire .button,
+.carte-formulaire button { width: 100%; margin-top: 26px; }
+input[type=email], input[type=password] {
+  width: 100%; padding: 14px 16px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .32); color: var(--text);
+  font: 400 15px/1.6 var(--sans);
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+input[type=email]:focus, input[type=password]:focus {
+  outline: none; border-color: rgba(255, 122, 47, .55);
+  background: rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 4px rgba(255, 122, 47, .1);
+}
+.sous-formulaire {
+  margin-top: 26px; text-align: center;
+  font-size: 14px; color: var(--text-soft);
+}
+.sous-formulaire a { color: var(--ember-2); text-decoration: none; font-weight: 500; }
+.sous-formulaire a:hover { text-decoration: underline; }
+.avis.reussite {
+  border-color: rgba(95, 214, 164, .3); background: rgba(95, 214, 164, .06);
+  color: #a5ead0;
+}
+.avis.reussite b { color: var(--ok); }
+@media (max-width: 680px) { .carte-formulaire { padding: 22px; } }

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from . import (analyzer, assembler, config, downloader, subtitles, trimmer,
                voice, voicestudio)
-from . import account
+from . import account, users
 from .media import Cancelled, MediaError, detect_encoder, ensure_tools, probe
 from .project import Project
 
@@ -299,7 +299,9 @@ def run_render(project: Project, *, fast: bool = False) -> None:
             project.preview_path = str(out_path)
         else:
             project.output_path = str(out_path)
-            account.noter("rendu", out_path.name)   # un crédit consommé
+            proprietaire = users.par_id(project.owner) if project.owner else None
+            if proprietaire:
+                account.noter(proprietaire, "rendu", out_path.name)  # un crédit
         project.step = 5
         project.set_job(
             "render", "done", progress=1.0,
@@ -387,7 +389,7 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
     # Voix importée : le fichier existe déjà, son minutage vient de la
     # transcription. Rien à synthétiser, et le script n'entre pas en jeu.
     if project.settings.voice == voicestudio.VOICE_ID:
-        piste = voicestudio.piste()
+        piste = voicestudio.piste(project.owner)
         project.set_job("render", "running", progress=0.10,
                         message="Voix importée : montage calé sur ton enregistrement.")
         return piste

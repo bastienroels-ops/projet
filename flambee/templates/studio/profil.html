@@ -10,14 +10,34 @@
     <b>Enregistré.</b>Tes informations ont été mises à jour.</div>{% endif %}
 
   <div class="carte">
+    <h2>Identité</h2>
     <form method="post" action="/studio/profil" class="formulaire">
       <label class="block"><span>Nom affiché</span>
         <input type="text" name="nom" value="{{ compte.nom }}" placeholder="ex. Bastien">
       </label>
       <label class="block"><span>Adresse e-mail</span>
-        <input type="text" name="email" value="{{ compte.email }}" placeholder="toi@exemple.fr">
+        <input type="text" value="{{ compte.email }}" disabled>
       </label>
       <button class="primary" type="submit">Enregistrer</button>
+      <p class="mention">L'adresse identifie le compte : elle ne se change pas
+        depuis ici pour l'instant.</p>
+    </form>
+  </div>
+
+  <div class="carte">
+    <h2>Mot de passe</h2>
+    {% if erreur_mdp %}<div class="avis erreur">{{ erreur_mdp }}</div>{% endif %}
+    {% if mot_de_passe_change %}<div class="avis reussite">
+      <b>Modifié.</b>Ton nouveau mot de passe est actif.</div>{% endif %}
+    <form method="post" action="/studio/profil/mot-de-passe" class="formulaire">
+      <label class="block"><span>Mot de passe actuel</span>
+        <input type="password" name="ancien" required autocomplete="current-password">
+      </label>
+      <label class="block"><span>Nouveau mot de passe</span>
+        <input type="password" name="nouveau" required minlength="8"
+               autocomplete="new-password" placeholder="au moins 8 caractères">
+      </label>
+      <button class="primary" type="submit">Changer</button>
     </form>
   </div>
 
@@ -37,6 +57,23 @@
         <span class="ligne-valeur">{{ compte.cree_le }}</span>
       </div>
     </div>
+    <div class="row">
+      <a href="/deconnexion" class="button ghost">Se déconnecter</a>
+    </div>
+  </div>
+
+  <div class="carte carte-danger">
+    <h2>Supprimer le compte</h2>
+    <p>Le compte, les projets et les vidéos rendues sont effacés définitivement.
+      Rien n'est conservé, et l'opération ne peut pas être annulée.</p>
+    {% if confirmation == 'manquante' %}<div class="avis erreur">
+      Écris SUPPRIMER en majuscules pour confirmer.</div>{% endif %}
+    <form method="post" action="/studio/profil/supprimer" class="formulaire">
+      <label class="block"><span>Écris SUPPRIMER pour confirmer</span>
+        <input type="text" name="confirmation" placeholder="SUPPRIMER">
+      </label>
+      <button class="ghost danger" type="submit">Supprimer définitivement</button>
+    </form>
   </div>
 </div>
 {% endblock %}

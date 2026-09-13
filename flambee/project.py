@@ -35,6 +35,7 @@ class JobState:
 @dataclass
 class Project:
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    owner: int = 0                     # identifiant du compte propriétaire
     created_at: float = field(default_factory=time.time)
     step: int = 1
     urls: list[str] = field(default_factory=list)
@@ -58,9 +59,17 @@ class Project:
     job: JobState = field(default_factory=JobState)
 
     # --- Chemins ----------------------------------------------------------
+    @staticmethod
+    def base_dir(owner: int) -> Path:
+        """Espace de travail d'un compte. Les projets d'un utilisateur ne sont
+        jamais mêlés à ceux d'un autre, ni sur le disque ni dans les URL."""
+        if owner:
+            return config.WORK_DIR / "utilisateurs" / str(owner) / "projets"
+        return config.WORK_DIR / "projets"          # avant tout compte
+
     @property
     def dir(self) -> Path:
-        return config.WORK_DIR / self.id
+        return self.base_dir(self.owner) / self.id
 
     @property
     def sources_dir(self) -> Path:
@@ -97,6 +106,7 @@ class Project:
     def to_dict(self) -> dict:
         return {
             "id": self.id,
+            "owner": self.owner,
             "created_at": self.created_at,
             "step": self.step,
             "urls": self.urls,
@@ -124,6 +134,7 @@ class Project:
     def from_dict(cls, data: dict) -> "Project":
         project = cls(
             id=data["id"],
+            owner=int(data.get("owner") or 0),
             created_at=data.get("created_at", time.time()),
             step=data.get("step", 1),
             urls=data.get("urls", []),
@@ -193,42 +204,47 @@ class ProjectStore:
     def __init__(self) -> None:
         self._cache: dict[str, Project] = {}
 
-    def create(self) -> Project:
-        project = Project()
+    def create(self, owner: int = 0) -> Project:
+        project = Project(owner=owner)
         project.ensure_dirs()
         project.save()
         with _LOCK:
             self._cache[project.id] = project
         return project
 
-    def get(self, project_id: str) -> Project | None:
+    def get(self, project_id: str, owner: int = 0) -> Project | None:
+        """Retourne un projet, à condition qu'il appartienne bien au compte."""
         with _LOCK:
-            if project_id in self._cache:
-                return self._cache[project_id]
-        path = config.WORK_DIR / project_id / "project.json"
+            connu = self._cache.get(project_id)
+        if connu is not None:
+            return connu if connu.owner == owner else None
+
+        path = Project.base_dir(owner) / project_id / "project.json"
         if not path.exists():
             return None
         try:
             project = Project.from_dict(json.loads(path.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
+        if project.owner != owner:
+            return None
         with _LOCK:
             self._cache[project.id] = project
         return project
 
-    def list_recent(self, limit: int = 20) -> list[Project]:
+    def list_recent(self, limit: int = 20, owner: int = 0) -> list[Project]:
         projects = []
-        for path in config.WORK_DIR.glob("*/project.json"):
-            project = self.get(path.parent.name)
+        for path in Project.base_dir(owner).glob("*/project.json"):
+            project = self.get(path.parent.name, owner=owner)
             if project:
                 projects.append(project)
         projects.sort(key=lambda p: p.created_at, reverse=True)
         return projects[:limit]
 
-    def delete(self, project_id: str) -> bool:
+    def delete(self, project_id: str, owner: int = 0) -> bool:
         import shutil
 
-        project_dir = config.WORK_DIR / project_id
+        project_dir = Project.base_dir(owner) / project_id
         with _LOCK:
             self._cache.pop(project_id, None)
         if project_dir.exists():

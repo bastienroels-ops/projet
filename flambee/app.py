@@ -19,8 +19,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from . import (__version__, account, config, downloader, media, pipeline,
-               plans, samples, scriptgen, site, transcribe, voice, voicestudio)
-from .auth import install_auth
+               plans, samples, scriptgen, site, transcribe, users, voice,
+               voicestudio)
+from .auth import (fermer_session, install_auth, ouvrir_session,
+                   requete_securisee, utilisateur_courant)
 from .project import Project, store
 
 logging.basicConfig(
@@ -74,8 +76,22 @@ class ScriptIn(BaseModel):
 
 
 # --- Helpers --------------------------------------------------------------
-def _get(project_id: str) -> Project:
-    project = store.get(project_id)
+def _utilisateur(request: Request) -> users.Utilisateur:
+    """Le compte connecté. Le middleware l'a déjà exigé ; ceci ferme la porte
+    au cas où une route échapperait au contrôle."""
+    utilisateur = utilisateur_courant(request)
+    if utilisateur is None:
+        raise HTTPException(status_code=401, detail="Connecte-toi pour continuer.")
+    return utilisateur
+
+
+def _get(project_id: str, request: Request) -> Project:
+    """Un projet, à condition qu'il appartienne au compte connecté.
+
+    Le propriétaire fait partie du chemin d'accès : un identifiant deviné ne
+    donne rien s'il appartient à quelqu'un d'autre.
+    """
+    project = store.get(project_id, owner=_utilisateur(request).id)
     if project is None:
         raise HTTPException(status_code=404, detail="Projet introuvable.")
     return project
@@ -172,17 +188,52 @@ async def faq(request: Request):
                                       _contexte_site("faq"))
 
 
+def _suite_sure(suite: str) -> str:
+    """N'accepte qu'une redirection interne : une URL absolue permettrait
+    d'envoyer l'utilisateur sur un autre site après connexion."""
+    suite = (suite or "").strip()
+    if suite.startswith("/") and not suite.startswith("//"):
+        return suite
+    return "/studio"
+
+
 @app.get("/connexion", response_class=HTMLResponse)
-async def connexion(request: Request):
-    return templates.TemplateResponse(request, "site/connexion.html",
-                                      _contexte_site("connexion"))
+async def connexion(request: Request, suite: str = "", bienvenue: bool = False):
+    if utilisateur_courant(request):
+        return RedirectResponse(_suite_sure(suite), status_code=303)
+    return templates.TemplateResponse(
+        request, "site/connexion.html",
+        _contexte_site("connexion", suite=_suite_sure(suite), email="",
+                       bienvenue=bienvenue),
+    )
+
+
+@app.post("/connexion", response_class=HTMLResponse)
+async def connexion_envoi(request: Request, email: str = Form(""),
+                          mot_de_passe: str = Form(""), suite: str = Form("")):
+    try:
+        utilisateur = users.authentifier(email, mot_de_passe)
+    except users.CompteError as exc:
+        return templates.TemplateResponse(
+            request, "site/connexion.html",
+            _contexte_site("connexion", suite=_suite_sure(suite),
+                           email=email, erreur=str(exc)),
+            status_code=401,
+        )
+    reponse = RedirectResponse(_suite_sure(suite), status_code=303)
+    return ouvrir_session(reponse, utilisateur,
+                          securise=requete_securisee(request))
 
 
 @app.get("/inscription", response_class=HTMLResponse)
 async def inscription(request: Request, formule: str = ""):
+    if utilisateur_courant(request):
+        return RedirectResponse("/studio", status_code=303)
     return templates.TemplateResponse(
         request, "site/inscription.html",
-        _contexte_site("inscription", formule=formule),
+        _contexte_site("inscription", formule=formule, email="", nom="",
+                       ouvert=users.inscriptions_ouvertes(),
+                       invitation_requise=bool(users.code_invitation())),
     )
 
 
@@ -190,19 +241,35 @@ async def inscription(request: Request, formule: str = ""):
 async def inscription_envoi(
     request: Request,
     email: str = Form(""),
+    nom: str = Form(""),
+    mot_de_passe: str = Form(""),
+    invitation: str = Form(""),
     formule: str = Form(""),
-    usage: str = Form(""),
 ):
-    """Enregistre une inscription à la liste d'attente."""
-    if not site.register(email, formule, usage):
+    """Crée le compte puis ouvre la session dans la foulée."""
+    try:
+        utilisateur = users.creer(email, mot_de_passe, nom, invitation)
+    except users.CompteError as exc:
         return templates.TemplateResponse(
             request, "site/inscription.html",
-            _contexte_site("inscription", formule=formule,
-                           erreur="Cette adresse e-mail ne semble pas valide."),
+            _contexte_site("inscription", formule=formule, email=email, nom=nom,
+                           ouvert=users.inscriptions_ouvertes(),
+                           invitation_requise=bool(users.code_invitation()),
+                           erreur=str(exc)),
             status_code=400,
         )
-    return templates.TemplateResponse(request, "site/merci.html",
-                                      _contexte_site("merci"))
+
+    if formule in {plan.id for plan in plans.PLANS}:
+        account.changer_de_formule(utilisateur, formule)
+
+    reponse = RedirectResponse("/studio", status_code=303)
+    return ouvrir_session(reponse, utilisateur,
+                          securise=requete_securisee(request))
+
+
+@app.get("/deconnexion")
+async def deconnexion():
+    return fermer_session(RedirectResponse("/", status_code=303))
 
 
 def _page_legale(request: Request, page: str) -> HTMLResponse:
@@ -234,23 +301,15 @@ async def confidentialite(request: Request):
 
 
 # --- L'application --------------------------------------------------------
-def _contexte_app(rubrique: str, **extra) -> dict:
+def _contexte_app(rubrique: str, request: Request, **extra) -> dict:
     """Contexte commun à toutes les pages de l'application connectée."""
-    compte = account.charger()
+    compte = _utilisateur(request)
+    resume = account.resume(compte)
     return {
         "rubrique": rubrique,
         "compte": compte,
-        "plan_actuel": {
-            "name": compte.formule.name,
-            "videos": compte.formule.videos,
-            "price_monthly": compte.formule.price_monthly,
-            "pro": compte.pro,
-        },
-        "credits": {
-            "consommes": compte.consommes(),
-            "restants": compte.restants(),
-            "quota": compte.quota,
-        },
+        "plan_actuel": resume["plan"],
+        "credits": resume["credits"],
         "profil": {"initiales": compte.initiales},
         "plans": plans.PLANS,
         "steps": plans.STEPS,
@@ -263,7 +322,7 @@ def _contexte_app(rubrique: str, **extra) -> dict:
 async def studio(request: Request):
     return templates.TemplateResponse(
         request, "studio/creer.html",
-        _contexte_app("creer",
+        _contexte_app("creer", request,
                       min_sources=config.MIN_SOURCES,
                       max_sources=config.MAX_SOURCES,
                       output_dir=str(config.OUTPUT_DIR)),
@@ -273,7 +332,7 @@ async def studio(request: Request):
 @app.get("/studio/creations", response_class=HTMLResponse)
 async def studio_creations(request: Request):
     creations = []
-    for projet in store.list_recent(limit=40):
+    for projet in store.list_recent(limit=40, owner=_utilisateur(request).id):
         creations.append({
             "id": projet.id,
             "titre": projet.topic or (projet.sources[0].title if projet.sources
@@ -286,37 +345,37 @@ async def studio_creations(request: Request):
         })
     return templates.TemplateResponse(
         request, "studio/creations.html",
-        _contexte_app("creations", creations=creations),
+        _contexte_app("creations", request, creations=creations),
     )
 
 
 @app.get("/studio/tutoriel", response_class=HTMLResponse)
 async def studio_tutoriel(request: Request):
     return templates.TemplateResponse(request, "studio/tutoriel.html",
-                                      _contexte_app("tutoriel"))
+                                      _contexte_app("tutoriel", request))
 
 
 @app.get("/studio/communaute", response_class=HTMLResponse)
 async def studio_communaute(request: Request):
     return templates.TemplateResponse(request, "studio/communaute.html",
-                                      _contexte_app("communaute"))
+                                      _contexte_app("communaute", request))
 
 
 @app.get("/studio/abonnement", response_class=HTMLResponse)
 async def studio_abonnement(request: Request):
     return templates.TemplateResponse(request, "studio/abonnement.html",
-                                      _contexte_app("abonnement"))
+                                      _contexte_app("abonnement", request))
 
 
 @app.post("/studio/abonnement", response_class=HTMLResponse)
 async def studio_changer_formule(request: Request, plan: str = Form("")):
-    account.changer_de_formule(plan)
+    account.changer_de_formule(_utilisateur(request), plan)
     return RedirectResponse("/studio/abonnement", status_code=303)
 
 
 @app.get("/studio/credits", response_class=HTMLResponse)
 async def studio_credits(request: Request):
-    compte = account.charger()
+    compte = _utilisateur(request)
     libelles = {"rendu": "Vidéo rendue", "apercu": "Aperçu",
                 "transcription": "Transcription", "voix": "Voix importée"}
     historique = [
@@ -326,23 +385,51 @@ async def studio_credits(request: Request):
     ]
     return templates.TemplateResponse(
         request, "studio/credits.html",
-        _contexte_app("credits", historique=historique),
+        _contexte_app("credits", request, historique=historique),
     )
 
 
 @app.get("/studio/profil", response_class=HTMLResponse)
-async def studio_profil(request: Request, enregistre: bool = False):
+async def studio_profil(request: Request, enregistre: bool = False,
+                        mot_de_passe: bool = False, confirmation: str = ""):
     return templates.TemplateResponse(
         request, "studio/profil.html",
-        _contexte_app("profil", auth=bool(config.PASSWORD), enregistre=enregistre),
+        _contexte_app("profil", request, auth=bool(config.PASSWORD),
+                      enregistre=enregistre, mot_de_passe_change=mot_de_passe,
+                      confirmation=confirmation),
     )
 
 
 @app.post("/studio/profil", response_class=HTMLResponse)
-async def studio_profil_envoi(request: Request, nom: str = Form(""),
-                              email: str = Form("")):
-    account.mettre_a_jour_profil(nom, email)
+async def studio_profil_envoi(request: Request, nom: str = Form("")):
+    users.mettre_a_jour(_utilisateur(request).id, nom=nom)
     return RedirectResponse("/studio/profil?enregistre=true", status_code=303)
+
+
+@app.post("/studio/profil/mot-de-passe", response_class=HTMLResponse)
+async def studio_changer_mot_de_passe(request: Request, ancien: str = Form(""),
+                                      nouveau: str = Form("")):
+    try:
+        users.changer_mot_de_passe(_utilisateur(request).id, ancien, nouveau)
+    except users.CompteError as exc:
+        return templates.TemplateResponse(
+            request, "studio/profil.html",
+            _contexte_app("profil", request, auth=bool(config.PASSWORD),
+                          erreur_mdp=str(exc)),
+            status_code=400,
+        )
+    return RedirectResponse("/studio/profil?mot_de_passe=true", status_code=303)
+
+
+@app.post("/studio/profil/supprimer")
+async def studio_supprimer_compte(request: Request, confirmation: str = Form("")):
+    """Droit à l'effacement : le compte et tout son espace de travail."""
+    utilisateur = _utilisateur(request)
+    if confirmation.strip().upper() != "SUPPRIMER":
+        return RedirectResponse("/studio/profil?confirmation=manquante",
+                                status_code=303)
+    users.supprimer(utilisateur.id)
+    return fermer_session(RedirectResponse("/", status_code=303))
 
 
 @app.get("/studio/parametres", response_class=HTMLResponse)
@@ -379,7 +466,7 @@ async def studio_parametres(request: Request):
     ]
     return templates.TemplateResponse(
         request, "studio/parametres.html",
-        _contexte_app("parametres", etat=etat, variables=variables,
+        _contexte_app("parametres", request, etat=etat, variables=variables,
                       dossiers={"sortie": str(config.OUTPUT_DIR),
                                 "travail": str(config.WORK_DIR),
                                 "musiques": str(config.MUSIC_DIR)}),
@@ -391,7 +478,7 @@ async def studio_parametres(request: Request):
 async def studio_script(request: Request):
     return templates.TemplateResponse(
         request, "studio/script_viral.html",
-        _contexte_app("script", transcription_disponible=transcribe.available()),
+        _contexte_app("script", request, transcription_disponible=transcribe.available()),
     )
 
 
@@ -402,22 +489,22 @@ async def studio_script_envoi(
     fichier: UploadFile | None = File(None),
 ):
     """Transcrit une vidéo, depuis un lien ou un fichier importé."""
-    compte = account.charger()
+    compte = _utilisateur(request)
     contexte = {"transcription_disponible": transcribe.available(), "url": url}
 
     def echec(message: str, code: int = 400):
         return templates.TemplateResponse(
             request, "studio/script_viral.html",
-            _contexte_app("script", erreur=message, **contexte),
+            _contexte_app("script", request, erreur=message, **contexte),
             status_code=code,
         )
 
-    if not compte.pro:
+    if not account.est_pro(compte):
         return echec("Cette rubrique demande la formule Créateur.", 402)
     if not transcribe.available():
         return echec("Le moteur de transcription n'est pas installé.", 503)
 
-    dossier = config.WORK_DIR / ".transcriptions"
+    dossier = compte.dossier / "transcriptions"
     dossier.mkdir(parents=True, exist_ok=True)
     source: Path | None = None
 
@@ -452,13 +539,14 @@ async def studio_script_envoi(
         if source and source.exists() and source.parent == dossier:
             source.unlink(missing_ok=True)
 
-    account.noter("transcription", url or (fichier.filename if fichier else ""))
+    account.noter(compte, "transcription",
+                  url or (fichier.filename if fichier else ""))
     jeton = hashlib.sha256(transcription.text.encode("utf-8")).hexdigest()[:12]
     (dossier / f"{jeton}.txt").write_text(transcription.text, encoding="utf-8")
 
     return templates.TemplateResponse(
         request, "studio/script_viral.html",
-        _contexte_app("script", **contexte, resultat={
+        _contexte_app("script", request, **contexte, resultat={
             "texte": transcription.text,
             "mots": len(transcription.words),
             "langue": transcription.language or "inconnue",
@@ -471,27 +559,27 @@ async def studio_script_envoi(
 # --- Voice Studio ---------------------------------------------------------
 @app.get("/studio/voix", response_class=HTMLResponse)
 async def studio_voix(request: Request):
-    infos = voicestudio.charger()
+    infos = voicestudio.charger(_utilisateur(request).id)
     voix = None
     if infos:
         voix = {"nom": infos.get("nom", "voix.wav"),
                 "duree": f"{infos.get('duree', 0):.0f} s",
                 "mots": len(infos.get("mots", []))}
     return templates.TemplateResponse(request, "studio/voix.html",
-                                      _contexte_app("voix", voix=voix))
+                                      _contexte_app("voix", request, voix=voix))
 
 
 @app.post("/studio/voix", response_class=HTMLResponse)
 async def studio_voix_envoi(request: Request, fichier: UploadFile = File(...)):
-    compte = account.charger()
+    compte = _utilisateur(request)
 
     def echec(message: str, code: int = 400):
         return templates.TemplateResponse(
             request, "studio/voix.html",
-            _contexte_app("voix", voix=None, erreur=message), status_code=code,
+            _contexte_app("voix", request, voix=None, erreur=message), status_code=code,
         )
 
-    if not compte.pro:
+    if not account.est_pro(compte):
         return echec("Cette rubrique demande la formule Créateur.", 402)
     if not transcribe.available():
         return echec("Le moteur de transcription n'est pas installé.", 503)
@@ -500,32 +588,32 @@ async def studio_voix_envoi(request: Request, fichier: UploadFile = File(...)):
     if suffixe not in voicestudio.EXTENSIONS:
         return echec(f"Format non reconnu : {fichier.filename}")
 
-    brut = voicestudio.dossier() / f"import{suffixe}"
+    brut = voicestudio.dossier(compte.id) / f"import{suffixe}"
     try:
         if await _stream_to_disk(fichier, brut) == 0:
             return echec("Fichier vide.")
         await asyncio.to_thread(voicestudio.enregistrer, brut,
-                                fichier.filename or "enregistrement")
+                                fichier.filename or "enregistrement", compte.id)
     except (media.MediaError, transcribe.TranscriptionError, ValueError) as exc:
         return echec(str(exc), 500)
     finally:
         brut.unlink(missing_ok=True)
 
-    account.noter("voix", fichier.filename or "")
+    account.noter(compte, "voix", fichier.filename or "")
     return RedirectResponse("/studio/voix", status_code=303)
 
 
 @app.get("/studio/voix/fichier")
-async def studio_voix_fichier():
-    chemin = voicestudio.chemin_audio()
+async def studio_voix_fichier(request: Request):
+    chemin = voicestudio.chemin_audio(_utilisateur(request).id)
     if not chemin.exists():
         raise HTTPException(status_code=404, detail="Aucune voix importée.")
     return FileResponse(chemin, media_type="audio/wav")
 
 
 @app.post("/studio/voix/supprimer")
-async def studio_voix_supprimer():
-    voicestudio.supprimer()
+async def studio_voix_supprimer(request: Request):
+    voicestudio.supprimer(_utilisateur(request).id)
     return RedirectResponse("/studio/voix", status_code=303)
 
 
@@ -556,7 +644,7 @@ async def health():
 
 
 @app.get("/api/voices")
-async def voices(refresh: bool = False):
+async def voices(request: Request, refresh: bool = False):
     if refresh:
         try:
             listed = await asyncio.wait_for(voice.list_voices("fr"), timeout=12)
@@ -566,7 +654,7 @@ async def voices(refresh: bool = False):
         listed = list(config.FRENCH_VOICES)
 
     # La voix importée passe en tête : c'est celle qu'on veut quand on l'a.
-    if voicestudio.charger():
+    if voicestudio.charger(_utilisateur(request).id):
         listed = [{"id": voicestudio.VOICE_ID, "label": "Ma voix (importée)"},
                   *listed]
     return {"voices": listed, "default": config.DEFAULT_VOICE}
@@ -613,13 +701,13 @@ async def preset_sample(preset: str):
 
 
 @app.post("/api/projects")
-async def create_project():
-    project = store.create()
+async def create_project(request: Request):
+    project = store.create(owner=_utilisateur(request).id)
     return _project_payload(project)
 
 
 @app.get("/api/projects")
-async def list_projects():
+async def list_projects(request: Request):
     return {
         "projects": [
             {
@@ -629,25 +717,26 @@ async def list_projects():
                 "topic": p.topic,
                 "output_name": Path(p.output_path).name if p.output_path else "",
             }
-            for p in store.list_recent()
+            for p in store.list_recent(owner=_utilisateur(request).id)
         ]
     }
 
 
 @app.get("/api/projects/{project_id}")
-async def get_project(project_id: str):
-    return _project_payload(_get(project_id))
+async def get_project(request: Request, project_id: str):
+    return _project_payload(_get(project_id, request))
 
 
 @app.delete("/api/projects/{project_id}")
-async def delete_project(project_id: str):
-    return {"deleted": store.delete(project_id)}
+async def delete_project(request: Request, project_id: str):
+    return {"deleted": store.delete(project_id,
+                                    owner=_utilisateur(request).id)}
 
 
 # --- Étape 1 : sources ----------------------------------------------------
 @app.post("/api/projects/{project_id}/sources")
-async def add_sources(project_id: str, body: SourcesIn):
-    project = _get(project_id)
+async def add_sources(request: Request, project_id: str, body: SourcesIn):
+    project = _get(project_id, request)
     _require_idle(project)
 
     urls = downloader.normalize_urls(body.urls)
@@ -670,13 +759,13 @@ async def add_sources(project_id: str, body: SourcesIn):
 
 
 @app.post("/api/projects/{project_id}/uploads")
-async def upload_sources(project_id: str, files: list[UploadFile] = File(...)):
+async def upload_sources(request: Request, project_id: str, files: list[UploadFile] = File(...)):
     """Importe des vidéos depuis l'appareil (pellicule iPhone, Fichiers…).
 
     C'est l'alternative au téléchargement quand les plateformes le refusent,
     et la seule voie possible quand l'app tourne sur un serveur distant.
     """
-    project = _get(project_id)
+    project = _get(project_id, request)
     _require_idle(project)
 
     if not files:
@@ -734,8 +823,8 @@ async def _stream_to_disk(upload: UploadFile, destination: Path) -> int:
 
 # --- Étape 2 : hook -------------------------------------------------------
 @app.post("/api/projects/{project_id}/hook")
-async def choose_hook(project_id: str, body: HookIn):
-    project = _get(project_id)
+async def choose_hook(request: Request, project_id: str, body: HookIn):
+    project = _get(project_id, request)
     source = project.source(body.hook_index)
     if source is None or not source.ok:
         raise HTTPException(status_code=400, detail="Source indisponible.")
@@ -746,8 +835,8 @@ async def choose_hook(project_id: str, body: HookIn):
 
 
 @app.get("/api/projects/{project_id}/hooks/{index}")
-async def hook_preview(project_id: str, index: int):
-    project = _get(project_id)
+async def hook_preview(request: Request, project_id: str, index: int):
+    project = _get(project_id, request)
     source = project.source(index)
     if source is None or not source.hook_path or not Path(source.hook_path).exists():
         raise HTTPException(status_code=404, detail="Accroche introuvable.")
@@ -756,8 +845,8 @@ async def hook_preview(project_id: str, index: int):
 
 # --- Étape 3 : style ------------------------------------------------------
 @app.post("/api/projects/{project_id}/settings")
-async def update_settings(project_id: str, body: SettingsIn):
-    project = _get(project_id)
+async def update_settings(request: Request, project_id: str, body: SettingsIn):
+    project = _get(project_id, request)
     data = body.model_dump()
     if data.get("music") and data["music"] not in {
         t["id"] for t in pipeline.list_music()
@@ -779,8 +868,8 @@ async def update_settings(project_id: str, body: SettingsIn):
 
 # --- Étape 4 : script -----------------------------------------------------
 @app.post("/api/projects/{project_id}/script/prompt")
-async def script_prompt(project_id: str, body: ScriptIn):
-    project = _get(project_id)
+async def script_prompt(request: Request, project_id: str, body: ScriptIn):
+    project = _get(project_id, request)
     try:
         prompt = scriptgen.full_prompt_for_copy(
             body.topic, body.instructions, body.duration
@@ -794,8 +883,8 @@ async def script_prompt(project_id: str, body: ScriptIn):
 
 
 @app.post("/api/projects/{project_id}/script/generate")
-async def generate_script(project_id: str, body: ScriptIn):
-    project = _get(project_id)
+async def generate_script(request: Request, project_id: str, body: ScriptIn):
+    project = _get(project_id, request)
     project.topic = body.topic
     project.instructions = body.instructions
     try:
@@ -811,8 +900,8 @@ async def generate_script(project_id: str, body: ScriptIn):
 
 
 @app.post("/api/projects/{project_id}/script")
-async def save_script(project_id: str, body: ScriptIn):
-    project = _get(project_id)
+async def save_script(request: Request, project_id: str, body: ScriptIn):
+    project = _get(project_id, request)
     script = scriptgen.tidy(body.script)
     if not script:
         raise HTTPException(status_code=400, detail="Le script est vide.")
@@ -828,14 +917,15 @@ async def save_script(project_id: str, body: ScriptIn):
 
 # --- Étape 5 : rendu ------------------------------------------------------
 @app.post("/api/projects/{project_id}/render")
-async def render(project_id: str, body: RenderIn | None = None):
-    project = _get(project_id)
+async def render(request: Request, project_id: str,
+                 body: RenderIn | None = None):
+    project = _get(project_id, request)
     _require_idle(project)
 
     # Le quota se vérifie en premier : inutile de contrôler le projet si le
     # rendu ne peut de toute façon pas partir.
     fast = bool(body and body.fast)
-    if not fast and not account.charger().peut_rendre():
+    if not fast and not account.peut_rendre(_utilisateur(request)):
         raise HTTPException(
             status_code=402,
             detail="Crédits épuisés pour ce mois-ci. Les aperçus restent "
@@ -856,9 +946,9 @@ async def render(project_id: str, body: RenderIn | None = None):
 
 
 @app.post("/api/projects/{project_id}/cancel")
-async def cancel_job(project_id: str):
+async def cancel_job(request: Request, project_id: str):
     """Coupe la tâche en cours (téléchargement ou rendu)."""
-    project = _get(project_id)
+    project = _get(project_id, request)
     stopped = pipeline.request_cancel(project.id)
     return {"cancelled": stopped, "job": project.job.name}
 
@@ -876,8 +966,8 @@ async def presets():
 
 
 @app.get("/api/projects/{project_id}/output")
-async def download_output(project_id: str, download: bool = False):
-    project = _get(project_id)
+async def download_output(request: Request, project_id: str, download: bool = False):
+    project = _get(project_id, request)
     if not project.output_path or not Path(project.output_path).exists():
         raise HTTPException(status_code=404, detail="Aucun rendu disponible.")
     return FileResponse(
@@ -888,9 +978,9 @@ async def download_output(project_id: str, download: bool = False):
 
 
 @app.get("/api/projects/{project_id}/viewing")
-async def viewing_copy(project_id: str):
+async def viewing_copy(request: Request, project_id: str):
     """Copie allégée du rendu final, pour la lecture dans la page."""
-    project = _get(project_id)
+    project = _get(project_id, request)
     if not project.output_path or not Path(project.output_path).exists():
         raise HTTPException(status_code=404, detail="Aucun rendu disponible.")
     try:
@@ -903,17 +993,17 @@ async def viewing_copy(project_id: str):
 
 
 @app.get("/api/projects/{project_id}/preview")
-async def download_preview(project_id: str):
-    project = _get(project_id)
+async def download_preview(request: Request, project_id: str):
+    project = _get(project_id, request)
     if not project.preview_path or not Path(project.preview_path).exists():
         raise HTTPException(status_code=404, detail="Aucun aperçu disponible.")
     return FileResponse(project.preview_path, media_type="video/mp4")
 
 
 @app.post("/api/projects/{project_id}/cleanup")
-async def cleanup(project_id: str):
+async def cleanup(request: Request, project_id: str):
     """Supprime les fichiers de travail en gardant le rendu final."""
-    project = _get(project_id)
+    project = _get(project_id, request)
     _require_idle(project)
     freed = 0
     for folder in (project.sources_dir, project.clips_dir):

@@ -18,14 +18,6 @@ from flambee.project import Project  # noqa: E402
 
 
 @pytest.fixture()
-def client(monkeypatch):
-    monkeypatch.setattr(media, "ensure_tools", lambda: [])
-    monkeypatch.setattr(app_module.media, "ensure_tools", lambda: [])
-    with TestClient(app_module.app) as test_client:
-        yield test_client
-
-
-@pytest.fixture()
 def fake_download(monkeypatch):
     """Remplace le téléchargement yt-dlp par deux sources factices."""
 
@@ -50,44 +42,44 @@ def fake_download(monkeypatch):
     )
 
 
-def _create(client) -> str:
-    return client.post("/api/projects").json()["id"]
+def _create(compte) -> str:
+    return compte.post("/api/projects").json()["id"]
 
 
-def test_health(client):
-    body = client.get("/api/health").json()
+def test_health(compte):
+    body = compte.get("/api/health").json()
     assert body["ffmpeg"] and "output_dir" in body
 
 
-def test_page_daccueil(client):
-    page = client.get("/")
+def test_page_daccueil(compte):
+    page = compte.get("/")
     assert page.status_code == 200 and "Flambée" in page.text
 
 
-def test_parcours_complet(client, fake_download, monkeypatch):
-    project_id = _create(client)
+def test_parcours_complet(compte, fake_download, monkeypatch):
+    project_id = _create(compte)
 
     # Étape 1 : moins de 2 liens → refus
-    refus = client.post(f"/api/projects/{project_id}/sources",
+    refus = compte.post(f"/api/projects/{project_id}/sources",
                         json={"urls": "https://a.test/1"})
     assert refus.status_code == 400
 
-    body = client.post(f"/api/projects/{project_id}/sources", json={
+    body = compte.post(f"/api/projects/{project_id}/sources", json={
         "urls": "https://a.test/1\nhttps://b.test/2"}).json()
     assert len(body["sources"]) == 2
     assert body["sources"][0]["hook_url"].endswith("/hooks/1")
     assert "path" not in body["sources"][0]
 
     # Étape 2
-    body = client.post(f"/api/projects/{project_id}/hook",
+    body = compte.post(f"/api/projects/{project_id}/hook",
                        json={"hook_index": 2}).json()
     assert body["hook_index"] == 2 and body["step"] >= 3
-    assert client.post(f"/api/projects/{project_id}/hook",
+    assert compte.post(f"/api/projects/{project_id}/hook",
                        json={"hook_index": 9}).status_code == 400
-    assert client.get(f"/api/projects/{project_id}/hooks/1").status_code == 200
+    assert compte.get(f"/api/projects/{project_id}/hooks/1").status_code == 200
 
     # Étape 3 : une musique inconnue est ignorée, les bornes sont appliquées
-    body = client.post(f"/api/projects/{project_id}/settings", json={
+    body = compte.post(f"/api/projects/{project_id}/settings", json={
         "voice": "fr-FR-HenriNeural", "music": "inexistante.mp3",
         "music_volume": 5, "mask_source_subtitles": True, "mask_mode": "zzz",
     }).json()
@@ -97,17 +89,17 @@ def test_parcours_complet(client, fake_download, monkeypatch):
     assert body["settings"]["voice"] == "fr-FR-HenriNeural"
 
     # Étape 4 : mode manuel (prompt à copier) puis script validé
-    prompt = client.post(f"/api/projects/{project_id}/script/prompt",
+    prompt = compte.post(f"/api/projects/{project_id}/script/prompt",
                          json={"topic": "le sommeil"}).json()["prompt"]
     assert "le sommeil" in prompt and "accroche" in prompt.lower()
-    assert client.post(f"/api/projects/{project_id}/script/prompt",
+    assert compte.post(f"/api/projects/{project_id}/script/prompt",
                        json={"topic": "  "}).status_code == 400
 
-    body = client.post(f"/api/projects/{project_id}/script", json={
+    body = compte.post(f"/api/projects/{project_id}/script", json={
         "script": "```\nVoici le script de test.\n```", "topic": "le sommeil"}).json()
     assert body["script"] == "Voici le script de test."
     assert body["step"] == 5
-    assert client.post(f"/api/projects/{project_id}/script",
+    assert compte.post(f"/api/projects/{project_id}/script",
                        json={"script": "   "}).status_code == 400
 
     # Étape 5 : le rendu est lancé (pipeline simulé)
@@ -119,35 +111,41 @@ def test_parcours_complet(client, fake_download, monkeypatch):
         project.set_job("render", "done", progress=1.0, message="fini")
 
     monkeypatch.setattr(app_module.pipeline, "run_render", fake_render)
-    assert client.post(f"/api/projects/{project_id}/render",
+    assert compte.post(f"/api/projects/{project_id}/render",
                        json={"fast": True}).status_code == 200
     assert rendered["id"] == project_id and rendered["fast"] is True
 
 
-def test_render_refuse_sans_script(client, fake_download):
-    project_id = _create(client)
-    client.post(f"/api/projects/{project_id}/sources",
+def test_render_refuse_sans_script(compte, fake_download):
+    project_id = _create(compte)
+    compte.post(f"/api/projects/{project_id}/sources",
                 json={"urls": "https://a.test/1\nhttps://b.test/2"})
-    assert client.post(f"/api/projects/{project_id}/render").status_code == 400
+    assert compte.post(f"/api/projects/{project_id}/render").status_code == 400
 
 
-def test_projet_introuvable(client):
-    assert client.get("/api/projects/inconnu").status_code == 404
+def test_projet_introuvable(compte):
+    assert compte.get("/api/projects/inconnu").status_code == 404
 
 
-def test_tache_concurrente_refusee(client, monkeypatch):
-    project_id = _create(client)
-    project = app_module.store.get(project_id)
+def test_tache_concurrente_refusee(compte, monkeypatch):
+    from flambee import users
+
+    project_id = _create(compte)
+    proprietaire = users.par_email("essai@exemple.fr").id
+    project = app_module.store.get(project_id, owner=proprietaire)
     project.set_job("download", "running", progress=0.3)
-    response = client.post(f"/api/projects/{project_id}/sources",
+    response = compte.post(f"/api/projects/{project_id}/sources",
                            json={"urls": "https://a.test/1\nhttps://b.test/2"})
     assert response.status_code == 409
 
 
-def test_projet_persiste_sur_disque(client):
-    project_id = _create(client)
+def test_projet_persiste_sur_disque(compte):
+    from flambee import users
+
+    project_id = _create(compte)
+    proprietaire = users.par_email("essai@exemple.fr").id
     app_module.store._cache.clear()
-    reloaded = app_module.store.get(project_id)
+    reloaded = app_module.store.get(project_id, owner=proprietaire)
     assert reloaded is not None and reloaded.id == project_id
 
 
@@ -156,15 +154,15 @@ def test_musique_hors_bibliotheque_ignoree():
     assert pipeline._resolve_music("") is None
 
 
-def test_suppression_projet(client):
-    project_id = _create(client)
-    assert client.delete(f"/api/projects/{project_id}").json()["deleted"] is True
-    assert client.get(f"/api/projects/{project_id}").status_code == 404
+def test_suppression_projet(compte):
+    project_id = _create(compte)
+    assert compte.delete(f"/api/projects/{project_id}").json()["deleted"] is True
+    assert compte.get(f"/api/projects/{project_id}").status_code == 404
 
 
-def test_liste_des_projets(client):
-    project_id = _create(client)
-    ids = [p["id"] for p in client.get("/api/projects").json()["projects"]]
+def test_liste_des_projets(compte):
+    project_id = _create(compte)
+    ids = [p["id"] for p in compte.get("/api/projects").json()["projects"]]
     assert project_id in ids
     assert time.time() > 0
 
@@ -179,8 +177,8 @@ def test_message_derreur_yt_dlp_donne_une_piste():
     assert "https://x" not in message
 
 
-def test_presets_de_sous_titres(client):
-    body = client.get("/api/presets").json()
+def test_presets_de_sous_titres(compte):
+    body = compte.get("/api/presets").json()
     ids = {p["id"] for p in body["subtitles"]}
     assert {"punch", "impact", "neon", "studio", "signature", "minimal"} <= ids
     assert body["default"] in ids
@@ -189,33 +187,33 @@ def test_presets_de_sous_titres(client):
         assert preset["label"] and preset["description"]
 
 
-def test_preset_inconnu_retombe_sur_le_defaut(client):
-    project_id = _create(client)
-    body = client.post(f"/api/projects/{project_id}/settings",
+def test_preset_inconnu_retombe_sur_le_defaut(compte):
+    project_id = _create(compte)
+    body = compte.post(f"/api/projects/{project_id}/settings",
                        json={"subtitle_preset": "nimportequoi"}).json()
     assert body["settings"]["subtitle_preset"] == "punch"
 
 
-def test_annulation_dune_tache(client, monkeypatch):
-    project_id = _create(client)
+def test_annulation_dune_tache(compte, monkeypatch):
+    project_id = _create(compte)
     # Sans tâche en cours, rien à annuler.
-    assert client.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is False
+    assert compte.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is False
 
     token = pipeline.cancel_token(project_id)
-    assert client.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is True
+    assert compte.post(f"/api/projects/{project_id}/cancel").json()["cancelled"] is True
     assert token.is_set()
     pipeline._clear_cancel(project_id)
 
 
-def test_health_annonce_lencodeur(client):
-    body = client.get("/api/health").json()
+def test_health_annonce_lencodeur(compte):
+    body = compte.get("/api/health").json()
     assert body["encoder"]
     assert isinstance(body["hardware_encoder"], bool)
 
 
-def test_accroche_recommandee_exposee(client, fake_download):
-    project_id = _create(client)
-    body = client.post(f"/api/projects/{project_id}/sources", json={
+def test_accroche_recommandee_exposee(compte, fake_download):
+    project_id = _create(compte)
+    body = compte.post(f"/api/projects/{project_id}/sources", json={
         "urls": "https://a.test/1\nhttps://b.test/2"}).json()
     assert "recommended_hook" in body
 
@@ -271,14 +269,14 @@ def sync_spawn(monkeypatch):
     monkeypatch.setattr(app_module, "_spawn", lambda target, *args: target(*args))
 
 
-def test_import_de_fichiers(client, sync_spawn, tmp_path):
+def test_import_de_fichiers(compte, sync_spawn, tmp_path):
     """Une vidéo envoyée depuis l'appareil suit le même chemin qu'un téléchargement."""
     if media.ensure_tools():
         pytest.skip("ffmpeg requis")
     payload = _tiny_video(tmp_path / "clip.mp4")
-    project_id = _create(client)
+    project_id = _create(compte)
 
-    body = client.post(
+    body = compte.post(
         f"/api/projects/{project_id}/uploads",
         files=[("files", ("ma video.mp4", payload, "video/mp4")),
                ("files", ("autre.mov", payload, "video/quicktime"))],
@@ -291,9 +289,9 @@ def test_import_de_fichiers(client, sync_spawn, tmp_path):
     assert body["step"] >= 2
 
 
-def test_import_refuse_les_formats_inconnus(client, tmp_path):
-    project_id = _create(client)
-    response = client.post(
+def test_import_refuse_les_formats_inconnus(compte, tmp_path):
+    project_id = _create(compte)
+    response = compte.post(
         f"/api/projects/{project_id}/uploads",
         files=[("files", ("script.txt", b"pas une video", "text/plain"))],
     )
@@ -301,19 +299,19 @@ def test_import_refuse_les_formats_inconnus(client, tmp_path):
     assert "Format non reconnu" in response.json()["detail"]
 
 
-def test_import_refuse_les_fichiers_trop_gros(client, monkeypatch, tmp_path):
+def test_import_refuse_les_fichiers_trop_gros(compte, monkeypatch, tmp_path):
     monkeypatch.setattr(app_module.config, "MAX_UPLOAD_BYTES", 1024)
-    project_id = _create(client)
-    response = client.post(
+    project_id = _create(compte)
+    response = compte.post(
         f"/api/projects/{project_id}/uploads",
         files=[("files", ("gros.mp4", b"x" * 5000, "video/mp4"))],
     )
     assert response.status_code == 413
 
 
-def test_import_refuse_un_fichier_illisible(client, sync_spawn):
-    project_id = _create(client)
-    body = client.post(
+def test_import_refuse_un_fichier_illisible(compte, sync_spawn):
+    project_id = _create(compte)
+    body = compte.post(
         f"/api/projects/{project_id}/uploads",
         files=[("files", ("faux.mp4", b"ceci n'est pas une video", "video/mp4"))],
     ).json()
@@ -321,76 +319,48 @@ def test_import_refuse_un_fichier_illisible(client, sync_spawn):
     assert body["sources"][0]["error"]
 
 
-# --- Mot de passe ---------------------------------------------------------
-def test_acces_protege_par_mot_de_passe(monkeypatch):
+# --- Verrou global hérité --------------------------------------------------
+def test_verrou_global_precede_les_comptes(monkeypatch, espace):
+    """FLAMBEE_PASSWORD ferme tout le service, y compris le site public."""
     import base64 as _b64
 
-    from fastapi import FastAPI
-
-    from flambee.auth import install_auth
+    from fastapi.testclient import TestClient
 
     monkeypatch.setattr(app_module.config, "PASSWORD", "secret")
     monkeypatch.setattr(app_module.config, "USERNAME", "flambee")
 
-    protected = FastAPI()
-    install_auth(protected)
+    with TestClient(app_module.app) as garde:
+        assert garde.get("/").status_code == 401
+        assert "Basic" in garde.get("/").headers["www-authenticate"]
 
-    @protected.get("/ping")
-    async def ping():
-        return {"ok": True}
+        def entete(utilisateur, mot_de_passe):
+            jeton = _b64.b64encode(f"{utilisateur}:{mot_de_passe}".encode()).decode()
+            return {"Authorization": f"Basic {jeton}"}
 
-    with TestClient(protected) as guarded:
-        assert guarded.get("/ping").status_code == 401
-        assert "Basic" in guarded.get("/ping").headers["www-authenticate"]
-
-        def header(user, password):
-            token = _b64.b64encode(f"{user}:{password}".encode()).decode()
-            return {"Authorization": f"Basic {token}"}
-
-        assert guarded.get("/ping", headers=header("flambee", "faux")).status_code == 401
-        assert guarded.get("/ping", headers=header("autre", "secret")).status_code == 401
-        assert guarded.get("/ping", headers={"Authorization": "Bearer x"}).status_code == 401
-        assert guarded.get("/ping", headers=header("flambee", "secret")).status_code == 200
+        assert garde.get("/", headers=entete("flambee", "faux")).status_code == 401
+        assert garde.get("/", headers=entete("autre", "secret")).status_code == 401
+        assert garde.get("/", headers=entete("flambee", "secret")).status_code == 200
 
 
-def test_sans_mot_de_passe_aucun_controle(client):
-    """Comportement local par défaut : pas d'authentification."""
+def test_sans_verrou_le_site_public_reste_ouvert(client):
     assert client.get("/api/health").status_code == 200
 
 
-def test_health_signale_absence_de_cle_api(client, monkeypatch):
-    """L'interface s'appuie dessus pour proposer le mode manuel."""
-    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
-    assert client.get("/api/health").json()["anthropic_key"] is False
-    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: True)
-    assert client.get("/api/health").json()["anthropic_key"] is True
-
-
-def test_generation_sans_cle_explique_le_mode_manuel(client, monkeypatch):
-    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
-    project_id = _create(client)
-    response = client.post(f"/api/projects/{project_id}/script/generate",
-                           json={"topic": "le sommeil"})
-    assert response.status_code == 400
-    assert "mode manuel" in response.json()["detail"]
-
-
-# --- Aperçu des styles de sous-titres -------------------------------------
-def test_echantillon_de_style_est_une_video(client):
+def test_echantillon_de_style_est_une_video(compte):
     if media.ensure_tools():
         pytest.skip("ffmpeg requis")
-    response = client.get("/api/presets/punch/sample")
+    response = compte.get("/api/presets/punch/sample")
     assert response.status_code == 200
     assert response.headers["content-type"] == "video/mp4"
     assert len(response.content) > 2000
     assert "max-age" in response.headers.get("cache-control", "")
 
 
-def test_echantillon_style_inconnu(client):
-    assert client.get("/api/presets/inexistant/sample").status_code == 404
+def test_echantillon_style_inconnu(compte):
+    assert compte.get("/api/presets/inexistant/sample").status_code == 404
 
 
-def test_echantillon_vient_du_cache(client):
+def test_echantillon_vient_du_cache(compte):
     """Le second appel ne relance pas ffmpeg."""
     if media.ensure_tools():
         pytest.skip("ffmpeg requis")
@@ -399,10 +369,10 @@ def test_echantillon_vient_du_cache(client):
     samples.clear_cache()
     chemin = samples.sample_path("minimal")
     assert not chemin.exists()
-    client.get("/api/presets/minimal/sample")
+    compte.get("/api/presets/minimal/sample")
     assert chemin.exists()
     horodatage = chemin.stat().st_mtime
-    client.get("/api/presets/minimal/sample")
+    compte.get("/api/presets/minimal/sample")
     assert chemin.stat().st_mtime == horodatage
 
 
@@ -441,9 +411,29 @@ def test_copie_de_visionnage_est_plus_legere(tmp_path):
     assert samples.viewing_copy(source, tmp_path / "cache").stat().st_mtime_ns == horodatage
 
 
-def test_visionnage_absent_sans_rendu(client):
-    project_id = _create(client)
-    assert client.get(f"/api/projects/{project_id}/viewing").status_code == 404
+def test_visionnage_absent_sans_rendu(compte):
+    project_id = _create(compte)
+    assert compte.get(f"/api/projects/{project_id}/viewing").status_code == 404
+
+
+def test_health_signale_absence_de_cle_api(compte, monkeypatch):
+    """L'interface s'appuie dessus pour proposer le mode manuel."""
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
+    assert compte.get("/api/health").json()["anthropic_key"] is False
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: True)
+    assert compte.get("/api/health").json()["anthropic_key"] is True
+
+
+def test_generation_sans_cle_explique_le_mode_manuel(compte, monkeypatch):
+    monkeypatch.setattr(app_module.scriptgen, "api_key_available", lambda: False)
+    project_id = _create(compte)
+    response = compte.post(f"/api/projects/{project_id}/script/generate",
+                           json={"topic": "le sommeil"})
+    assert response.status_code == 400
+    assert "mode manuel" in response.json()["detail"]
+
+
+# --- Aperçu des styles de sous-titres -------------------------------------
 
 
 def test_le_cache_suit_le_fond_et_le_cadrage(monkeypatch):

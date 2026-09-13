@@ -11,16 +11,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flambee import app as app_module  # noqa: E402
-from flambee import media, plans, site  # noqa: E402
-
-
-@pytest.fixture()
-def client(monkeypatch, tmp_path):
-    monkeypatch.setattr(media, "ensure_tools", lambda: [])
-    monkeypatch.setattr(app_module.media, "ensure_tools", lambda: [])
-    monkeypatch.setattr(site.config, "WORK_DIR", tmp_path)
-    with TestClient(app_module.app) as test_client:
-        yield test_client
+from flambee import media, plans, users  # noqa: E402
 
 
 PAGES = ["/", "/fonctionnalites", "/tarifs", "/faq", "/connexion", "/inscription",
@@ -37,12 +28,12 @@ def test_chaque_page_repond(client, chemin):
     assert 'href="/mentions-legales"' in reponse.text
 
 
-def test_latelier_reste_accessible(client):
+def test_latelier_reste_accessible(compte):
     """Une route attrape-tout masquerait /studio : on vérifie qu'elle n'existe pas."""
-    reponse = client.get("/studio")
+    reponse = compte.get("/studio")
     assert reponse.status_code == 200
     assert 'id="urls"' in reponse.text          # c'est bien l'outil
-    assert client.get("/page-qui-nexiste-pas").status_code == 404
+    assert compte.get("/page-qui-nexiste-pas").status_code == 404
 
 
 def test_les_tarifs_affichent_les_trois_formules(client):
@@ -61,35 +52,37 @@ def test_pages_legales_signalent_ce_qui_manque(client):
     assert "Document à compléter" in texte
 
 
-def test_inscription_enregistre_une_adresse(client, tmp_path):
+def test_inscription_cree_un_compte(client):
     reponse = client.post("/inscription",
-                          data={"email": "Test@Exemple.FR", "formule": "createur",
-                                "usage": "sport"})
-    assert reponse.status_code == 200
-    assert "C'est noté" in reponse.text
+                          data={"email": "Nouveau@Exemple.FR",
+                                "mot_de_passe": "motdepasse1", "nom": "Nouveau"},
+                          follow_redirects=False)
+    assert reponse.status_code == 303
+    assert reponse.headers["location"] == "/studio"
 
-    inscrits = site.entries()
-    assert len(inscrits) == 1
-    assert inscrits[0]["email"] == "test@exemple.fr"      # normalisée
-    assert inscrits[0]["formule"] == "createur"
+    compte = users.par_email("nouveau@exemple.fr")
+    assert compte is not None
+    assert compte.email == "nouveau@exemple.fr"      # normalisée
+    assert compte.nom == "Nouveau"
 
 
 def test_inscription_refuse_une_adresse_invalide(client):
-    reponse = client.post("/inscription", data={"email": "pas-une-adresse"})
+    reponse = client.post("/inscription",
+                          data={"email": "pas-une-adresse",
+                                "mot_de_passe": "motdepasse1"})
     assert reponse.status_code == 400
     assert "ne semble pas valide" in reponse.text
-    assert site.entries() == []
+    assert users.compter() == 0
 
 
-def test_inscription_ne_duplique_pas(client):
-    for _ in range(3):
-        client.post("/inscription", data={"email": "a@b.fr", "formule": "essai"})
-    assert len(site.entries()) == 1
+def test_la_formule_choisie_est_appliquee(client):
+    """Le bouton d'une formule mène à l'inscription et la formule suit."""
+    assert 'href="/inscription?formule=createur"' in client.get("/tarifs").text
 
-
-def test_la_formule_choisie_preselectionne_le_menu(client):
-    texte = client.get("/inscription?formule=studio").text
-    assert '<option value="studio" selected>' in texte.replace("\n", " ")
+    client.post("/inscription",
+                data={"email": "c@exemple.fr", "mot_de_passe": "motdepasse1",
+                      "formule": "createur"}, follow_redirects=False)
+    assert users.par_email("c@exemple.fr").plan == "createur"
 
 
 def test_demo_accueil_est_une_video(client):

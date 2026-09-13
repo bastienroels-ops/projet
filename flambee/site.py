@@ -1,4 +1,4 @@
-"""Le site public : contenu légal et liste d'attente.
+"""Le site public : les textes du cadre légal.
 
 Les textes juridiques sont volontairement lacunaires là où seule une personne
 peut renseigner : identité de l'éditeur, statut, hébergeur. Publier un service
@@ -8,17 +8,7 @@ ce qui manque qu'un texte plausible mais faux.
 
 from __future__ import annotations
 
-import json
-import re
-import threading
-import time
 from dataclasses import dataclass
-from pathlib import Path
-
-from . import config
-
-_LOCK = threading.Lock()
-_EMAIL = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$")
 
 
 @dataclass(frozen=True)
@@ -128,51 +118,3 @@ PAGES_LEGALES = {
     "conditions": ("Le cadre", "Conditions d'utilisation", CONDITIONS),
     "confidentialite": ("Tes données", "Politique de confidentialité", CONFIDENTIALITE),
 }
-
-
-# --- Liste d'attente ------------------------------------------------------
-def waitlist_path() -> Path:
-    return config.WORK_DIR / "liste-attente.jsonl"
-
-
-def valid_email(email: str) -> bool:
-    return bool(_EMAIL.match(email.strip())) and len(email.strip()) <= 254
-
-
-def register(email: str, formule: str = "", usage: str = "") -> bool:
-    """Enregistre une inscription. Retourne False si l'adresse est invalide."""
-    email = email.strip().lower()
-    if not valid_email(email):
-        return False
-
-    entree = {
-        "email": email,
-        "formule": formule.strip()[:40],
-        "usage": usage.strip()[:200],
-        "date": time.strftime("%Y-%m-%dT%H:%M:%S"),
-    }
-    with _LOCK:
-        chemin = waitlist_path()
-        chemin.parent.mkdir(parents=True, exist_ok=True)
-        if email in {item.get("email") for item in entries()}:
-            return True                     # déjà inscrit : on ne duplique pas
-        with chemin.open("a", encoding="utf-8") as fichier:
-            fichier.write(json.dumps(entree, ensure_ascii=False) + "\n")
-    return True
-
-
-def entries() -> list[dict]:
-    """Toutes les inscriptions enregistrées."""
-    chemin = waitlist_path()
-    if not chemin.exists():
-        return []
-    resultat = []
-    for ligne in chemin.read_text(encoding="utf-8").splitlines():
-        ligne = ligne.strip()
-        if not ligne:
-            continue
-        try:
-            resultat.append(json.loads(ligne))
-        except json.JSONDecodeError:
-            continue
-    return resultat

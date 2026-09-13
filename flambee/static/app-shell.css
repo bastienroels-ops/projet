@@ -258,3 +258,12 @@ body.fige { overflow: hidden; }
   .atelier .step span { display: none; }
   .atelier .step.active span { display: inline; }
 }
+
+.carte-danger { border-color: rgba(255, 107, 107, .22); }
+.carte-danger h2 { color: #ffb4b4; }
+button.danger, .button.danger {
+  border-color: rgba(255, 107, 107, .35); color: #ffb4b4;
+}
+button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
+.avis.reussite { border-color: rgba(95,214,164,.3); background: rgba(95,214,164,.06); color: #a5ead0; }
+.avis.reussite b { color: var(--ok); }

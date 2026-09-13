@@ -25,24 +25,26 @@ MAX_BYTES = 80 * 1024 * 1024
 _LOCK = threading.Lock()
 
 
-def dossier() -> Path:
-    chemin = config.WORK_DIR / "voix"
+def dossier(owner: int = 0) -> Path:
+    """Espace de la voix, propre à chaque compte."""
+    base = (config.WORK_DIR / "utilisateurs" / str(owner)) if owner else config.WORK_DIR
+    chemin = base / "voix"
     chemin.mkdir(parents=True, exist_ok=True)
     return chemin
 
 
-def chemin_audio() -> Path:
-    return dossier() / "voix.wav"
+def chemin_audio(owner: int = 0) -> Path:
+    return dossier(owner) / "voix.wav"
 
 
-def chemin_infos() -> Path:
-    return dossier() / "voix.json"
+def chemin_infos(owner: int = 0) -> Path:
+    return dossier(owner) / "voix.json"
 
 
-def enregistrer(source: Path, nom_origine: str) -> dict:
+def enregistrer(source: Path, nom_origine: str, owner: int = 0) -> dict:
     """Analyse un enregistrement et le retient comme voix de l'utilisateur."""
     with _LOCK:
-        audio = transcribe.ensure_audio(source, chemin_audio())
+        audio = transcribe.ensure_audio(source, chemin_audio(owner))
         try:
             mots = transcribe.words_for_audio(audio)
         except transcribe.TranscriptionError:
@@ -55,34 +57,34 @@ def enregistrer(source: Path, nom_origine: str) -> dict:
             "mots": [mot.to_dict() for mot in mots],
             "texte": " ".join(mot.text for mot in mots),
         }
-        chemin_infos().write_text(
+        chemin_infos(owner).write_text(
             json.dumps(infos, ensure_ascii=False), encoding="utf-8"
         )
         log.info("Voix importée : %s (%s mots)", nom_origine, len(mots))
         return infos
 
 
-def charger() -> dict | None:
+def charger(owner: int = 0) -> dict | None:
     """Infos de la voix enregistrée, ou None."""
-    if not chemin_audio().exists() or not chemin_infos().exists():
+    if not chemin_audio(owner).exists() or not chemin_infos(owner).exists():
         return None
     try:
-        return json.loads(chemin_infos().read_text(encoding="utf-8"))
+        return json.loads(chemin_infos(owner).read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
 
 
-def supprimer() -> None:
+def supprimer(owner: int = 0) -> None:
     with _LOCK:
-        shutil.rmtree(dossier(), ignore_errors=True)
+        shutil.rmtree(dossier(owner), ignore_errors=True)
 
 
-def piste() -> VoiceTrack:
+def piste(owner: int = 0) -> VoiceTrack:
     """Retourne la voix importée sous la forme attendue par le montage."""
-    infos = charger()
+    infos = charger(owner)
     if not infos:
         raise MediaError("Aucune voix importée.")
-    audio = chemin_audio()
+    audio = chemin_audio(owner)
     return VoiceTrack(
         path=str(audio),
         duration=float(infos.get("duree") or probe(audio).duration),
