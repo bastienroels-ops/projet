@@ -1,0 +1,46 @@
+{# La porte du site publié.
+   =========================================================================
+
+   Un site de pages statiques n'a pas de serveur : personne, à l'autre bout,
+   ne peut vérifier un mot de passe. Cette porte est donc dessinée par le
+   navigateur du visiteur, et c'est une différence de nature, pas de degré —
+   elle est écrite en toutes lettres sur la page elle-même, et dans le fichier
+   d'aide qui l'accompagne.
+
+   Ce qu'elle fait : tenir le site à l'écart de qui tombe dessus par hasard,
+   et n'ouvrir qu'à qui a reçu le code. Ce qu'elle ne fait pas : résister à
+   quelqu'un qui sait où regarder. Le contenu des pages est livré au
+   navigateur en même temps que la porte ; elle le masque, elle ne l'enferme
+   pas.
+
+   Le code n'est pas écrit ici. Ce qui l'est, c'est son empreinte : deux cent
+   mille tours de PBKDF2 sur un sel tiré au hasard à la publication. Lue dans
+   la source, elle ne rend pas le code — elle oblige à l'essayer, un par un,
+   et chaque essai coûte les deux cent mille tours. #}
+<div class="porte" id="porte"
+     data-sel="{{ sel }}"
+     data-empreinte="{{ empreinte }}"
+     data-tours="{{ tours }}">
+  <form class="porte-carte" id="porte-forme" autocomplete="off">
+    <span class="porte-marque">{{ icone("flamme", classe="flamme", taille=30) }}</span>
+    <h1>Flambée</h1>
+    <p class="porte-mot">Ce site est privé. Entre le code qu'on t'a donné.</p>
+
+    <label class="porte-champ">
+      <span class="sr-only">Code d'accès</span>
+      <input type="password" id="porte-code" name="code"
+             inputmode="text" autocapitalize="none" autocorrect="off"
+             spellcheck="false" placeholder="Code d'accès" required>
+    </label>
+
+    <button type="submit" class="button primary grand" id="porte-bouton">Entrer</button>
+
+    {# Annoncé aux lecteurs d'écran dès qu'il change : sans `aria-live`, une
+       personne qui n'a pas le message sous les yeux ne saurait pas que sa
+       tentative a échoué. #}
+    <p class="porte-avis" id="porte-avis" role="status" aria-live="polite"></p>
+
+    <p class="porte-note">Pas de code ? Demande-le à la personne qui t'a
+      envoyé le lien.</p>
+  </form>
+</div>

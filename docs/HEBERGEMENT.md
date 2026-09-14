@@ -88,6 +88,38 @@ certificats.
 | **GitHub Pages** | 0 € | Ton dépôt y est déjà. Publié sous `nom.github.io/projet`, il faut alors exporter avec `--prefixe /projet`. |
 | **Netlify** | 0 € | 100 Go de trafic par mois, largement au-dessus du besoin. |
 
+### Fermer le site derrière un code
+
+```bash
+python outils/exporter_site.py --sortie export --code "lune-violette"
+```
+
+Le site demande alors un code avant de montrer quoi que ce soit. Le réglage
+est conservé dans `deploiement/porte.json` : les exports suivants gardent la
+porte sans qu'on ait à y penser, et un test le vérifie. Pour changer le code,
+relance la commande avec un autre ; pour rouvrir le site à tout le monde,
+`--sans-code`.
+
+Le code n'est écrit nulle part — ni dans ce fichier, ni dans les pages. Ce qui
+l'est, c'est son empreinte : deux cent mille tours de PBKDF2 sur un sel tiré au
+hasard à la publication.
+
+**Ce que cette porte vaut, exactement.** Un site de pages statiques n'a pas de
+serveur : personne, à l'autre bout, ne peut vérifier un mot de passe. La porte
+est donc dessinée par le navigateur du visiteur, et le contenu des pages lui
+est livré en même temps qu'elle. Elle le masque ; elle ne l'enferme pas.
+
+- Elle tient le site à l'écart de qui tombe dessus par hasard, et des moteurs
+  de recherche. C'est ce pour quoi elle est faite, et elle le fait bien.
+- Elle ne résiste pas à quelqu'un qui sait ouvrir les outils de développement
+  de son navigateur, ni à une machine qui essaie les codes un par un.
+
+Autrement dit : bonne pour un lien qu'on donne à des amis, insuffisante pour
+quoi que ce soit de confidentiel. Pour une vraie serrure, il faut un hébergeur
+qui vérifie avant de servir — **Cloudflare Access** le fait gratuitement
+jusqu'à cinquante personnes, et se règle depuis le tableau de bord Cloudflare,
+sans toucher au code.
+
 ### Ce que la version statique ne fait pas
 
 L'essayage libre des sous-titres demande ffmpeg à chaque phrase : impossible

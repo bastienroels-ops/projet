@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
+import secrets
 import shutil
 import sys
 from pathlib import Path
@@ -40,6 +42,53 @@ PAGES: dict[str, str] = {
 
 # Les liens qui demandent un serveur : ils ne peuvent pas vivre en statique.
 LIENS_ATELIER = ("/inscription", "/connexion", "/studio", "/mot-de-passe-oublie")
+
+# Le nombre de tours de PBKDF2 derrière la porte. Il n'y a pas de serveur pour
+# limiter les tentatives : la seule chose qui rende les essais coûteux, c'est
+# le prix d'un essai. Deux cent mille tours prennent une fraction de seconde
+# sur un téléphone — imperceptible pour qui connaît le code, et c'est autant
+# de temps multiplié par le nombre de codes possibles pour qui l'ignore.
+TOURS_PORTE = 200_000
+
+# Où vit le réglage de la porte, entre deux publications. Le code n'y est pas —
+# seulement son sel et son empreinte. Sans ce fichier, il faudrait repasser
+# `--code` à chaque export, et l'oublier une seule fois rouvrirait le site en
+# grand sans que rien ne le dise.
+REGLAGE_PORTE = RACINE / "deploiement" / "porte.json"
+
+
+def empreinte_du_code(code: str, sel: bytes, tours: int = TOURS_PORTE) -> str:
+    """L'empreinte publiée à la place du code.
+
+    Le code est normalisé avant d'être haché — sans espaces autour, en
+    minuscules — pour qu'un ami qui le tape sur un téléphone, avec la première
+    lettre mise en majuscule d'office, entre quand même.
+    """
+    return hashlib.pbkdf2_hmac(
+        "sha256", code.strip().lower().encode("utf-8"), sel, tours).hex()
+
+
+def reglage_porte(code: str, sans_code: bool) -> dict | None:
+    """Le sel et l'empreinte de la porte, relus ou refaits.
+
+    Un nouveau code tire un nouveau sel : deux sites au même code n'ont alors
+    pas la même empreinte, et une empreinte déjà vue ailleurs ne dit rien de
+    celui-ci.
+    """
+    if sans_code:
+        REGLAGE_PORTE.unlink(missing_ok=True)
+        return None
+    if code:
+        sel = secrets.token_bytes(16)
+        reglage = {"sel": sel.hex(), "tours": TOURS_PORTE,
+                   "empreinte": empreinte_du_code(code, sel)}
+        REGLAGE_PORTE.parent.mkdir(parents=True, exist_ok=True)
+        REGLAGE_PORTE.write_text(json.dumps(reglage, indent=2) + "\n",
+                                 encoding="utf-8")
+        return reglage
+    if REGLAGE_PORTE.exists():
+        return json.loads(REGLAGE_PORTE.read_text(encoding="utf-8"))
+    return None
 
 
 def empreintes_ressources(dossier: Path) -> dict[str, str]:
@@ -107,6 +156,36 @@ def appliquer_empreintes(dossier: Path, empreintes: dict[str, str]) -> None:
     for origine, publie in empreintes.items():
         source = dossier / origine[len("/static/"):]
         source.rename(dossier / publie[len("/static/"):])
+
+
+def poser_la_porte(html: str, porte: str, empreinte: str) -> str:
+    """Ferme une page derrière la porte, et le dit aux moteurs de recherche.
+
+    Trois gestes. La classe sur `<html>` masque le contenu par la feuille de
+    style — donc avant le premier affichage, et même sans JavaScript. La porte
+    elle-même est posée en tête de `<body>`. Et un petit script en ligne, juste
+    après, rouvre aussitôt pour qui est déjà entré : mis dans un fichier
+    séparé, il s'exécuterait après le premier affichage, et un visiteur connu
+    verrait la porte clignoter à chaque page.
+
+    Le `noindex` n'est pas une politesse : le contenu part dans la page avec
+    la porte, et sans lui un moteur de recherche publierait dans ses résultats
+    ce que la porte est censée réserver.
+    """
+    ouverture = ('<script>try{if(localStorage.getItem("flambee-porte")==="%s"){'
+                 'document.documentElement.classList.remove("verrouille");'
+                 'document.getElementById("porte").remove()}}'
+                 'catch(e){}</script>' % empreinte)
+
+    html = html.replace("<html lang=\"fr\">", "<html lang=\"fr\" class=\"verrouille\">", 1)
+    html = html.replace(
+        "<head>",
+        '<head>\n  <meta name="robots" content="noindex, nofollow">', 1)
+    html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + "\n" + porte + ouverture,
+                  html, count=1)
+    html = html.replace(
+        "</body>", '<script src="/static/porte.js" defer></script>\n</body>', 1)
+    return html
 
 
 def correspondances_medias() -> dict[str, str]:
@@ -373,7 +452,8 @@ def ecrire_reglages_cloudflare(sortie: Path, atelier: str) -> None:
     (sortie / "_redirects").write_text("\n".join(lignes) + "\n", encoding="utf-8")
 
 
-def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
+def exporter(sortie: Path, atelier: str, prefixe: str,
+             reglage: dict | None = None) -> None:
     from fastapi.testclient import TestClient
 
     from flambee import media
@@ -395,6 +475,22 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
     appliquer_empreintes(sortie / "static", ressources)
     adresses = {**medias, **ressources}
 
+    # La porte, s'il y en a une. Le sel est tiré à chaque publication : deux
+    # sites au même code n'ont pas la même empreinte, et une empreinte déjà
+    # vue ailleurs ne dit rien de celui-ci.
+    porte, empreinte = "", ""
+    if reglage:
+        from flambee.app import templates
+        empreinte = reglage["empreinte"]
+        porte = templates.get_template("site/_porte.html").render(
+            sel=reglage["sel"], empreinte=empreinte, tours=reglage["tours"])
+        print("→ Porte posée…", flush=True)
+
+    def publier(texte: str) -> str:
+        if porte:
+            texte = poser_la_porte(texte, porte, empreinte)
+        return reecrire(texte, adresses, atelier, prefixe)
+
     with TestClient(app) as client:
         for adresse, fichier in PAGES.items():
             reponse = client.get(adresse)
@@ -402,16 +498,21 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
                 raise SystemExit(f"{adresse} a répondu {reponse.status_code}")
             cible = sortie / fichier
             cible.parent.mkdir(parents=True, exist_ok=True)
-            cible.write_text(
-                reecrire(reponse.text, adresses, atelier, prefixe), encoding="utf-8")
+            cible.write_text(publier(reponse.text), encoding="utf-8")
             print(f"   {adresse:22s} → {fichier}")
 
         for nom in ("robots.txt", "sitemap.xml"):
+            if porte and nom == "sitemap.xml":
+                # Un plan du site derrière une porte est une liste de ce qu'on
+                # cherche à ne pas montrer, publiée à la racine.
+                continue
             reponse = client.get("/" + nom)
             if reponse.status_code != 200:
                 continue
             texte = reponse.text
-            if nom == "sitemap.xml":
+            if porte and nom == "robots.txt":
+                texte = "User-agent: *\nDisallow: /\n"
+            elif nom == "sitemap.xml":
                 # Le plan du site est celui de l'application : il annonce des
                 # adresses que la vitrine ne publie pas. Les y laisser enverrait
                 # les moteurs de recherche sur des redirections, et ferait
@@ -422,8 +523,7 @@ def exporter(sortie: Path, atelier: str, prefixe: str) -> None:
     # Une page 404 : les hébergeurs statiques la servent d'eux-mêmes.
     with TestClient(app) as client:
         reponse = client.get("/adresse-qui-nexiste-pas")
-        (sortie / "404.html").write_text(
-            reecrire(reponse.text, adresses, atelier, prefixe), encoding="utf-8")
+        (sortie / "404.html").write_text(publier(reponse.text), encoding="utf-8")
 
     ecrire_reglages_cloudflare(sortie, atelier)
 
@@ -444,8 +544,13 @@ def main() -> None:
                            help="adresse de l'application, pour les liens de compte")
     analyseur.add_argument("--prefixe", default="",
                            help="sous-chemin de publication, ex. /projet")
+    analyseur.add_argument("--code", default="",
+                           help="ferme le site derrière ce code d'accès")
+    analyseur.add_argument("--sans-code", action="store_true",
+                           help="rouvre le site à tout le monde")
     arguments = analyseur.parse_args()
-    exporter(arguments.sortie, arguments.atelier, arguments.prefixe.rstrip("/"))
+    exporter(arguments.sortie, arguments.atelier, arguments.prefixe.rstrip("/"),
+             reglage_porte(arguments.code, arguments.sans_code))
 
 
 if __name__ == "__main__":

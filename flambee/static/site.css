@@ -1215,3 +1215,92 @@ input[type=email]:focus, input[type=password]:focus {
     linear-gradient(180deg, rgba(7, 7, 12, .55), rgba(7, 7, 12, .80) 30%,
                     rgba(7, 7, 12, .86) 100%);
 }
+
+/* ===================================================================
+   La porte
+   ===================================================================
+   Le site publié en pages statiques peut demander un code. Il n'y a pas de
+   serveur pour le vérifier : c'est le navigateur qui le fait, et la porte
+   masque le contenu au lieu de l'enfermer. Le détail est écrit dans
+   `templates/site/_porte.html`.
+
+   Le masquage est porté par `<html>`, pas par un script : la classe est
+   posée à la publication, dans le fichier lui-même. Un navigateur sans
+   JavaScript garde donc la page fermée, au lieu de l'ouvrir en grand. */
+html.verrouille body > *:not(.porte) { display: none !important; }
+html.verrouille, html.verrouille body { overflow: hidden; height: 100%; }
+/* Et l'inverse, qui compte tout autant : porte ouverte, la porte s'efface.
+   Sans cette ligne, elle restait en place — `position: fixed`, plein écran —
+   chez tout visiteur déjà entré. Le contenu s'affichait bien derrière, et
+   restait invisible : le site paraissait verrouillé pour toujours dès la
+   deuxième visite. Le script la retire aussi, mais il arrive après le premier
+   affichage, et la feuille de style non. */
+html:not(.verrouille) .porte { display: none !important; }
+
+.porte {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(120% 100% at 50% 0%,
+                    rgb(var(--flamme-rvb) / .14), transparent 62%),
+    var(--ink);
+}
+.porte-carte {
+  width: min(380px, 100%);
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 40px 32px 34px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur);
+}
+.porte-marque .flamme { filter: drop-shadow(0 0 14px rgb(var(--flamme-rvb) / .6)); }
+.porte h1 {
+  font-family: var(--serif); font-weight: 400; font-size: 34px;
+  letter-spacing: -.01em; margin: 14px 0 0;
+}
+.porte-mot {
+  font-size: 14.5px; color: var(--text-soft); line-height: 1.6;
+  margin: 10px 0 26px; max-width: 26ch;
+}
+.porte-champ { display: block; width: 100%; }
+.porte-champ input {
+  width: 100%; padding: 15px 18px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .34); color: var(--text);
+  font: 500 17px/1.4 var(--sans);
+  /* Au centre, et espacé : un code se relit caractère par caractère. */
+  text-align: center; letter-spacing: .10em;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.porte-champ input::placeholder { letter-spacing: 0; color: var(--text-faint); }
+.porte-champ input:focus {
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
+  background: rgba(0, 0, 0, .46);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .12);
+}
+.porte .button { width: 100%; margin-top: 14px; }
+.porte-avis {
+  min-height: 1.3em;                 /* la carte ne saute pas à l'apparition */
+  margin: 14px 0 0; font-size: 13.5px; color: var(--alert);
+}
+.porte-note {
+  margin: 18px 0 0; font-size: 12.5px; color: var(--text-faint);
+  line-height: 1.55; max-width: 30ch;
+}
+
+/* Le refus se voit : la carte hésite, une fois. */
+.porte.refuse .porte-carte { animation: porte-refus .42s ease; }
+.porte.refuse .porte-champ input { border-color: rgb(255 107 107 / .55); }
+@keyframes porte-refus {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-7px); }
+  45%      { transform: translateX(6px); }
+  70%      { transform: translateX(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .porte.refuse .porte-carte { animation: none; }
+}

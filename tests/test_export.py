@@ -203,7 +203,15 @@ def test_les_pages_publiees_sont_a_jour():
         for adresse, fichier in exporter_site.PAGES.items():
             reponse = client.get(adresse)
             assert reponse.status_code == 200, adresse
-            attendu = exporter_site.reecrire(reponse.text, medias, "", "")
+            attendu = reponse.text
+            if PORTE.exists():
+                # L'export pose la porte avant de réécrire les adresses :
+                # comparer sans elle accuserait l'export d'être périmé à
+                # chaque fois. La porte est rendue avec le réglage commité,
+                # donc elle sort identique.
+                attendu = exporter_site.poser_la_porte(
+                    attendu, _porte_rendue(), _reglage_porte()["empreinte"])
+            attendu = exporter_site.reecrire(attendu, medias, "", "")
             publie = (EXPORT / fichier).read_text(encoding="utf-8")
             assert publie == attendu, (
                 f"{fichier} ne correspond plus à {adresse} — "
@@ -368,8 +376,12 @@ def test_aucune_page_de_tarifs_n_est_publiee():
     for fichier in sorted(EXPORT.rglob("*.html")):
         texte = fichier.read_text(encoding="utf-8")
         assert 'href="/tarifs"' not in texte, fichier.name
-    plan = (EXPORT / "sitemap.xml").read_text(encoding="utf-8")
-    assert "/tarifs" not in plan, "le plan du site annonce encore les tarifs"
+    # Derrière une porte, il n'y a pas de plan du site du tout — la promesse
+    # tient donc déjà. Ailleurs, il doit être muet sur les tarifs.
+    plan = EXPORT / "sitemap.xml"
+    if plan.exists():
+        assert "/tarifs" not in plan.read_text(encoding="utf-8"), (
+            "le plan du site annonce encore les tarifs")
 
 
 @pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
@@ -437,3 +449,87 @@ def test_le_site_s_installe_sur_l_ecran_d_accueil():
     assert ios, "aucune icône iOS déclarée"
     assert (EXPORT / ios.group(1).lstrip("/")).exists(), \
         f"{ios.group(1)} déclarée mais absente"
+
+
+# --------------------------------------------------------------- La porte ---
+
+PORTE = RACINE / "deploiement" / "porte.json"
+
+
+def _reglage_porte() -> dict:
+    return json.loads(PORTE.read_text(encoding="utf-8"))
+
+
+def _porte_rendue() -> str:
+    """La porte telle que l'export la rend, depuis le réglage commité."""
+    from flambee.app import templates
+    reglage = _reglage_porte()
+    return templates.get_template("site/_porte.html").render(
+        sel=reglage["sel"], empreinte=reglage["empreinte"],
+        tours=reglage["tours"])
+
+
+def test_le_code_n_est_jamais_ecrit_nulle_part():
+    """Seule l'empreinte est publiée, jamais le code lui-même.
+
+    C'est tout ce qui sépare une porte d'un écriteau : le code ne doit se
+    trouver ni dans le réglage, ni dans les pages, ni dans le script.
+    """
+    if not PORTE.exists():
+        pytest.skip("aucune porte posée")
+    reglage = json.loads(PORTE.read_text(encoding="utf-8"))
+    assert set(reglage) == {"sel", "tours", "empreinte"}, (
+        f"le réglage porte autre chose que le sel, les tours et l'empreinte : "
+        f"{sorted(reglage)}")
+    assert reglage["tours"] >= 100_000, (
+        "trop peu de tours : sans serveur pour limiter les tentatives, le prix "
+        "d'un essai est la seule chose qui rende les essais coûteux")
+    assert len(reglage["sel"]) >= 32, "sel trop court"
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_toutes_les_pages_publiees_sont_derriere_la_porte():
+    """Une seule page oubliée, et la porte ne sert plus à rien.
+
+    Le réglage vit dans le dépôt justement pour cela : republier sans repasser
+    l'option rouvrirait le site en grand, en silence. Ce test est le garde-fou
+    qui le dit à voix haute.
+    """
+    if not PORTE.exists():
+        pytest.skip("aucune porte posée")
+    empreinte = json.loads(PORTE.read_text(encoding="utf-8"))["empreinte"]
+
+    pages = sorted(EXPORT.glob("*.html")) + sorted(EXPORT.glob("*/index.html"))
+    assert pages, "aucune page dans l'export"
+    for page in pages:
+        html = page.read_text(encoding="utf-8")
+        relatif = page.relative_to(EXPORT)
+        assert 'class="verrouille"' in html, f"{relatif} n'est pas verrouillée"
+        assert 'id="porte"' in html, f"{relatif} n'a pas de porte"
+        assert empreinte in html, f"{relatif} porte une autre empreinte"
+        assert 'content="noindex, nofollow"' in html, (
+            f"{relatif} serait indexée — le contenu part avec la page, et un "
+            f"moteur de recherche publierait ce que la porte réserve")
+
+
+@pytest.mark.skipif(not EXPORT.exists(), reason="aucun export commité")
+def test_un_site_ferme_ne_s_annonce_pas():
+    """Ni plan du site, ni invitation à explorer."""
+    if not PORTE.exists():
+        pytest.skip("aucune porte posée")
+    assert not (EXPORT / "sitemap.xml").exists(), (
+        "le plan du site est la liste de ce qu'on cherche à ne pas montrer")
+    robots = (EXPORT / "robots.txt").read_text(encoding="utf-8")
+    assert "Disallow: /" in robots and "Allow: /" not in robots, robots
+
+
+def test_la_porte_s_efface_quand_elle_est_ouverte():
+    """La feuille de style doit retirer la porte, pas seulement le voile.
+
+    Sans cette règle, la porte restait en place — `position: fixed`, plein
+    écran — chez tout visiteur déjà entré : le contenu s'affichait derrière et
+    restait invisible. Le site paraissait verrouillé dès la deuxième visite.
+    """
+    css = (SOURCE_STATIQUE / "site.css").read_text(encoding="utf-8")
+    assert re.search(r"html:not\(\.verrouille\)\s+\.porte\s*\{[^}]*display:\s*none",
+                     css), "rien n'efface la porte une fois ouverte"

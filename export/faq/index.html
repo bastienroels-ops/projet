@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="verrouille">
 <head>
+  <meta name="robots" content="noindex, nofollow">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07070c">
@@ -33,11 +34,37 @@
   <link rel="preload" as="font" type="font/woff2" crossorigin
         href="/static/fonts/Inter-Regular.woff2">
   <link rel="stylesheet" href="/static/style.449cedfc18.css">
-  <link rel="stylesheet" href="/static/site.07122bcae9.css">
+  <link rel="stylesheet" href="/static/site.dde89caf3a.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%236c5ce7' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
 
 <body class="site page-faq">
+
+<div class="porte" id="porte"
+     data-sel="c37c848998615f7e32057d05a53e4394"
+     data-empreinte="3b60ff57e3cf51d4cc82698a1614bca61cf193dc6f283afbbb4c88283fef7332"
+     data-tours="200000">
+  <form class="porte-carte" id="porte-forme" autocomplete="off">
+    <span class="porte-marque"><svg class="icone flamme" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg></span>
+    <h1>Flambée</h1>
+    <p class="porte-mot">Ce site est privé. Entre le code qu'on t'a donné.</p>
+
+    <label class="porte-champ">
+      <span class="sr-only">Code d'accès</span>
+      <input type="password" id="porte-code" name="code"
+             inputmode="text" autocapitalize="none" autocorrect="off"
+             spellcheck="false" placeholder="Code d'accès" required>
+    </label>
+
+    <button type="submit" class="button primary grand" id="porte-bouton">Entrer</button>
+
+    
+    <p class="porte-avis" id="porte-avis" role="status" aria-live="polite"></p>
+
+    <p class="porte-note">Pas de code ? Demande-le à la personne qui t'a
+      envoyé le lien.</p>
+  </form>
+</div><script>try{if(localStorage.getItem("flambee-porte")==="3b60ff57e3cf51d4cc82698a1614bca61cf193dc6f283afbbb4c88283fef7332"){document.documentElement.classList.remove("verrouille");document.getElementById("porte").remove()}}catch(e){}</script>
 
 
 
@@ -149,5 +176,6 @@
 <script src="/static/site.e2519b432a.js"></script>
 
 <script src="/static/apercu.3600962768.js" defer></script>
+<script src="/static/porte.2eb9d0bddf.js" defer></script>
 </body>
 </html>
