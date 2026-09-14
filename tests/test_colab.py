@@ -42,7 +42,71 @@ def test_encadre_contient_les_informations_utiles():
     texte = launch.banner("https://x.trycloudflare.com", "flambee", "kiwi-melon-poire")
     assert "https://x.trycloudflare.com" in texte
     assert "flambee" in texte and "kiwi-melon-poire" in texte
-    assert "Colab" in texte                       # rappel de ne pas fermer l'onglet
+    # Le rappel de ne pas fermer l'onglet, vérifié sur ce qu'il promet plutôt
+    # que sur un mot : la formulation a le droit de changer, pas la promesse.
+    assert "onglet" in texte and "ouvert" in texte
+
+
+def test_l_adresse_commence_au_bord_de_l_ecran():
+    """Une adresse qu'on ne voit pas en entier finit recopiée de travers.
+
+    Elle était collée après une étiquette et quinze espaces. Sur un téléphone,
+    la ligne sortait du cadre, et le bloc Colab se mettait à défiler
+    horizontalement : on ne voyait ni le début de l'adresse ni le début des
+    autres lignes. Un utilisateur l'a retapée à la main, a perdu la première
+    lettre, et a passé une heure sur un « serveur introuvable » qui n'était
+    qu'une faute de frappe.
+
+    Seule sur sa ligne et collée à gauche, elle est lisible dès le premier
+    caractère — et touchable, ce qui évite de la retaper.
+    """
+    url = "https://april-defined-shoot-directory.trycloudflare.com"
+    lignes = launch.banner(url, "flambee", "kiwi-melon-poire").split("\n")
+    assert url in lignes, "l'adresse doit être seule sur sa ligne, sans préfixe"
+
+
+def test_le_cadre_tient_dans_la_largeur_d_un_telephone():
+    """Au-delà, le bloc défile et l'on perd le début de chaque ligne.
+
+    Les adresses font exception : aucune ne tient en trente-huit colonnes, et
+    les tronquer les rendrait inutilisables. Elles commencent à gauche, c'est
+    ce qui compte.
+    """
+    texte = launch.banner("https://x.trycloudflare.com", "flambee", "kiwi-melon-poire")
+    trop_larges = [ligne for ligne in texte.split("\n")
+                   if not ligne.startswith("http")
+                   and _colonnes(ligne) > 38]
+    assert not trop_larges, (
+        "ces lignes débordent d'un écran de téléphone :\n  "
+        + "\n  ".join(trop_larges))
+
+
+def _colonnes(texte: str) -> int:
+    """Largeur à l'écran : un emoji occupe deux colonnes, pas une."""
+    import unicodedata
+    total = 0
+    for caractere in texte:
+        large = (unicodedata.east_asian_width(caractere) in ("W", "F")
+                 or (unicodedata.category(caractere) == "So"
+                     and ord(caractere) > 0x2600))
+        total += 2 if large else 1
+    return total
+
+
+def test_l_heure_affichee_est_celle_de_l_utilisateur():
+    """Colab tourne en UTC ; l'utilisateur, non.
+
+    Un cadre qui annonce 10:30 alors qu'il est midi à Paris ne ressemble pas à
+    un décalage horaire : il ressemble à une sortie vieille de deux heures,
+    donc à une session morte. On va alors chercher une panne qui n'existe pas.
+    """
+    import time
+    launch._heure_locale()
+    assert time.strftime("%Z") in ("CET", "CEST"), (
+        f"le lanceur devrait se mettre à l'heure de Paris, pas {time.strftime('%Z')}")
+    assert time.strftime("%H:%M") in launch.banner(
+        "https://x.trycloudflare.com", "flambee", "kiwi"), \
+        "le cadre doit dire à quelle heure il a été affiché"
 
 
 def test_le_tunnel_evite_le_transport_quic(monkeypatch):

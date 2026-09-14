@@ -26,6 +26,28 @@ import urllib.request
 from collections import deque
 from pathlib import Path
 
+
+def _heure_locale(fuseau: str = "Europe/Paris") -> None:
+    """Met la machine à l'heure de l'utilisateur, avant tout le reste.
+
+    Colab tourne en UTC. Une machine de Londres qui affiche ses journaux à
+    10:30 pendant qu'il est midi à Paris n'a l'air ni d'un décalage horaire ni
+    d'un réglage : elle a l'air d'une session morte depuis deux heures. C'est
+    exactement la conclusion qu'on en tire, et on va chercher une panne qui
+    n'existe pas.
+
+    Posé ici, le fuseau vaut pour tout : l'horodatage des journaux, la date
+    d'inscription d'un compte, le mois que regarde le décompte de crédits.
+    """
+    os.environ.setdefault("TZ", fuseau)
+    try:
+        time.tzset()
+    except AttributeError:
+        pass          # Windows ne connaît pas tzset ; Colab est sous Linux.
+
+
+_heure_locale()
+
 ROOT = Path(__file__).resolve().parent.parent
 CLOUDFLARED_URL = (
     "https://github.com/cloudflare/cloudflared/releases/latest/download/"
@@ -410,37 +432,100 @@ def ouvrir_un_compte(password: str) -> str | None:
         return None
 
 
+# Largeur du cadre. Mesurée sur l'écran d'un iPhone, dans la sortie d'une
+# cellule Colab : au-delà, les lignes sortent du cadre et le bloc se met à
+# défiler horizontalement. On perd alors le début de chaque ligne, ce qui rend
+# la sortie illisible sans qu'on comprenne pourquoi.
+LARGEUR = 34
+
+
 def banner(url: str, username: str, password: str) -> str:
-    line = "═" * 54
-    return "\n".join([
-        "", line,
+    """Le cadre affiché quand tout est prêt.
+
+    Écrit pour un téléphone tenu à la main, pas pour un terminal large.
+
+    L'adresse est seule sur sa ligne et commence à la première colonne. Elle
+    est plus longue que l'écran quoi qu'on fasse — une adresse
+    `trycloudflare` fait une cinquantaine de caractères — mais commencer à
+    gauche garantit qu'on en voit le début sans rien faire défiler, et qu'on
+    peut la toucher. Collée après une étiquette et quinze espaces, comme
+    avant, elle commençait hors de l'écran : on ne pouvait ni la lire ni la
+    toucher, seulement la recopier de travers.
+    """
+    trait = "═" * LARGEUR
+    heure = time.strftime("%H:%M")
+
+    lignes = [
+        "", trait,
         "  🔥  FLAMBÉE EST EN LIGNE",
-        line,
-        f"  {'Adresse':<15}{url}",
-        f"  {'Identifiant':<15}{username}",
-        f"  {'Mot de passe':<15}{password}",
-        f"  {'Transcription':<15}{etat_transcription()}",
-        line,
-        "  Ouvre l'adresse dans Safari, saisis l'identifiant et le mot de",
-        "  passe, puis Partager → Sur l'écran d'accueil.",
+        f"      Lancé à {heure}",
+        trait,
         "",
-    ] + ([
-        "  ⭐ Pendant un rendu, préfère ce lien direct : il ne passe par",
-        "     aucun tunnel et ne peut donc pas afficher d'erreur 1033.",
-        f"     {_SECOURS}",
+        "  👉 TOUCHE LE LIEN BLEU :",
         "",
-    ] if _SECOURS else []) + ([
-        "  Ton compte est déjà créé — rien à remplir. Sur la page,",
-        "  touche « Connexion » et saisis :",
-        f"  {'Adresse':<15}{_COMPTE}",
-        f"  {'Mot de passe':<15}{password}   (le même)",
+        url,
         "",
-    ] if _COMPTE else []) + [
-        "  ⚠️  Laisse cet onglet Colab ouvert : il fait tourner le serveur.",
-        "  ⚠️  Télécharge tes vidéos avant la fin de la session Colab,",
-        "      sinon elles sont perdues avec la machine.",
-        line, "",
-    ])
+        f"  Identifiant     {username}",
+        f"  Mot de passe    {password}",
+        "",
+    ]
+
+    if _COMPTE:
+        lignes += [
+            "  Ton compte est déjà créé.",
+            "  Touche « Connexion » et saisis :",
+            "",
+            f"  {_COMPTE}",
+            f"  {password}   (le même)",
+            "",
+        ]
+
+    if _SECOURS:
+        lignes += [
+            "  ⭐ Pendant un rendu, préfère :",
+            "     (jamais d'erreur 1033)",
+            "",
+            _SECOURS,
+            "",
+        ]
+
+    lignes += [
+        f"  Transcription   {etat_transcription()}",
+        "",
+        "  ⚠️  Garde cet onglet ouvert :",
+        "      il fait tourner le serveur.",
+        "  ⚠️  Télécharge tes vidéos avant",
+        "      la fin de la session.",
+        trait, "",
+    ]
+    return "\n".join(lignes)
+
+
+def afficher_le_lien(url: str) -> None:
+    """Un vrai bouton, quand on est dans un carnet.
+
+    Le cadre en texte reste la référence — il s'affiche partout. Mais dans
+    Colab, une adresse imprimée est une ligne de texte de cinquante
+    caractères qu'on vise au doigt ; un bouton, non. C'est le seul geste que
+    l'utilisateur ait à faire, autant qu'il soit large.
+
+    Silencieux hors carnet : le script doit tourner aussi bien depuis un
+    terminal, où `IPython` n'existe pas.
+    """
+    try:
+        from IPython.display import HTML, display
+    except Exception:
+        return
+    display(HTML(
+        f'<a href="{url}" target="_blank" rel="noopener" style="'
+        'display:block;margin:14px 0;padding:18px 20px;border-radius:14px;'
+        'background:linear-gradient(168deg,#6c5ce7,#3b2b8f);color:#f6f4ff;'
+        'font:600 17px/1.3 system-ui,-apple-system,sans-serif;'
+        'text-align:center;text-decoration:none;'
+        'box-shadow:0 8px 20px -10px rgba(108,92,231,.9)">'
+        'Ouvrir Flambée'
+        '<div style="font:400 12px/1.5 ui-monospace,monospace;opacity:.75;'
+        'margin-top:7px;word-break:break-all">' + url + '</div></a>'))
 
 
 def start_all(
@@ -538,6 +623,7 @@ def keep_alive(
                 try:
                     tunnel, url = start_tunnel(binary, port)
                     log(banner(url, username, password))
+                    afficher_le_lien(url)
                     log("  ⚠️  L'adresse a changé : utilise la nouvelle "
                         "ci-dessus. Ton travail en cours est intact.\n")
                 except RuntimeError as exc:
@@ -586,6 +672,7 @@ def main() -> int:
 
     if url:
         log(banner(url, args.username, password))
+        afficher_le_lien(url)
     elif secours:
         log("\n⚠️  Le tunnel ne s'est pas ouvert — utilise le lien de secours.")
         log(f"   Identifiant : {args.username} — Mot de passe : {password}\n")

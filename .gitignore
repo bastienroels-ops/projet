@@ -23,3 +23,7 @@ assets/music/*
 # Les rendus et la base des comptes d'une session Colab, écrits à côté du
 # dépôt quand le carnet tourne hors de /content.
 flambee-data/
+
+# Le binaire du tunnel, téléchargé au premier lancement Colab (38 Mo).
+# Il se retélécharge tout seul : le versionner alourdirait chaque clone.
+colab/cloudflared
