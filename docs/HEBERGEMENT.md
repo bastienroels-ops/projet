@@ -143,6 +143,13 @@ nocturne.
 
 ### La marche à suivre
 
+Ce chapitre décrit l'installation sur l'offre gratuite d'Oracle. Le même
+fichier `deploiement/oracle-cloud-init.yaml` s'utilise tel quel chez n'importe
+quel hébergeur qui propose un champ *cloud-init* ou *script de démarrage* —
+Hetzner, Scaleway, OVH — avec ton propre nom de domaine dans le champ
+`DOMAINE`. C'est la voie à prendre dès que des clients paient : voir
+[`VENDRE.md`](VENDRE.md).
+
 1. **Une adresse gratuite.** Sur [duckdns.org](https://www.duckdns.org),
    connecte-toi (GitHub ou Google), choisis un nom — `flambee-bastien` par
    exemple — et note le jeton affiché en haut de la page.
@@ -310,6 +317,7 @@ L'installation automatique d'Oracle pose déjà une sauvegarde chaque nuit dans
 | `FLAMBEE_NICE` | Au-dessus de 0, l'encodage laisse respirer le réseau. Sur une petite machine, `5` à `10` évite que le site devienne injoignable pendant un rendu. |
 | `FLAMBEE_WHISPER_MODEL` | `base` par défaut. `small` transcrit mieux mais demande environ trois fois plus de temps processeur. |
 | `FLAMBEE_MAX_UPLOAD_MB` | À accorder avec `request_body max_size` dans le `Caddyfile`. |
+| `FLAMBEE_INVITE_CODE` | La clé d'accès. Renseignée, elle devient obligatoire pour créer un compte : le site reste visible de tous, mais personne n'entre dans l'atelier sans elle. C'est **une** clé, partagée — elle ne distingue pas les personnes, et la révoquer coupe tout le monde. |
 | `FLAMBEE_SMTP_*` | Facultatif, mais recommandé dès qu'on ouvre les inscriptions : sans serveur d'envoi, un utilisateur qui oublie son mot de passe dépend de toi pour retrouver son lien dans `docker compose logs flambee`. Renseigne `HOTE`, `PORT`, `UTILISATEUR`, `MOT_DE_PASSE` et au besoin `EXPEDITEUR`. |
 
 ## Monter en charge

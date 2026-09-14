@@ -46,6 +46,26 @@ write_files:
       # partagé par tous ses utilisateurs : le HTTPS peut échouer certains
       # jours. À réserver à un essai rapide.
 
+      # La clé que tu vends. Renseignée, elle devient obligatoire pour créer
+      # un compte : personne n'entre sans elle, et le site public peut rester
+      # ouvert à tous. Laissée vide, n'importe qui peut s'inscrire.
+      #
+      # Attention : c'est UNE clé, partagée par tous tes clients. Elle ne
+      # distingue pas les personnes — celui qui l'a peut la donner, et tu ne
+      # peux pas en révoquer une seule sans la changer pour tout le monde.
+      # Pour une clé par client, révocable indépendamment, il faut la version
+      # à clés nominatives (voir docs/VENDRE.md).
+      CLE_ACCES=""
+
+      # Ton adresse d'envoi, pour que « mot de passe oublié » fonctionne sans
+      # toi. Sans elle, le lien de réinitialisation part dans le journal du
+      # serveur, et c'est toi qu'on appelle un dimanche soir.
+      SMTP_HOTE=""
+      SMTP_PORT="587"
+      SMTP_UTILISATEUR=""
+      SMTP_MOT_DE_PASSE=""
+      SMTP_EXPEDITEUR=""
+
       # ---- Fin de la partie à remplir --------------------------------------
 
   - path: /usr/local/bin/flambee-installer
@@ -176,7 +196,7 @@ write_files:
       FLAMBEE_SECRET_KEY=${CLE}
       ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       FLAMBEE_SIGNUP=ouvert
-      FLAMBEE_INVITE_CODE=
+      FLAMBEE_INVITE_CODE=${CLE_ACCES}
       FLAMBEE_PLAN_PROPRIETAIRE=studio
       FLAMBEE_INSTALL_MOTEUR=1
       FLAMBEE_NICE=5
@@ -185,11 +205,11 @@ write_files:
       # Courriel de réinitialisation de mot de passe. Laissé vide, le lien
       # est écrit dans le journal (docker compose logs flambee) et la page
       # le dit à l'utilisateur : personne ne reste bloqué sans explication.
-      FLAMBEE_SMTP_HOTE=
-      FLAMBEE_SMTP_PORT=587
-      FLAMBEE_SMTP_UTILISATEUR=
-      FLAMBEE_SMTP_MOT_DE_PASSE=
-      FLAMBEE_SMTP_EXPEDITEUR=
+      FLAMBEE_SMTP_HOTE=${SMTP_HOTE}
+      FLAMBEE_SMTP_PORT=${SMTP_PORT}
+      FLAMBEE_SMTP_UTILISATEUR=${SMTP_UTILISATEUR}
+      FLAMBEE_SMTP_MOT_DE_PASSE=${SMTP_MOT_DE_PASSE}
+      FLAMBEE_SMTP_EXPEDITEUR=${SMTP_EXPEDITEUR}
       ENV
         chmod 600 /opt/flambee/.env
       else
