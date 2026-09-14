@@ -320,7 +320,7 @@ façon. Tant que tu es seul ou à quelques-uns, cela suffit.
 
 Au-delà, l'ordre des travaux est : sortir l'encodage dans une file d'attente
 (Redis et des workers séparés), puis déplacer les fichiers vers un stockage
-objet. `docs/COMMERCIALISATION.md` détaille ce chemin.
+objet. `docs/VENDRE.md` détaille ce chemin.
 
 ## Avant d'ouvrir au public
 

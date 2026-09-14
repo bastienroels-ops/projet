@@ -75,7 +75,7 @@ la requête. `FLAMBEE_INSTALL_MOTEUR=0` le retire complètement.
 
 Les formules, arguments et questions se modifient dans `flambee/plans.py` — un
 seul fichier, aucun HTML à toucher. Ce qu'il reste à brancher pour vendre
-réellement est listé dans [`docs/COMMERCIALISATION.md`](docs/COMMERCIALISATION.md).
+réellement est listé dans [`docs/VENDRE.md`](docs/VENDRE.md).
 
 ## Mettre en ligne
 

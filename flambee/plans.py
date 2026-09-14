@@ -4,7 +4,7 @@ Tout est défini ici plutôt que dans les gabarits : changer un prix, une limite
 ou un argument se fait à un seul endroit, sans toucher au HTML.
 
 ⚠️ Les tarifs ci-dessous sont une proposition de départ, à ajuster. Aucun
-paiement n'est encore branché : voir `docs/COMMERCIALISATION.md`.
+paiement n'est encore branché : voir `docs/VENDRE.md`.
 """
 
 from __future__ import annotations
