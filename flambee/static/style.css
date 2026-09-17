@@ -90,8 +90,13 @@
   --text-soft:  #aaa6bd;
   --text-faint: #6e6b81;
 
-  --ok:         #5fd6a4;
-  --alert:      #ff6b6b;
+  /* Le vert et le rouge d'état suivent la même règle que l'accent : le
+     triplet d'abord, la couleur ensuite. C'est ce qui permet de les poser à
+     n'importe quelle transparence sans réécrire la teinte. */
+  --ok-rvb:      95 214 164;
+  --alert-rvb:  255 107 107;
+  --ok:         rgb(var(--ok-rvb));
+  --alert:      rgb(var(--alert-rvb));
 
   --radius:     20px;
   --radius-sm:  13px;

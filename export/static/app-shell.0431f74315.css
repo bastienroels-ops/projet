@@ -627,3 +627,39 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 .filigrane {
   display: block; margin: 14px 0 0; font-size: 12.5px; color: var(--text-faint);
 }
+
+/* ------------------------------------------------- La jauge du script --- */
+/* Un compteur de caractères ne dit rien d'utile : c'est la durée parlée qui
+   décide. La zone claire est la fenêtre que le moteur vise, et la barre dit
+   où l'on en est. */
+.jauge-script { margin: 12px 0 0; }
+.jauge-piste {
+  position: relative; height: 5px; border-radius: 999px;
+  background: rgb(var(--os-rvb) / .07); overflow: hidden;
+}
+.jauge-bonne {
+  position: absolute; top: 0; bottom: 0;
+  background: rgb(var(--ok-rvb) / .16);
+}
+.jauge-part {
+  position: relative; height: 100%; width: 0; border-radius: 999px;
+  background: linear-gradient(90deg, var(--flamme), var(--flamme-claire));
+  transition: width .25s cubic-bezier(.16, 1, .3, 1), background .25s;
+}
+.jauge-script[data-etat="juste"] .jauge-part {
+  background: linear-gradient(90deg, rgb(var(--ok-rvb) / .62), var(--ok));
+}
+/* Trop long n'est pas une faute : c'est le laiton de la marque qui le dit,
+   pas le rouge d'une erreur. */
+.jauge-script[data-etat="long"] .jauge-part {
+  background: linear-gradient(90deg, rgb(var(--laiton-rvb) / .6), var(--laiton));
+}
+.jauge-mots {
+  display: flex; justify-content: space-between; gap: 14px; margin-top: 8px;
+  font-size: 11.5px; color: var(--text-faint);
+}
+.jauge-script[data-etat="juste"] #jauge-compte { color: var(--ok); }
+.jauge-script[data-etat="long"] #jauge-compte { color: var(--laiton); }
+@media (prefers-reduced-motion: reduce) {
+  .jauge-part { transition: none; }
+}

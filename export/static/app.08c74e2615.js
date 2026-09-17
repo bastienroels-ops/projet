@@ -305,13 +305,36 @@ function applyProject(project) {
   localStorage.setItem("flambee.project", project.id);
 }
 
+/* La jauge du script : combien de mots, combien de secondes, et si l'on est
+   dans la fenêtre que le moteur vise. Les bornes viennent du serveur, posées
+   sur l'élément — les recopier ici en ferait deux vérités. */
 function updateScriptMeta(project) {
   const words = $("#script").value.trim().split(/\s+/).filter(Boolean).length;
   const seconds = Math.round((words / 170) * 60);
   const notes = (project && project.script_notes) || [];
-  $("#script-meta").textContent = words
-    ? `${words} mots · ~${seconds} s de voix off${notes.length ? " · " + notes.join(" ") : ""}`
-    : "";
+  $("#script-meta").textContent = words && notes.length ? notes.join(" ") : "";
+
+  const jauge = $("#jauge-script");
+  if (!jauge) return;
+  const min = +jauge.dataset.min || 60;
+  const max = +jauge.dataset.max || 160;
+  const bout = Math.round(max * 1.35);        // de la place au-delà du haut
+
+  $("#jauge-bonne").style.left = `${(min / bout) * 100}%`;
+  $("#jauge-bonne").style.width = `${((max - min) / bout) * 100}%`;
+  $("#jauge-part").style.width = `${Math.min(100, (words / bout) * 100)}%`;
+
+  const etat = !words ? "vide" : words < min ? "court" : words > max ? "long" : "juste";
+  jauge.dataset.etat = etat;
+  $("#jauge-compte").textContent = words
+    ? `${words} mot${words > 1 ? "s" : ""} · visé ${min} à ${max}`
+    : `Vide · visé ${min} à ${max} mots`;
+  $("#jauge-duree").textContent = `≈ ${seconds} s de voix off`;
+
+  // Un script vide ne passe pas l'étape : le serveur le refuse déjà, autant
+  // que le bouton le dise avant le clic.
+  const suivant = $("#btn-script-next");
+  if (suivant) suivant.disabled = words === 0;
 }
 
 /* --------------------------------------------------------- Polling ----- */

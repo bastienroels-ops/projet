@@ -272,10 +272,25 @@
     </div>
 
     <label class="block"><span>Script — éditable</span>
-      <textarea id="script" rows="9" placeholder="Colle ou modifie ici le script lu par la voix off."></textarea>
+      <textarea id="script" rows="9" placeholder="Colle ou modifie ici le script lu par la voix off. Sur iPhone, la touche micro du clavier le dicte."></textarea>
     </label>
+
+    {# La jauge se cale sur les bornes du moteur — 60 à 160 mots, soit 30 à
+       60 secondes de voix off — passées par le serveur. Un compteur de
+       caractères ne dirait rien : c'est la durée parlée qui compte. #}
+    <div class="jauge-script" id="jauge-script"
+         data-min="{{ min_mots }}" data-max="{{ max_mots }}">
+      <div class="jauge-piste">
+        <div class="jauge-bonne" id="jauge-bonne"></div>
+        <div class="jauge-part" id="jauge-part"></div>
+      </div>
+      <div class="jauge-mots">
+        <span id="jauge-compte">—</span>
+        <span id="jauge-duree">≈ 0 s</span>
+      </div>
+    </div>
     <p class="hint" id="script-meta"></p>
-    <div class="row"><button class="primary" id="btn-script-next">Valider le script</button></div>
+    <div class="row"><button class="primary" id="btn-script-next" disabled>Valider le script</button></div>
   </section>
 
   <!-- Étape 5 ---------------------------------------------------------- -->

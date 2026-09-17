@@ -477,6 +477,11 @@ async def studio(request: Request):
         _contexte_app("creer", request,
                       min_sources=config.MIN_SOURCES,
                       max_sources=config.MAX_SOURCES,
+                      # La jauge sous le script se cale sur les bornes du
+                      # moteur : les recopier dans le JavaScript en ferait
+                      # deux vérités qui divergeraient au premier réglage.
+                      min_mots=scriptgen.MIN_WORDS,
+                      max_mots=scriptgen.MAX_WORDS,
                       output_dir=str(config.OUTPUT_DIR)),
     )
 

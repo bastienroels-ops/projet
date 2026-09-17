@@ -32,9 +32,34 @@ def test_latelier_garde_tous_ses_rouages(compte):
     """L'outil a changé de gabarit : ses identifiants doivent survivre."""
     texte = compte.get("/studio").text
     for identifiant in ("urls", "btn-download", "hooks", "subtitle_preset",
-                        "script", "btn-render", "result-video", "preset-video"):
+                        "script", "btn-render", "result-video", "preset-video",
+                        # La refonte de l'étape Style : les cartes pilotent
+                        # ces listes, qui restent la source de vérité.
+                        "voice", "music", "subtitles", "choix-voix",
+                        "choix-musique", "choix-soustitres", "jauge-script"):
         assert f'id="{identifiant}"' in texte, identifiant
     assert "/static/app.js" in texte
+
+
+def test_la_jauge_du_script_porte_les_bornes_du_moteur(compte):
+    """La fenêtre visée — 60 à 160 mots — est une règle de `scriptgen`. Si la
+    jauge la recopiait dans le JavaScript, les deux dériveraient au premier
+    réglage : on vérifie que la page tient ses chiffres du moteur."""
+    from flambee import scriptgen
+
+    texte = compte.get("/studio").text
+    assert f'data-min="{scriptgen.MIN_WORDS}"' in texte
+    assert f'data-max="{scriptgen.MAX_WORDS}"' in texte
+
+
+def test_les_icones_des_cartes_viennent_du_jeu_du_serveur(compte):
+    """Le script pose trois icônes sur les cartes qu'il fabrique. Le gabarit
+    les lui fournit : redessinées en JavaScript, elles vivraient à deux
+    endroits."""
+    texte = compte.get("/studio").text
+    for nom in ("lecture", "pause", "cadenas"):
+        assert f'data-icone="{nom}"' in texte, nom
+    assert "<svg" in texte.split('data-icone="lecture"')[1][:200]
 
 
 def test_la_rubrique_active_est_signalee(compte):
