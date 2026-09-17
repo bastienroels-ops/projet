@@ -337,3 +337,258 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   border-bottom-color: var(--flamme-claire);
 }
 
+
+/* ==========================================================================
+   L'atelier : le parcours et les réglages en cartes
+   --------------------------------------------------------------------------
+   L'étape Style empilait onze listes déroulantes et cases à cocher. On y
+   choisissait une voix sur un prénom et une musique sur un nom de fichier,
+   sans jamais rien entendre. Elle devient quatre panneaux pliants, un seul
+   ouvert à la fois, où chaque option est une carte qu'on peut écouter.
+   ========================================================================== */
+
+/* ------------------------------------------------------- Le parcours ----- */
+.parcours { margin-bottom: 26px; }
+.parcours-tete {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin-bottom: 10px;
+}
+.parcours-rang {
+  margin: 0; font-size: 12px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--text-faint);
+}
+.parcours-rang b { color: var(--eclat); font-weight: 700; }
+.parcours-nom {
+  color: var(--text); font-family: var(--serif); font-weight: 400;
+  font-size: 17px; letter-spacing: 0; text-transform: none; margin-left: 8px;
+}
+.parcours-nom::before { content: "— "; color: var(--text-faint); }
+.parcours-reste {
+  margin: 0; font-size: 11.5px; color: var(--text-faint); white-space: nowrap;
+}
+.parcours-piste {
+  height: 3px; border-radius: 999px; overflow: hidden;
+  background: rgb(var(--os-rvb) / .07); margin-bottom: 16px;
+}
+.parcours-part {
+  height: 100%; width: 20%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--flamme), var(--flamme-claire));
+  box-shadow: 0 0 14px -2px rgb(var(--flamme-rvb) / .8);
+  transition: width .45s cubic-bezier(.16, 1, .3, 1);
+}
+.parcours .steps { margin-bottom: 0; }
+
+/* ---------------------------------------------------- Panneau pliant ----- */
+.selects-caches { display: none; }
+
+.reglage {
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgb(var(--os-rvb) / .022);
+  margin-bottom: 12px; overflow: hidden;
+  transition: border-color .25s, background .25s;
+}
+.reglage.ouvert {
+  border-color: rgb(var(--flamme-claire-rvb) / .3);
+  background: rgb(var(--os-rvb) / .04);
+}
+
+.reglage-tete {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 16px 18px; border: none; border-radius: 0;
+  background: none; color: var(--text); text-align: left; cursor: pointer;
+  font: inherit;
+}
+.reglage-tete:hover { background: rgb(var(--os-rvb) / .03); }
+.reglage-icone {
+  display: grid; place-items: center; flex: none;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgb(var(--flamme-claire-rvb) / .1);
+  color: var(--eclat);
+}
+.reglage-icone .icone { width: 18px; height: 18px; }
+.reglage-mots { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.reglage-mots b { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.reglage-resume {
+  font-size: 12.5px; color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reglage.ouvert .reglage-resume { color: var(--eclat); }
+.reglage-chevron {
+  margin-left: auto; flex: none; display: grid; place-items: center;
+  color: var(--text-faint); transition: transform .3s cubic-bezier(.16,1,.3,1);
+}
+.reglage-chevron .icone { width: 18px; height: 18px; }
+.reglage.ouvert .reglage-chevron { transform: rotate(180deg); color: var(--eclat); }
+
+/* Replier par la hauteur, pas par `display` : la transition a besoin des deux
+   bouts, et `hidden` n'en offre qu'un.
+
+   Le corps ne contient qu'un seul enfant, et ce n'est pas un détail : avec
+   plusieurs, `grid-template-rows: 0fr` ne pince que le premier — les autres
+   tombent dans des rangées implicites dimensionnées en `auto` et restent
+   grandes ouvertes. Le panneau paraissait alors n'avoir jamais de repli. */
+.reglage-corps {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows .32s cubic-bezier(.16, 1, .3, 1);
+}
+.reglage.ouvert .reglage-corps { grid-template-rows: 1fr; }
+.reglage-dedans { min-height: 0; overflow: hidden; }
+.reglage.ouvert .reglage-dedans { overflow: visible; }
+@media (prefers-reduced-motion: reduce) {
+  .reglage-corps { transition: none; }
+  .reglage-chevron { transition: none; }
+}
+/* La marge vit à l'intérieur : posée sur `.reglage-corps`, elle resterait
+   visible une fois le panneau replié. Et le bas ne s'ajoute qu'une fois
+   ouvert : `0fr` met la hauteur de contenu à zéro, pas le remplissage, et
+   ces dix-huit pixels laissaient dépasser une lisière de carte sous chaque
+   panneau fermé. */
+.reglage-dedans { padding: 0 18px; }
+.reglage.ouvert .reglage-dedans { padding-bottom: 18px; }
+.reglage-fin { margin-top: 18px; }
+.reglage-fin:empty { display: none; }
+
+/* -------------------------------------------------------- Les filtres --- */
+.filtres { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.filtre { display: flex; flex-direction: column; gap: 6px; }
+.filtre > span {
+  font-size: 10px; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.filtre select { padding: 9px 34px 9px 13px; font-size: 13px; }
+
+/* ------------------------------------------------------- Les cartes ----- */
+.choix {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 10px;
+}
+/* Éteinte, la grille reste cliquable : reprendre un style est la façon
+   naturelle de rallumer les sous-titres. La condamner obligerait à retrouver
+   la carte « Sans sous-titres » pour revenir en arrière. */
+.choix.eteint { opacity: .45; }
+
+.carte-choix {
+  position: relative;
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px 14px; text-align: left; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: 12px;
+  background: rgb(var(--os-rvb) / .025);
+  color: var(--text); font: inherit;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.carte-choix:hover:not(:disabled) {
+  border-color: var(--hairline-2); background: rgb(var(--os-rvb) / .05);
+}
+.carte-choix.choisie {
+  border-color: rgb(var(--flamme-claire-rvb) / .55);
+  background: rgb(var(--flamme-rvb) / .12);
+}
+/* Une option fermée doit rester lisible : c'est ce qu'on n'a pas encore qui
+   donne envie de la formule supérieure. Trop pâle, elle ne vend rien. */
+.carte-choix:disabled { cursor: not-allowed; opacity: .68; }
+
+/* La coche : elle n'apparaît que sur la carte prise. */
+.carte-marque {
+  position: absolute; top: 10px; right: 10px; flex: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--hairline-2);
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.carte-choix.choisie .carte-marque {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme))
+              no-repeat;
+}
+.carte-choix.choisie .carte-marque::after {
+  content: ""; position: absolute; inset: 0;
+  background: no-repeat center / 9px 7px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 7'%3E%3Cpath d='M1 3.6 3.3 5.9 8 1.2' fill='none' stroke='%23f6f4ff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.carte-choix.verrouille .carte-marque { display: none; }
+
+.carte-vignette {
+  display: grid; place-items: center; flex: none;
+  width: 40px; height: 40px; border-radius: 11px;
+  background: linear-gradient(140deg,
+              rgb(var(--flamme-claire-rvb) / .32), rgb(var(--flamme-rvb) / .3));
+  color: var(--os); font-size: 13px; font-weight: 700; letter-spacing: .04em;
+}
+.carte-choix.choisie .carte-vignette {
+  background: linear-gradient(140deg, var(--flamme-claire), var(--flamme));
+  color: var(--sur-flamme);
+}
+/* L'affiche du style : ce que le moteur rend vraiment, en vignette. */
+.carte-apercu {
+  flex: none; width: 54px; height: 40px; border-radius: 9px;
+  background: #0f0e18 no-repeat center / cover;
+  border: 1px solid var(--hairline);
+}
+
+.carte-mots {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;
+  padding-right: 22px;                     /* la coche ne mord pas le texte */
+}
+/* Rien à cocher sur une option fermée : le texte reprend la largeur. */
+.carte-choix.verrouille .carte-mots { padding-right: 0; }
+.carte-mots b {
+  font-size: 14px; font-weight: 600; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.carte-mots small { font-size: 11px; color: var(--text-faint); }
+.carte-mots em {
+  font-style: normal; font-size: 11.5px; color: var(--text-soft);
+  line-height: 1.4;
+  /* Dix voix, chacune avec sa phrase : sans limite, l'étape fait quatre
+     écrans de haut sur un téléphone. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.carte-ecoute {
+  display: grid; place-items: center; flex: none;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--hairline-2); color: var(--text-soft);
+  background: rgba(0, 0, 0, .3);
+  transition: color .2s, border-color .2s, background .2s;
+}
+.carte-ecoute:hover { color: var(--eclat); border-color: var(--eclat); }
+.carte-ecoute .icone { width: 13px; height: 13px; }
+.carte-ecoute.joue {
+  color: var(--sur-flamme); border-color: transparent;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+}
+/* Le temps de la synthèse : le bouton respire au lieu de rester inerte. */
+.carte-ecoute.charge { animation: respire 1.1s ease-in-out infinite; }
+.carte-choix.muette .carte-ecoute { opacity: .35; }
+.carte-choix.muette .carte-mots::after {
+  content: "Écoute indisponible ici";
+  font-size: 10.5px; color: var(--flamme-claire);
+}
+
+.carte-verrou {
+  display: inline-flex; align-items: center; gap: 5px;
+  align-self: flex-start; margin-top: 5px;
+  padding: 4px 9px; border-radius: 999px;
+  background: rgb(var(--laiton-rvb) / .14);
+  color: rgb(var(--laiton-rvb)); border: 1px solid rgb(var(--laiton-rvb) / .3);
+  font-size: 9.5px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.carte-verrou .icone { width: 11px; height: 11px; }
+
+/* Le refus, posé en tête et sur toute la largeur : c'est un choix comme un
+   autre, pas une case oubliée en bas de page. */
+.carte-sans { grid-column: 1 / -1; }
+#carte-sans-soustitres { width: 100%; margin-bottom: 12px; }
+
+.vide-choix { font-size: 13px; color: var(--text-faint); margin: 14px 0 0; }
+.preview.eteint { opacity: .4; }
+
+@media (max-width: 560px) {
+  .choix { grid-template-columns: 1fr; }
+  .carte-mots em { -webkit-line-clamp: 3; }
+  .parcours-reste { display: none; }
+  .reglage-tete { padding: 14px; gap: 11px; }
+  .reglage-dedans { padding: 0 14px; }
+  .reglage.ouvert .reglage-dedans { padding-bottom: 16px; }
+}

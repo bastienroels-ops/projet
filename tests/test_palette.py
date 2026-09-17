@@ -141,3 +141,30 @@ def test_la_favicone_et_l_icone_dessinent_la_meme_flamme():
     assert couleur.lower() == engendrer_icones.FLAMME_ACCENT.lower(), (
         f"la favicone est en {couleur}, l'icône en "
         f"{engendrer_icones.FLAMME_ACCENT}")
+
+
+def test_les_nuanceurs_ne_sont_pas_coupes_par_un_accent_grave():
+    """Un accent grave dans un commentaire GLSL referme le gabarit JavaScript.
+
+    Les deux nuanceurs sont écrits dans des `template literals` : le premier
+    backquote rencontré à l'intérieur — fût-ce au milieu d'un commentaire —
+    termine la chaîne, et la suite du fichier est lue comme du JavaScript.
+    Tout `braises.js` cesse alors de s'analyser, sans que rien ne le signale :
+    la page se charge, le champ de braises ne s'allume jamais. C'est arrivé au
+    passage de l'orange au bleu, et c'est resté en ligne.
+
+    On ne compte pas les backquotes — leur nombre était resté pair. On vérifie
+    que chaque gabarit contient encore le corps qu'il est censé porter.
+    """
+    source = (RACINE / "flambee" / "static" / "braises.js").read_text(encoding="utf-8")
+    for nom in ("SOMMET", "FRAGMENT"):
+        debut = source.index(f"const {nom} = `") + len(f"const {nom} = `")
+        fin = source.index("`", debut)
+        # Chercher un marqueur du nuanceur ne suffit pas : `void main` se
+        # trouve avant le commentaire fautif, et le test passait quand même.
+        # Ce qui ne trompe pas, c'est ce qui suit le backquote fermant.
+        suite = source[fin + 1:fin + 2]
+        assert suite == ";", (
+            f"le gabarit {nom} se referme sur « {source[fin:fin + 40]!r} » au "
+            "lieu d'un point-virgule : un accent grave traîne dans le "
+            "nuanceur, souvent au milieu d'un commentaire")

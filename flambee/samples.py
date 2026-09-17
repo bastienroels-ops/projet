@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from . import config, subtitles
-from .media import MediaError, ffmpeg, has_media_duration
+from .media import MediaError, ffmpeg, has_media_duration, probe
 from .voice import Word
 
 log = logging.getLogger(__name__)
@@ -754,3 +754,54 @@ def hero_poster() -> Path:
         if not poster.exists():
             raise MediaError("Affiche de démonstration absente.")
         return poster
+
+
+# --- Auditions : entendre avant de choisir ---------------------------------
+# Une voix ne se choisit pas sur son nom, ni une musique sur le sien. Ces deux
+# fonctions produisent de quoi écouter, en cache sur disque : le premier clic
+# attend, les suivants sont instantanés.
+
+EXTRAIT_MUSIQUE = 18.0      # secondes : de quoi juger une ambiance
+FONDU = 1.5
+PHRASE_VOIX = "Voici l'astuce que personne ne connaît. Regarde jusqu'au bout."
+
+
+def extrait_musique_path(nom: str, taille: int, modifie: int) -> Path:
+    """Chemin de l'extrait. La signature suit le fichier, pas seulement son nom :
+    remplacer une musique sans renommer le fichier regénère bien l'extrait."""
+    cle = hashlib.sha256(f"{nom}|{taille}|{modifie}".encode()).hexdigest()[:16]
+    return config.WORK_DIR / ".samples" / f"musique-{cle}.m4a"
+
+
+def extrait_musique(source: Path) -> Path:
+    """Dix-huit secondes de la piste, fondues aux deux bouts."""
+    stat = source.stat()
+    out_path = extrait_musique_path(source.name, stat.st_size, int(stat.st_mtime))
+    if out_path.exists() and has_media_duration(out_path, minimum=0.3):
+        return out_path
+
+    with _lock_for(out_path.name):
+        if out_path.exists() and has_media_duration(out_path, minimum=0.3):
+            return out_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # On démarre à 10 s : beaucoup de pistes ouvrent sur du silence ou une
+        # montée, qui ne disent rien de l'ambiance.
+        entiere = _duree(source)
+        depart = 10.0 if entiere > 40 else 0.0
+        duree = min(EXTRAIT_MUSIQUE, max(2.0, entiere - depart))
+        sortie = max(0.0, duree - FONDU)
+        ffmpeg([
+            "-ss", f"{depart:.2f}", "-t", f"{duree:.2f}", "-i", str(source),
+            "-af", f"afade=t=in:st=0:d={FONDU},afade=t=out:st={sortie:.2f}:d={FONDU}",
+            "-vn", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart",
+            str(out_path),
+        ])
+        log.info("Extrait musical rendu : %s", out_path.name)
+        return out_path
+
+
+def _duree(path: Path) -> float:
+    try:
+        return probe(path).duration
+    except (MediaError, OSError, ValueError):
+        return 0.0

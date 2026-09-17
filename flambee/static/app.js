@@ -5,6 +5,8 @@ const state = {
   step: 1,
   poll: null,
   presets: [],
+  voices: [],
+  tracks: [],
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -32,6 +34,8 @@ function alertBox(message, ok = false) {
 }
 
 /* ------------------------------------------------------------ Étapes --- */
+const NOMS_ETAPES = ["Sources", "Accroche", "Style", "Script", "Rendu"];
+
 function showStep(step) {
   state.step = step;
   $$(".panel").forEach((p) => p.classList.toggle("hidden", +p.dataset.panel !== step));
@@ -41,6 +45,18 @@ function showStep(step) {
     b.classList.toggle("done", state.project ? n < state.project.step : false);
     b.disabled = state.project ? n > state.project.step : n > 1;
   });
+
+  /* Les cinq pastilles disent où l'on est ; elles ne disent pas combien il
+     reste. Une phrase et une barre s'en chargent. */
+  const n = $("#parcours-n");
+  if (!n) return;
+  n.textContent = step;
+  $("#parcours-nom").textContent = NOMS_ETAPES[step - 1] || "";
+  $("#parcours-part").style.width = `${(step / NOMS_ETAPES.length) * 100}%`;
+  const reste = NOMS_ETAPES.length - step;
+  $("#parcours-reste").textContent = reste
+    ? `Encore ${reste} étape${reste > 1 ? "s" : ""}`
+    : "Dernière étape";
 }
 
 /* ---------------------------------------------------------- Rendu UI --- */
@@ -146,7 +162,32 @@ function renderSettings(settings) {
   $("#mask_height_ratio_v").textContent = `${Math.round(settings.mask_height_ratio * 100)}%`;
   $("#mask-options").classList.toggle("hidden", !settings.mask_source_subtitles);
   $$('input[type="range"]').forEach(paintRange);
+  syncCartes();
   describePreset();
+}
+
+/* Les réglages viennent du serveur : les cartes doivent s'aligner dessus,
+   pas l'inverse. */
+function syncCartes() {
+  const boites = {
+    "#choix-voix": $("#voice").value,
+    "#choix-musique": $("#music").value || "",
+    "#choix-soustitres": $("#subtitle_preset").value,
+  };
+  Object.entries(boites).forEach(([sel, valeur]) => {
+    const boite = $(sel);
+    if (boite) marquerChoisie(boite, valeur);
+  });
+  const sans = $("#carte-sans-soustitres");
+  if (sans) {
+    sans.classList.toggle("choisie", !$("#subtitles").checked);
+    sans.setAttribute("aria-pressed", String(!$("#subtitles").checked));
+  }
+  const styles = $("#choix-soustitres");
+  if (styles) styles.classList.toggle("eteint", !$("#subtitles").checked);
+  const apercu = $("#preset-preview");
+  if (apercu) apercu.classList.toggle("eteint", !$("#subtitles").checked);
+  resumerReglages();
 }
 
 function renderRecap(project) {
@@ -344,11 +385,163 @@ function applyScriptMode(hasApiKey) {
   $("#manual-hint").classList.toggle("hidden", hasApiKey);
 }
 
+/* ====================================================================== */
+/* Les cartes de l'étape Style                                             */
+/*                                                                         */
+/* Une voix ne se choisit pas sur son nom dans une liste déroulante, ni une */
+/* musique sur le sien. Chaque réglage devient une carte : ce qu'on prend,  */
+/* ce qu'on n'a pas encore, et de quoi l'entendre. Les listes déroulantes   */
+/* restent en place, masquées : tout le reste du script les lit et les      */
+/* écrit, et une carte ne fait que les piloter.                            */
+/* ====================================================================== */
+
+const ICONES = {
+  lecture: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M8 5.4 18.4 12 8 18.6V5.4Z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M9.4 5.6v12.8M14.6 5.6v12.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
+  cadenas: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M6.6 10.4h10.8v9H6.6v-9ZM8.8 10.4V7.8a3.2 3.2 0 0 1 6.4 0v2.6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>',
+};
+
+/* Un seul lecteur pour toute la page : sans cela, deux extraits se
+   superposent et l'on n'entend plus ni l'un ni l'autre. */
+const audition = { lecteur: null, bouton: null };
+
+function arreterAudition() {
+  if (audition.lecteur) { audition.lecteur.pause(); audition.lecteur = null; }
+  if (audition.bouton) {
+    audition.bouton.innerHTML = ICONES.lecture;
+    audition.bouton.classList.remove("joue", "charge");
+    audition.bouton = null;
+  }
+}
+
+function ecouter(url, bouton) {
+  const enCours = audition.bouton === bouton;
+  arreterAudition();
+  if (enCours) return;                    // deuxième clic : on arrête
+
+  const lecteur = new Audio(url);
+  audition.lecteur = lecteur;
+  audition.bouton = bouton;
+  bouton.classList.add("charge");
+  lecteur.addEventListener("playing", () => {
+    bouton.classList.remove("charge");
+    bouton.classList.add("joue");
+    bouton.innerHTML = ICONES.pause;
+  });
+  lecteur.addEventListener("ended", arreterAudition);
+  /* La première audition d'une voix passe par une synthèse : elle peut
+     échouer (hors ligne, ffmpeg absent). On le dit sur la carte plutôt que
+     de laisser un bouton qui ne répond pas. */
+  lecteur.addEventListener("error", () => {
+    const carte = bouton.closest(".carte-choix");
+    arreterAudition();
+    if (carte) carte.classList.add("muette");
+  });
+  lecteur.play().catch(() => {
+    const carte = bouton.closest(".carte-choix");
+    arreterAudition();
+    if (carte) carte.classList.add("muette");
+  });
+}
+
+/* Fabrique une carte. `option` : vignette, titre, ligne de détail, note,
+   url d'écoute, verrou. */
+function carteChoix(option) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "carte-choix" + (option.verrouille ? " verrouille" : "");
+  el.dataset.valeur = option.valeur;
+  el.setAttribute("aria-pressed", "false");
+  if (option.verrouille) {
+    el.disabled = true;
+    el.title = "Cette option fait partie de la formule Créateur.";
+  }
+  el.innerHTML = `
+    ${option.vignette ? `<span class="carte-vignette">${option.vignette}</span>` : ""}
+    <span class="carte-mots">
+      <b>${escapeHtml(option.titre)}</b>
+      ${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}
+      ${option.note ? `<em>${escapeHtml(option.note)}</em>` : ""}
+      ${option.verrouille
+        ? `<span class="carte-verrou">${ICONES.cadenas} Créateur</span>` : ""}
+    </span>
+    ${option.ecoute && !option.verrouille
+      ? `<span class="carte-ecoute" role="button" tabindex="-1"
+             aria-label="Écouter">${ICONES.lecture}</span>` : ""}
+    <span class="carte-marque"></span>`;
+
+  if (option.ecoute && !option.verrouille) {
+    el.querySelector(".carte-ecoute").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();               // écouter n'est pas choisir
+      ecouter(option.ecoute, e.currentTarget);
+    });
+  }
+  return el;
+}
+
+/* Une carte choisie écrit dans la liste déroulante et prévient le reste du
+   script par un évènement `change` — exactement comme si l'on avait ouvert
+   la liste à la main. */
+function choisir(select, valeur) {
+  select.value = valeur;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function marquerChoisie(conteneur, valeur) {
+  conteneur.querySelectorAll(".carte-choix").forEach((c) => {
+    const prise = c.dataset.valeur === valeur;
+    c.classList.toggle("choisie", prise);
+    c.setAttribute("aria-pressed", String(prise));
+  });
+}
+
 async function loadVoices() {
   const { voices, default: def } = await api("/api/voices");
+  state.voices = voices;
   $("#voice").innerHTML = voices
-    .map((v) => `<option value="${v.id}">${escapeHtml(v.label)}</option>`).join("");
+    .map((v) => `<option value="${v.id}"${v.verrouille ? " disabled" : ""}>`
+      + escapeHtml(v.label) + "</option>").join("");
   $("#voice").value = def;
+
+  // Le filtre de pays se remplit de ce que la liste contient réellement.
+  const pays = [...new Set(voices.map((v) => v.pays).filter(Boolean))];
+  $("#filtre-pays").innerHTML = '<option value="">Tous</option>'
+    + pays.map((p) => `<option value="${escapeHtml(p)}">`
+      + escapeHtml(state.voices.find((v) => v.pays === p).pays_long || p)
+      + "</option>").join("");
+
+  peindreVoix();
+}
+
+function peindreVoix() {
+  const boite = $("#choix-voix");
+  if (!boite) return;
+  const parPays = $("#filtre-pays") ? $("#filtre-pays").value : "";
+  const parGenre = $("#filtre-genre") ? $("#filtre-genre").value : "";
+  const retenues = (state.voices || []).filter((v) =>
+    (!parPays || v.pays === parPays) && (!parGenre || v.genre === parGenre));
+
+  boite.innerHTML = "";
+  retenues.forEach((v) => {
+    const detail = [v.pays_long, v.genre_long].filter(Boolean).join(" · ");
+    const carte = carteChoix({
+      valeur: v.id,
+      vignette: escapeHtml((v.prenom || v.id).slice(0, 2).toUpperCase()),
+      titre: v.prenom || v.label,
+      detail,
+      note: v.note || "",
+      ecoute: `/api/voices/${encodeURIComponent(v.id)}/sample`,
+      verrouille: v.verrouille,
+    });
+    carte.addEventListener("click", () => choisir($("#voice"), v.id));
+    boite.appendChild(carte);
+  });
+
+  const vide = $("#voix-aucune");
+  if (vide) vide.hidden = retenues.length > 0;
+  marquerChoisie(boite, $("#voice").value);
+  resumerReglages();
 }
 
 async function loadPresets() {
@@ -364,6 +557,7 @@ async function loadPresets() {
   const ouvert = subtitles.find((p) => !p.verrouille);
   const defautOuvert = subtitles.some((p) => p.id === def && !p.verrouille);
   $("#subtitle_preset").value = defautOuvert ? def : (ouvert ? ouvert.id : def);
+  peindreStyles();
 
   const reserves = subtitles.some((p) => p.verrouille);
   const note = $("#styles-reserves");
@@ -418,17 +612,55 @@ function paintRange(input) {
   input.style.backgroundSize = `${part}% 100%`;
 }
 
+function peindreStyles() {
+  const boite = $("#choix-soustitres");
+  if (!boite) return;
+  boite.innerHTML = "";
+  (state.presets || []).forEach((p) => {
+    const carte = carteChoix({
+      valeur: p.id,
+      titre: p.label,
+      note: p.description || "",
+      verrouille: p.verrouille,
+    });
+    // L'aperçu du style se rend en vidéo : l'affiche sert de vignette, et
+    // montre le style tel qu'il sortira du moteur.
+    const vignette = document.createElement("span");
+    vignette.className = "carte-apercu";
+    vignette.style.backgroundImage =
+      `url("/api/presets/${encodeURIComponent(p.id)}/poster")`;
+    carte.prepend(vignette);
+    carte.addEventListener("click", () => {
+      if (!$("#subtitles").checked) {      // reprendre un style, c'est les rallumer
+        $("#subtitles").checked = true;
+        $("#subtitles").dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      choisir($("#subtitle_preset"), p.id);
+    });
+    boite.appendChild(carte);
+  });
+  marquerChoisie(boite, $("#subtitle_preset").value);
+  resumerReglages();
+}
+
+function fmtMinutes(secondes) {
+  if (!secondes) return "";
+  const m = Math.floor(secondes / 60), s = Math.round(secondes % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 async function loadMusic() {
   const { tracks, autorisee } = await api("/api/music");
+  state.tracks = tracks;
   const choix = $("#music");
   choix.innerHTML = `<option value="">Aucune</option>` +
-    tracks.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`).join("");
-  /* Une liste vide sans explication passe pour une panne : on dit laquelle
-     des deux raisons s'applique. */
-  choix.disabled = !autorisee;
+    tracks.map((t) => `<option value="${escapeHtml(t.id)}"`
+      + `${t.verrouille ? " disabled" : ""}>${escapeHtml(t.label)}</option>`).join("");
   // Un curseur de volume sans musique possible n'a rien à régler.
   const volume = $("#bloc-volume");
   if (volume) volume.hidden = !autorisee;
+  /* Une liste vide sans explication passe pour une panne : on dit laquelle
+     des deux raisons s'applique. */
   const note = $("#note-musique");
   if (note) {
     note.hidden = autorisee && tracks.length > 0;
@@ -436,6 +668,64 @@ async function loadMusic() {
       ? "La musique de fond et son mixage sous la parole font partie de la formule Créateur."
       : "Aucune piste pour l'instant : dépose tes fichiers audio dans le dossier des musiques.";
   }
+  peindreMusiques();
+}
+
+function peindreMusiques() {
+  const boite = $("#choix-musique");
+  if (!boite) return;
+  boite.innerHTML = "";
+
+  // Le refus vient en premier : c'est le choix par défaut, il doit se voir.
+  const aucune = carteChoix({
+    valeur: "", titre: "Sans musique de fond",
+    note: "La voix off seule. Le choix le plus sûr pour un script dense.",
+  });
+  aucune.classList.add("carte-sans");
+  aucune.addEventListener("click", () => choisir($("#music"), ""));
+  boite.appendChild(aucune);
+
+  (state.tracks || []).forEach((piste) => {
+    const carte = carteChoix({
+      valeur: piste.id,
+      titre: piste.label,
+      detail: fmtMinutes(piste.duree),
+      ecoute: `/api/music/${encodeURIComponent(piste.id)}/sample`,
+      verrouille: piste.verrouille,
+    });
+    carte.addEventListener("click", () => choisir($("#music"), piste.id));
+    boite.appendChild(carte);
+  });
+  marquerChoisie(boite, $("#music").value || "");
+  resumerReglages();
+}
+
+/* Replié, un réglage doit dire ce qu'il vaut : sans ce résumé, refermer un
+   panneau reviendrait à cacher son propre choix. */
+function resumerReglages() {
+  const dire = (id, texte) => { const el = $(id); if (el) el.textContent = texte; };
+
+  const voix = (state.voices || []).find((v) => v.id === $("#voice").value);
+  dire("#resume-voix", voix
+    ? [voix.prenom || voix.label, [voix.pays_long, voix.genre_long]
+        .filter(Boolean).join(", ")].filter(Boolean).join(" · ")
+    : "—");
+
+  const style = (state.presets || []).find((p) => p.id === $("#subtitle_preset").value);
+  dire("#resume-soustitres", !$("#subtitles").checked ? "Désactivés"
+    : (style ? style.label : "—"));
+
+  const piste = (state.tracks || []).find((t) => t.id === $("#music").value);
+  dire("#resume-musique", piste
+    ? `${piste.label} · ${$("#music_volume").value}%` : "Aucune");
+
+  const options = [
+    $("#motion").checked && "travelling",
+    $("#scene_aware").checked && "coupes calées",
+    $("#mask_source_subtitles").checked && "sous-titres sources masqués",
+    $("#keep_source_audio").checked && "ambiance conservée",
+  ].filter(Boolean);
+  dire("#resume-image", options.length ? options.join(" · ") : "Aucun effet");
 }
 
 async function newProject() {
@@ -540,9 +830,51 @@ function bind() {
     $("#mask_height_ratio_v").textContent = `${e.target.value}%`;
     paintRange(e.target);
   });
-  $("#subtitle_preset").addEventListener("change", describePreset);
+  $("#subtitle_preset").addEventListener("change", () => {
+    describePreset();
+    syncCartes();
+  });
   $("#mask_source_subtitles").addEventListener("change", (e) => {
     $("#mask-options").classList.toggle("hidden", !e.target.checked);
+  });
+
+  // Choisir une voix ou une musique doit se voir immédiatement sur la carte.
+  $("#voice").addEventListener("change", syncCartes);
+  $("#music").addEventListener("change", syncCartes);
+  $("#subtitles").addEventListener("change", syncCartes);
+  ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio"]
+    .forEach((sel) => $(sel).addEventListener("change", resumerReglages));
+  $("#music_volume").addEventListener("input", resumerReglages);
+
+  // La carte « Sans sous-titres » est une bascule, pas un interrupteur caché.
+  const sansSoustitres = $("#carte-sans-soustitres");
+  if (sansSoustitres) {
+    sansSoustitres.addEventListener("click", () => {
+      const boite = $("#subtitles");
+      boite.checked = !boite.checked;     // la carte est prise quand ils sont éteints
+      boite.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+
+  // Les filtres de voix.
+  ["#filtre-pays", "#filtre-genre"].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.addEventListener("change", peindreVoix);
+  });
+
+  /* Les panneaux pliants : un seul réglage ouvert à la fois, pour que l'étape
+     tienne dans un écran de téléphone. */
+  $$(".reglage-tete").forEach((tete) => {
+    tete.addEventListener("click", () => {
+      const panneau = tete.closest(".reglage");
+      const ouvre = !panneau.classList.contains("ouvert");
+      arreterAudition();
+      $$(".reglage").forEach((autre) => {
+        autre.classList.toggle("ouvert", autre === panneau && ouvre);
+        autre.querySelector(".reglage-tete")
+          .setAttribute("aria-expanded", String(autre === panneau && ouvre));
+      });
+    });
   });
 
   $("#btn-style-next").addEventListener("click", async () => {

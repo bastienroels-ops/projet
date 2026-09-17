@@ -84,11 +84,15 @@
                          u_souris * vec2(u_taille.x / u_taille.y, 1.0));
       f += 0.16 * exp(-d * 4.2);
 
-      /* Palette : encre de nuit, bleu profond, indigo, violet clair. `feu` et
-         `eclat` sont exactement l'accent et sa variante claire de la feuille
-         de style ; `nuit` est volontairement plus sombre que le token
-         correspondant, parce qu'un fond doit rester derrière — à la valeur du
-         bouton, le champ remonterait au premier plan.
+      /* Palette : encre de nuit, bleu profond, indigo, violet clair. « feu »
+         et « eclat » sont exactement l'accent et sa variante claire de la
+         feuille de style ; « nuit » est volontairement plus sombre que le
+         token correspondant, parce qu'un fond doit rester derrière — à la
+         valeur du bouton, le champ remonterait au premier plan.
+
+         Pas d'accent grave dans ce commentaire : il vit à l'intérieur d'un
+         gabarit JavaScript, où le premier backquote venu referme la chaîne
+         et fait tomber tout le fichier.
 
          Ces valeurs sont recopiées : un nuanceur ne lit pas les variables
          CSS. C'est le seul endroit du projet où la couleur du site est écrite

@@ -349,7 +349,7 @@ def _render_with_fallback(
 ) -> assembler.AssemblyResult:
     """Tente le rendu en une passe, et bascule sur le repli si ffmpeg refuse."""
     settings = project.settings
-    music_path = _resolve_music(settings.music)
+    chemin_musique = music_path(settings.music)
     subtitle_path = Path(project.subtitle_path) if project.subtitle_path else None
     voice_path = Path(project.voice_path) if project.voice_path else None
     marque = filigrane_pour(project)
@@ -358,7 +358,7 @@ def _render_with_fallback(
         return assembler.render(
             project.segments, project.sources, out_path,
             voice_path=voice_path, subtitle_path=subtitle_path,
-            music_path=music_path, settings=settings, duration=duration,
+            music_path=chemin_musique, settings=settings, duration=duration,
             fmt=fmt, encoder=encoder, fast=fast, watermark=marque,
             on_progress=on_progress, cancel=cancel,
         )
@@ -387,7 +387,7 @@ def _render_with_fallback(
         montage = assembler.concat_clips(clips, project.dir / "montage.mp4")
         return assembler.finalize(
             montage, out_path, voice_path=voice_path, subtitle_path=subtitle_path,
-            music_path=music_path, settings=settings, duration=duration,
+            music_path=chemin_musique, settings=settings, duration=duration,
             fmt=fmt, encoder=encoder, watermark=marque,
             on_progress=on_progress, cancel=cancel,
         )
@@ -456,8 +456,11 @@ def _raise_if_cancelled(token: threading.Event) -> None:
 
 
 # --- Bibliothèque musicale ------------------------------------------------
-def _resolve_music(name: str | None) -> Path | None:
-    """Retourne le chemin d'une musique de la bibliothèque locale."""
+def music_path(name: str | None) -> Path | None:
+    """Retourne le chemin d'une musique de la bibliothèque locale.
+
+    Public : l'API s'en sert pour servir un extrait, et la garde contre les
+    chemins hors bibliothèque doit rester le seul point de passage."""
     if not name:
         return None
     candidate = (config.MUSIC_DIR / name).resolve()
@@ -466,11 +469,31 @@ def _resolve_music(name: str | None) -> Path | None:
     return candidate if candidate.exists() else None
 
 
-def list_music() -> list[dict[str, str]]:
+# Durées déjà mesurées, indexées par (nom, taille, date). ffprobe coûte un
+# processus par fichier : sans ce cache, afficher la bibliothèque en lancerait
+# autant à chaque ouverture de l'étape Style.
+_DUREES_MUSIQUE: dict[tuple[str, int, int], float] = {}
+
+
+def duree_musique(path: Path) -> float:
+    """Durée d'une piste en secondes, 0 si ffprobe ne peut rien en dire."""
+    stat = path.stat()
+    cle = (path.name, stat.st_size, int(stat.st_mtime))
+    if cle not in _DUREES_MUSIQUE:
+        try:
+            _DUREES_MUSIQUE[cle] = probe(path).duration
+        except (MediaError, OSError, ValueError):
+            _DUREES_MUSIQUE[cle] = 0.0
+    return _DUREES_MUSIQUE[cle]
+
+
+def list_music() -> list[dict[str, object]]:
     """Bibliothèque de musiques locales (assets/music)."""
     extensions = {".mp3", ".m4a", ".wav", ".ogg", ".flac", ".aac"}
     tracks = []
     for path in sorted(config.MUSIC_DIR.iterdir()) if config.MUSIC_DIR.exists() else []:
         if path.is_file() and path.suffix.lower() in extensions:
-            tracks.append({"id": path.name, "label": path.stem.replace("_", " ")})
+            tracks.append({"id": path.name,
+                           "label": path.stem.replace("_", " "),
+                           "duree": round(duree_musique(path), 1)})
     return tracks

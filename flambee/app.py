@@ -845,29 +845,86 @@ async def voices(request: Request, refresh: bool = False):
         listed = list(config.FRENCH_VOICES)
 
     compte = _utilisateur(request)
-    combien = account.nombre_de_voix(compte)
-    if combien is not None:
-        listed = list(listed)[:combien]
+    ouvertes = set(account.voix_autorisees(compte))
 
     # La voix importée passe en tête : c'est celle qu'on veut quand on l'a.
     if voicestudio.charger(compte.id):
-        listed = [{"id": voicestudio.VOICE_ID, "label": "Ma voix (importée)"},
-                  *listed]
-    return {"voices": listed, "default": config.DEFAULT_VOICE,
-            "toutes": combien is None,
+        listed = [{"id": voicestudio.VOICE_ID, "prenom": "Ma voix",
+                   "genre": "importee", "note": "Ta voix, enregistrée au "
+                   "Voice Studio."}, *listed]
+
+    # Les voix réservées restent dans la liste, marquées : on choisit mal ce
+    # qu'on ne voit pas, et une formule se juge à ce qu'elle ouvre.
+    voix = []
+    for v in listed:
+        verrouillee = not account.voix_autorisee(compte, v["id"])
+        voix.append({**v, "label": config.libelle_de_voix(v),
+                     "pays_long": config.PAYS.get(v.get("pays", ""), ""),
+                     "genre_long": config.GENRES.get(v.get("genre", ""), ""),
+                     "verrouille": verrouillee})
+
+    defaut = config.DEFAULT_VOICE if config.DEFAULT_VOICE in ouvertes else (
+        next((v["id"] for v in voix if not v["verrouille"]), config.DEFAULT_VOICE))
+    return {"voices": voix, "default": defaut,
+            "toutes": not any(v["verrouille"] for v in voix),
             "debit_reglable": account.debit_reglable(compte)}
 
 
 @app.get("/api/music")
 async def music(request: Request):
-    """La bibliothèque musicale, vide pour les formules qui n'y ont pas droit.
+    """La bibliothèque musicale, marquée selon ce que la formule ouvre.
 
-    On renvoie `autorisee` plutôt qu'une erreur : l'étape Style doit pouvoir
-    expliquer pourquoi la liste est vide, au lieu de paraître cassée.
+    On renvoie la liste entière avec `verrouille` plutôt qu'une liste vide :
+    l'étape Style doit pouvoir montrer ce qui existe et dire pourquoi c'est
+    fermé, au lieu de paraître cassée.
     """
     autorisee = account.musique_autorisee(_utilisateur(request))
-    return {"tracks": pipeline.list_music() if autorisee else [],
-            "autorisee": autorisee, "dir": str(config.MUSIC_DIR)}
+    tracks = [{**t, "verrouille": not autorisee}
+              for t in await asyncio.to_thread(pipeline.list_music)]
+    return {"tracks": tracks, "autorisee": autorisee,
+            "dir": str(config.MUSIC_DIR)}
+
+
+@app.get("/api/music/{track}/sample")
+async def music_sample(request: Request, track: str):
+    """Extrait audible d'une piste — pour écouter avant de choisir."""
+    if not account.musique_autorisee(_utilisateur(request)):
+        raise HTTPException(status_code=402,
+                            detail="La musique de fond fait partie de la formule Créateur.")
+    source = pipeline.music_path(track)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Musique introuvable.")
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.extrait_musique, source)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="audio/mp4",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/api/voices/{voix}/sample")
+async def voice_sample(request: Request, voix: str):
+    """Quelques secondes de cette voix, pour l'entendre avant de la choisir."""
+    compte = _utilisateur(request)
+    if voix == voicestudio.VOICE_ID:
+        chemin = voicestudio.chemin_audio(compte.id)
+        if not voicestudio.charger(compte.id) or not chemin.exists() \
+                or not account.voix_autorisee(compte, voix):
+            raise HTTPException(status_code=404, detail="Aucune voix importée.")
+        return FileResponse(chemin, media_type="audio/wav")
+    if voix not in {v["id"] for v in config.FRENCH_VOICES}:
+        raise HTTPException(status_code=404, detail="Voix inconnue.")
+    if not account.voix_autorisee(compte, voix):
+        raise HTTPException(status_code=402,
+                            detail="Cette voix demande la formule Créateur.")
+    try:
+        chemin = await voice.audition(voix)
+    except voice.VoiceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="audio/mpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 # --- Projets --------------------------------------------------------------
@@ -1158,6 +1215,14 @@ async def update_settings(request: Request, project_id: str, body: SettingsIn):
         raise HTTPException(
             status_code=402,
             detail="Ce style de sous-titres demande la formule Créateur.",
+        )
+    # Même raison pour la voix : la liste envoyée au navigateur montre
+    # désormais les voix réservées, donc leur identifiant est connu. Sans ce
+    # contrôle, il suffirait de le poster à la main.
+    if not account.voix_autorisee(compte, data["voice"]):
+        raise HTTPException(
+            status_code=402,
+            detail="Cette voix demande la formule Créateur.",
         )
     if not account.debit_reglable(compte):
         defauts = config.RenderSettings()

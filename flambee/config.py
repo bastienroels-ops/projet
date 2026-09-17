@@ -128,19 +128,45 @@ PREVIEW_FORMAT = VideoFormat(
 # --- Voix edge-tts françaises --------------------------------------------
 # Liste figée (rapide, sans réseau) ; `voice.list_voices()` interroge
 # edge-tts pour la liste à jour quand la machine est connectée.
+# Chaque voix porte de quoi remplir une carte : prénom en gros, pays et genre
+# en petit, et une phrase qui dit à quoi elle sert. `label` reste construit à
+# partir de ces champs — il sert encore aux récapitulatifs en une ligne.
 FRENCH_VOICES: list[dict[str, str]] = [
-    {"id": "fr-FR-DeniseNeural", "label": "Denise (FR, féminine)"},
-    {"id": "fr-FR-EloiseNeural", "label": "Eloise (FR, féminine, jeune)"},
-    {"id": "fr-FR-HenriNeural", "label": "Henri (FR, masculine)"},
-    {"id": "fr-FR-RemyMultilingualNeural", "label": "Rémy (FR, masculine, multilingue)"},
-    {"id": "fr-FR-VivienneMultilingualNeural", "label": "Vivienne (FR, féminine, multilingue)"},
-    {"id": "fr-BE-CharlineNeural", "label": "Charline (BE, féminine)"},
-    {"id": "fr-BE-GerardNeural", "label": "Gérard (BE, masculine)"},
-    {"id": "fr-CA-SylvieNeural", "label": "Sylvie (CA, féminine)"},
-    {"id": "fr-CA-AntoineNeural", "label": "Antoine (CA, masculine)"},
-    {"id": "fr-CH-ArianeNeural", "label": "Ariane (CH, féminine)"},
+    {"id": "fr-FR-DeniseNeural", "prenom": "Denise", "pays": "FR",
+     "genre": "feminine", "note": "Posée, claire. La valeur sûre du commentaire."},
+    {"id": "fr-FR-EloiseNeural", "prenom": "Eloise", "pays": "FR",
+     "genre": "feminine", "note": "Plus jeune, plus vive. Pour un ton complice."},
+    {"id": "fr-FR-HenriNeural", "prenom": "Henri", "pays": "FR",
+     "genre": "masculine", "note": "Grave et net. Porte bien l'autorité."},
+    {"id": "fr-FR-RemyMultilingualNeural", "prenom": "Rémy", "pays": "FR",
+     "genre": "masculine", "note": "Chaleureux, à l'aise sur les mots étrangers."},
+    {"id": "fr-FR-VivienneMultilingualNeural", "prenom": "Vivienne", "pays": "FR",
+     "genre": "feminine", "note": "Souple, nuancée. Tient les scripts longs."},
+    {"id": "fr-BE-CharlineNeural", "prenom": "Charline", "pays": "BE",
+     "genre": "feminine", "note": "Accent belge léger, très naturel."},
+    {"id": "fr-BE-GerardNeural", "prenom": "Gérard", "pays": "BE",
+     "genre": "masculine", "note": "Rond et posé, une voix de narrateur."},
+    {"id": "fr-CA-SylvieNeural", "prenom": "Sylvie", "pays": "CA",
+     "genre": "feminine", "note": "Accent québécois franc."},
+    {"id": "fr-CA-AntoineNeural", "prenom": "Antoine", "pays": "CA",
+     "genre": "masculine", "note": "Québécois, énergique."},
+    {"id": "fr-CH-ArianeNeural", "prenom": "Ariane", "pays": "CH",
+     "genre": "feminine", "note": "Suisse romande, articulée."},
 ]
 DEFAULT_VOICE = "fr-FR-DeniseNeural"
+
+GENRES = {"feminine": "Féminine", "masculine": "Masculine"}
+PAYS = {"FR": "France", "BE": "Belgique", "CA": "Québec", "CH": "Suisse"}
+
+
+def libelle_de_voix(voix: dict[str, str]) -> str:
+    """« Denise (FR, féminine) » — la forme courte, pour les récapitulatifs."""
+    if "label" in voix:
+        return voix["label"]
+    genre = GENRES.get(voix.get("genre", ""), voix.get("genre", "")).lower()
+    morceaux = ", ".join(m for m in (voix.get("pays"), genre) if m)
+    return f"{voix.get('prenom', voix['id'])} ({morceaux})" if morceaux \
+        else voix.get("prenom", voix["id"])
 
 
 # --- Style des sous-titres ------------------------------------------------

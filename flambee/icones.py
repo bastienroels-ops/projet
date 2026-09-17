@@ -102,6 +102,8 @@ _TRACES: dict[str, str] = {
     ),
     "plus": '<path d="M12 5.2v13.6M5.2 12h13.6"/>',
     "lecture": '<path d="M8 5.4 18.4 12 8 18.6V5.4Z"/>',
+    "pause": '<path d="M9.4 5.6v12.8M14.6 5.6v12.8"/>',
+    "chevron": '<path d="m7.4 10 4.6 4.6L16.6 10"/>',
 
     # La flamme est pleine : c'est une marque, pas un pictogramme.
     "flamme": (

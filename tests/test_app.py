@@ -150,8 +150,8 @@ def test_projet_persiste_sur_disque(compte):
 
 
 def test_musique_hors_bibliotheque_ignoree():
-    assert pipeline._resolve_music("../secret.mp3") is None
-    assert pipeline._resolve_music("") is None
+    assert pipeline.music_path("../secret.mp3") is None
+    assert pipeline.music_path("") is None
 
 
 def test_suppression_projet(compte):

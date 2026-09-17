@@ -3,13 +3,22 @@
 
 {% block contenu %}
 <div class="page atelier">
-<nav class="steps" id="steps">
-    <button class="step" data-step="1"><b>1</b><span>Sources</span></button>
-    <button class="step" data-step="2"><b>2</b><span>Accroche</span></button>
-    <button class="step" data-step="3"><b>3</b><span>Style</span></button>
-    <button class="step" data-step="4"><b>4</b><span>Script</span></button>
-    <button class="step" data-step="5"><b>5</b><span>Rendu</span></button>
-  </nav>
+<div class="parcours">
+    <div class="parcours-tete">
+      <p class="parcours-rang">Étape <b id="parcours-n">1</b> sur 5
+        <span class="parcours-nom" id="parcours-nom">Sources</span></p>
+      <p class="parcours-reste" id="parcours-reste"></p>
+    </div>
+    <div class="parcours-piste"><div class="parcours-part" id="parcours-part"></div></div>
+
+    <nav class="steps" id="steps" aria-label="Étapes de la création">
+      <button class="step" data-step="1"><b>1</b><span>Sources</span></button>
+      <button class="step" data-step="2"><b>2</b><span>Accroche</span></button>
+      <button class="step" data-step="3"><b>3</b><span>Style</span></button>
+      <button class="step" data-step="4"><b>4</b><span>Script</span></button>
+      <button class="step" data-step="5"><b>5</b><span>Rendu</span></button>
+    </nav>
+  </div>
 
   <div id="job" class="job hidden">
     <div class="job-bar"><div class="job-fill" id="job-fill"></div></div>
@@ -71,58 +80,145 @@
     <p class="hint">Ces réglages donnent son caractère à la vidéo. Ils se modifient
       à tout moment, avant chaque rendu.</p>
 
-    <div class="grid">
-      <label><span>Voix off</span><select id="voice"></select></label>
-      <label id="bloc-debit" hidden><span>Débit</span>
-        <select id="voice_rate">
-          <option value="-10%">Posé</option>
-          <option value="+0%" selected>Normal</option>
-          <option value="+10%">Rapide</option>
-          <option value="+20%">Très rapide</option>
-        </select>
-      </label>
-      <label><span>Musique de fond</span>
-        <select id="music"><option value="">Aucune</option></select>
+    {# Les listes déroulantes restent la source de vérité — tout le reste du
+       script les lit et les écrit. Les cartes ci-dessous les pilotent ; elles
+       sont masquées à l'œil, jamais retirées du document. #}
+    <div class="selects-caches" hidden aria-hidden="true">
+      <select id="voice"></select>
+      <select id="music"><option value="">Aucune</option></select>
+      <select id="subtitle_preset"></select>
+      <input type="checkbox" id="subtitles" checked>
+    </div>
+
+    <!-- Voix ------------------------------------------------------------ -->
+    <section class="reglage ouvert" data-reglage="voix">
+      <button class="reglage-tete" type="button" aria-expanded="true">
+        <span class="reglage-icone">{{ icone("micro") }}</span>
+        <span class="reglage-mots">
+          <b>Voix off</b>
+          <small class="reglage-resume" id="resume-voix">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        <div class="filtres" id="filtres-voix">
+          <label class="filtre"><span>Pays</span>
+            <select id="filtre-pays"><option value="">Tous</option></select>
+          </label>
+          <label class="filtre"><span>Genre</span>
+            <select id="filtre-genre">
+              <option value="">Tous</option>
+              <option value="feminine">Féminine</option>
+              <option value="masculine">Masculine</option>
+            </select>
+          </label>
+        </div>
+        <div class="choix" id="choix-voix"></div>
+        <p class="vide-choix" id="voix-aucune" hidden>Aucune voix ne correspond
+          à ces filtres.</p>
+        <div class="grid reglage-fin">
+          <label id="bloc-debit" hidden><span>Débit</span>
+            <select id="voice_rate">
+              <option value="-10%">Posé</option>
+              <option value="+0%" selected>Normal</option>
+              <option value="+10%">Rapide</option>
+              <option value="+20%">Très rapide</option>
+            </select>
+          </label>
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sous-titres ----------------------------------------------------- -->
+    <section class="reglage" data-reglage="soustitres">
+      <button class="reglage-tete" type="button" aria-expanded="false">
+        <span class="reglage-icone">{{ icone("sous-titres") }}</span>
+        <span class="reglage-mots">
+          <b>Sous-titres</b>
+          <small class="reglage-resume" id="resume-soustitres">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        {# Un bouton, pas un <label> : un label qui contient sa propre case la
+           bascule déjà tout seul, et le script la basculerait une seconde
+           fois. La case vit avec les listes déroulantes, au-dessus. #}
+        <button type="button" class="carte-choix carte-sans" id="carte-sans-soustitres"
+                aria-pressed="false">
+          <span class="carte-mots"><b>Sans sous-titres</b>
+            <small>La voix off seule, sans texte incrusté.</small></span>
+          <span class="carte-marque"></span>
+        </button>
+        <div class="choix choix-styles" id="choix-soustitres"></div>
+        <p class="hint" id="styles-reserves" hidden>
+          Quatre styles et le réglage du débit sont réservés à la formule
+          Créateur, et l'Essai appose une mention « Flambée » en haut du rendu.
+          <a href="/studio/abonnement">Voir les formules</a>.
+        </p>
+        <figure class="preview" id="preset-preview">
+          <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
+          <figcaption>
+            <b id="preset-title"></b>
+            <span id="preset-description"></span>
+            <span class="preview-note">Rendu réel, bas du cadre.</span>
+          </figcaption>
+        </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Musique --------------------------------------------------------- -->
+    <section class="reglage" data-reglage="musique">
+      <button class="reglage-tete" type="button" aria-expanded="false">
+        <span class="reglage-icone">{{ icone("eclair") }}</span>
+        <span class="reglage-mots">
+          <b>Musique de fond</b>
+          <small class="reglage-resume" id="resume-musique">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        <div class="choix" id="choix-musique"></div>
         <small class="mention" id="note-musique" hidden></small>
-      </label>
-      <label><span>Style des sous-titres</span><select id="subtitle_preset"></select></label>
-    </div>
-    <p class="hint" id="styles-reserves" hidden>
-      Quatre styles et le réglage du débit sont réservés à la formule
-      Créateur, et l'Essai appose une mention « Flambée » en haut du rendu.
-      <a href="/studio/abonnement">Voir les formules</a>.
-    </p>
-    <figure class="preview" id="preset-preview">
-      <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
-      <figcaption>
-        <b id="preset-title"></b>
-        <span id="preset-description"></span>
-        <span class="preview-note">Rendu réel, bas du cadre.</span>
-      </figcaption>
-    </figure>
+        <div class="grid reglage-fin">
+          <label id="bloc-volume"><span>Volume musique <b class="value" id="music_volume_v">12%</b></span>
+            <input type="range" id="music_volume" min="0" max="40" value="12">
+          </label>
+        </div>
+        </div>
+      </div>
+    </section>
 
-    <div class="grid">
-      <label id="bloc-volume"><span>Volume musique <b class="value" id="music_volume_v">12%</b></span>
-        <input type="range" id="music_volume" min="0" max="40" value="12">
-      </label>
-    </div>
+    <!-- Image ----------------------------------------------------------- -->
+    <section class="reglage" data-reglage="image">
+      <button class="reglage-tete" type="button" aria-expanded="false">
+        <span class="reglage-icone">{{ icone("ciseaux") }}</span>
+        <span class="reglage-mots">
+          <b>Montage et image</b>
+          <small class="reglage-resume" id="resume-image">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        <div class="checks">
+          <label><input type="checkbox" id="motion" checked> Léger travelling sur chaque plan</label>
+          <label><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
+          <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
+          <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
+        </div>
 
-    <div class="checks">
-      <label><input type="checkbox" id="subtitles" checked> Sous-titres animés</label>
-      <label><input type="checkbox" id="motion" checked> Léger travelling sur chaque plan</label>
-      <label><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
-      <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
-      <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
-    </div>
-
-    <div class="grid" id="mask-options">
-      <label><span>Type de masque</span>
-        <select id="mask_mode"><option value="blur">Flou</option><option value="black">Bandeau noir</option></select>
-      </label>
-      <label><span>Hauteur masquée <b class="value" id="mask_height_ratio_v">22%</b></span>
-        <input type="range" id="mask_height_ratio" min="8" max="45" value="22">
-      </label>
-    </div>
+        <div class="grid reglage-fin" id="mask-options">
+          <label><span>Type de masque</span>
+            <select id="mask_mode"><option value="blur">Flou</option><option value="black">Bandeau noir</option></select>
+          </label>
+          <label><span>Hauteur masquée <b class="value" id="mask_height_ratio_v">22%</b></span>
+            <input type="range" id="mask_height_ratio" min="8" max="45" value="22">
+          </label>
+        </div>
+        </div>
+      </div>
+    </section>
 
     <div class="row"><button class="primary" id="btn-style-next">Continuer</button></div>
   </section>

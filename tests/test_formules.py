@@ -38,10 +38,19 @@ def test_le_filigrane_ne_concerne_que_l_essai():
 
 
 def test_les_voix_et_le_debit_suivent_la_formule():
-    assert account.nombre_de_voix(_u("essai")) == 2
-    assert account.nombre_de_voix(_u("createur")) is None
+    assert len(account.voix_autorisees(_u("essai"))) == 2
+    assert len(account.voix_autorisees(_u("createur"))) == len(config.FRENCH_VOICES)
     assert not account.debit_reglable(_u("essai"))
     assert account.debit_reglable(_u("createur"))
+
+
+def test_les_deux_voix_de_l_essai_sont_une_de_chaque_genre():
+    """« Une féminine, une masculine » : les deux premières de la liste en
+    donnaient deux féminines. Les voix sont nommées pour que ça reste vrai."""
+    par_id = {v["id"]: v for v in config.FRENCH_VOICES}
+    genres = {par_id[i]["genre"] for i in account.voix_autorisees(_u("essai"))}
+    assert genres == {"feminine", "masculine"}
+
 
 
 def test_la_conservation_des_projets_suit_la_formule():
@@ -109,15 +118,44 @@ def test_la_liste_des_styles_marque_ce_qui_est_reserve(compte):
     assert len(donnees["subtitles"]) == len(config.SUBTITLE_PRESETS)
 
 
-def test_l_essai_ne_se_voit_proposer_que_deux_voix(compte):
+def test_l_essai_voit_toutes_les_voix_mais_deux_seulement_sont_ouvertes(compte):
+    """Masquer les voix réservées rendait la formule invisible. On les montre,
+    marquées — ce que la carte traduit par un cadenas."""
     donnees = compte.get("/api/voices").json()
-    assert len(donnees["voices"]) == 2
+    assert len(donnees["voices"]) == len(config.FRENCH_VOICES)
+    assert sum(1 for v in donnees["voices"] if not v["verrouille"]) == 2
     assert donnees["toutes"] is False
+    assert donnees["default"] in account.VOIX_ESSAI
+
+
+def test_une_voix_reservee_est_refusee_a_l_essai(compte):
+    """La liste montre désormais les voix fermées : leur identifiant est donc
+    connu du navigateur, et le refus doit venir du serveur."""
+    reservee = next(v["id"] for v in config.FRENCH_VOICES
+                    if v["id"] not in account.VOIX_ESSAI)
+    projet = _projet(compte)
+    reponse = compte.post(f"/api/projects/{projet}/settings",
+                          json=_reglages(preset=account.STYLES_ESSAI[0],
+                                         voice=reservee))
+    assert reponse.status_code == 402
+    assert compte.get(f"/api/projects/{projet}").json()["settings"]["voice"] \
+        != reservee
+
+
+def test_le_createur_obtient_la_voix_reservee(compte_pro):
+    reservee = next(v["id"] for v in config.FRENCH_VOICES
+                    if v["id"] not in account.VOIX_ESSAI)
+    projet = _projet(compte_pro)
+    reponse = compte_pro.post(f"/api/projects/{projet}/settings",
+                              json=_reglages(voice=reservee))
+    assert reponse.status_code == 200
+    assert reponse.json()["settings"]["voice"] == reservee
 
 
 def test_le_createur_a_toutes_les_voix(compte_pro):
     donnees = compte_pro.get("/api/voices").json()
     assert len(donnees["voices"]) == len(config.FRENCH_VOICES)
+    assert not any(v["verrouille"] for v in donnees["voices"])
     assert donnees["toutes"] is True
 
 
@@ -261,10 +299,17 @@ def test_la_musique_est_reservee_aux_formules_payantes(compte, compte_pro):
     assert ouverte["autorisee"] is True
 
 
-def test_l_essai_ne_recoit_pas_la_bibliotheque_musicale(compte):
+def test_l_essai_voit_la_musique_mais_ne_peut_pas_l_entendre(compte, monkeypatch):
+    """Même raison que pour les voix : la bibliothèque reste visible et
+    marquée, mais l'extrait comme le rendu restent fermés."""
+    from flambee import app as app_module
+
+    monkeypatch.setattr(app_module.pipeline, "list_music",
+                        lambda: [{"id": "nappe.mp3", "label": "nappe", "duree": 60.0}])
     fermee = compte.get("/api/music").json()
     assert fermee["autorisee"] is False
-    assert fermee["tracks"] == []
+    assert [t["verrouille"] for t in fermee["tracks"]] == [True]
+    assert compte.get("/api/music/nappe.mp3/sample").status_code == 402
 
 
 def test_une_piste_choisie_sans_droit_est_ecartee(compte, monkeypatch):
@@ -293,7 +338,7 @@ def test_les_chiffres_annonces_sont_ceux_du_code():
     assert "deux styles" in texte["essai"]
     assert len(config.SUBTITLE_PRESETS) == 6, "le Créateur annonce six styles"
     assert "six styles" in texte["createur"]
-    assert account.VOIX_ESSAI == 2 and "deux voix" in texte["essai"]
+    assert len(account.VOIX_ESSAI) == 2 and "deux voix" in texte["essai"]
     assert len(config.FRENCH_VOICES) == 10 and "dix voix" in texte["createur"]
 
     assert str(account.RETENTION_JOURS["essai"]) in texte["essai"]

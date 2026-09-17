@@ -188,3 +188,42 @@ def _estimate_words(text: str, duration: float) -> list[Word]:
         words.append(Word(text=token, start=cursor, end=cursor + span))
         cursor += span
     return words
+
+
+# --- Audition d'une voix ---------------------------------------------------
+# Choisir une voix dans une liste déroulante, c'est choisir sur un prénom. Un
+# échantillon court, mis en cache, permet d'entendre avant de décider.
+
+PHRASE_AUDITION = "Voici l'astuce que personne ne connaît. Regarde jusqu'au bout."
+
+_verrous_audition: dict[str, asyncio.Lock] = {}
+
+
+def audition_path(voix: str) -> Path:
+    """Le nom de la voix entre dans un nom de fichier : il n'en sort pas.
+
+    Le point est exclu au même titre que la barre oblique. Aucun identifiant
+    edge-tts n'en contient, et un `..` gardé tel quel dans un nom de fichier,
+    même sans effet ici, demande à chaque relecture qu'on le prouve."""
+    propre = re.sub(r"[^A-Za-z0-9_-]", "_", voix)
+    return config.WORK_DIR / ".samples" / f"voix-{propre}.mp3"
+
+
+async def audition(voix: str) -> Path:
+    """Rend (ou retrouve) quelques secondes de cette voix."""
+    out_path = audition_path(voix)
+    if out_path.exists() and out_path.stat().st_size > 1024:
+        return out_path
+
+    verrou = _verrous_audition.setdefault(voix, asyncio.Lock())
+    async with verrou:            # deux clics rapides, une seule synthèse
+        if out_path.exists() and out_path.stat().st_size > 1024:
+            return out_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # On passe par un fichier temporaire : une synthèse interrompue ne
+        # laisse pas un mp3 tronqué qui serait ensuite servi depuis le cache.
+        brouillon = out_path.with_suffix(".part")
+        await synthesize_async(PHRASE_AUDITION, brouillon, voice=voix)
+        brouillon.replace(out_path)
+        log.info("Audition rendue : %s", out_path.name)
+        return out_path

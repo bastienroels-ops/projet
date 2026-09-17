@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 
-from . import config, plans, users
+from . import config, plans, users, voicestudio
 from .users import Utilisateur
 
 # Combien de rendus par mois selon la formule. None = sans limite.
@@ -31,8 +31,11 @@ FORMULES_PRO = {"createur", "studio"}
 # Deux styles suffisent à juger de l'outil sans déflorer le catalogue.
 STYLES_ESSAI: tuple[str, ...] = ("punch", "minimal")
 
-# Deux voix en Essai : une féminine, une masculine.
-VOIX_ESSAI = 2
+# Deux voix en Essai, nommées plutôt que comptées : « les deux premières »
+# donnait deux voix féminines, ce que la phrase ci-dessous promettait déjà de
+# ne pas faire. Et une liste nommée se contrôle côté serveur, ce qu'un nombre
+# ne permettait pas.
+VOIX_ESSAI: tuple[str, ...] = ("fr-FR-DeniseNeural", "fr-FR-HenriNeural")
 
 # Combien de temps les projets sont conservés. None = sans effacement.
 RETENTION_JOURS: dict[str, int | None] = {
@@ -53,9 +56,18 @@ def style_autorise(utilisateur: Utilisateur, preset: str) -> bool:
     return preset in styles_autorises(utilisateur)
 
 
-def nombre_de_voix(utilisateur: Utilisateur) -> int | None:
-    """Combien de voix de synthèse sont proposées. None = toutes."""
-    return None if est_pro(utilisateur) else VOIX_ESSAI
+def voix_autorisees(utilisateur: Utilisateur) -> list[str]:
+    """Les voix de synthèse ouvertes à ce compte."""
+    if est_pro(utilisateur):
+        return [v["id"] for v in config.FRENCH_VOICES]
+    return [v["id"] for v in config.FRENCH_VOICES if v["id"] in VOIX_ESSAI]
+
+
+def voix_autorisee(utilisateur: Utilisateur, voix: str) -> bool:
+    """La voix importée du Voice Studio n'existe que pour les formules pro."""
+    if voix == voicestudio.VOICE_ID:
+        return est_pro(utilisateur)
+    return voix in voix_autorisees(utilisateur)
 
 
 def debit_reglable(utilisateur: Utilisateur) -> bool:
