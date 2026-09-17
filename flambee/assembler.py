@@ -30,6 +30,7 @@ from .media import (
     has_media_duration,
     motion_for,
     probe,
+    split_bands,
     vertical_filter,
 )
 from .trimmer import Segment
@@ -97,6 +98,7 @@ def build_graph(
     duration: float,
     fmt: config.VideoFormat,
     watermark: str = "",
+    split_path: Path | None = None,
 ) -> _Graph:
     """Construit le `-filter_complex` complet du montage.
 
@@ -110,6 +112,13 @@ def build_graph(
     audio_labels: list[str] = []
     ambience = settings.keep_source_audio
 
+    # --- Écran scindé -----------------------------------------------------
+    # Le montage ne remplit plus le cadre : il occupe une bande, le compagnon
+    # l'autre. Les extraits sont donc cadrés à la hauteur de leur bande, pas à
+    # celle de l'image — sinon on les écraserait après coup.
+    bande_montage, bande_compagnon = split_bands(fmt.height, settings.split_ratio) \
+        if split_path else (fmt.height, 0)
+
     for position, segment in enumerate(segments):
         source = sources.get(segment.source_index)
         if source is None or not source.path:
@@ -120,7 +129,7 @@ def build_graph(
                    "-i", source.path]
 
         chain = vertical_filter(
-            width=fmt.width, height=fmt.height, fps=fmt.fps,
+            width=fmt.width, height=bande_montage, fps=fmt.fps,
             mask=settings.mask_mode if settings.mask_source_subtitles else None,
             mask_height_ratio=settings.mask_height_ratio,
             motion=motion_for(position) if settings.motion else None,
@@ -165,6 +174,26 @@ def build_graph(
         joined = "".join(f"[{v}]" for v in video_labels)
         filters.append(f"{joined}concat=n={len(video_labels)}:v=1:a=0[vcat]")
         video_out = "vcat"
+
+    # --- Écran scindé : on empile les deux bandes -------------------------
+    # Le compagnon est bouclé (`-stream_loop -1`) et coupé à la durée du
+    # montage : une boucle de jeu de trente secondes tient sous un script
+    # d'une minute sans qu'on ait à s'en occuper. Son son est ignoré — deux
+    # ambiances sous une voix off, c'est une de trop.
+    if split_path:
+        stream = _next_input_index(inputs)
+        inputs += ["-stream_loop", "-1", "-t", f"{duration:.3f}",
+                   "-i", str(split_path)]
+        compagnon = vertical_filter(
+            width=fmt.width, height=bande_compagnon, fps=fmt.fps, tag="cmp")
+        filters.append(
+            f"[{stream}:v]{compagnon},trim=duration={duration:.3f},"
+            f"setpts=PTS-STARTPTS[vcmp]"
+        )
+        haut, bas = ((video_out, "vcmp") if settings.split_bottom
+                     else ("vcmp", video_out))
+        filters.append(f"[{haut}][{bas}]vstack=inputs=2[vsplit]")
+        video_out = "vsplit"
 
     # --- Sous-titres ------------------------------------------------------
     if subtitle_path and settings.subtitles:
@@ -270,6 +299,7 @@ def render(
     encoder: Encoder | None = None,
     fast: bool = False,
     watermark: str = "",
+    split_path: Path | None = None,
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
 ) -> AssemblyResult:
@@ -283,6 +313,7 @@ def render(
         segments, by_index,
         voice_path=voice_path, subtitle_path=subtitle_path, music_path=music_path,
         settings=settings, duration=duration, fmt=fmt, watermark=watermark,
+        split_path=split_path,
     )
 
     args = [*graph.inputs, "-filter_complex", ";".join(graph.filters)]
@@ -347,6 +378,7 @@ def finalize(
     fmt: config.VideoFormat | None = None,
     encoder: Encoder | None = None,
     watermark: str = "",
+    split_path: Path | None = None,
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
 ) -> AssemblyResult:
@@ -369,6 +401,7 @@ def finalize(
         [segment], {0: pseudo_source},
         voice_path=voice_path, subtitle_path=subtitle_path, music_path=music_path,
         settings=passthrough, duration=target, fmt=fmt, watermark=watermark,
+        split_path=split_path,
     )
     args = [*graph.inputs, "-filter_complex", ";".join(graph.filters),
             "-map", f"[{graph.video_label}]"]

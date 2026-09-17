@@ -672,3 +672,10 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 .verrou-liste .palier { flex: none; margin-top: 1px; }
 .verrou-liste .palier-createur { color: var(--laiton); }
 .verrou-liste .palier-studio { color: var(--eclat); }
+
+/* `petit` vit dans site.css, que l'application ne charge pas : sans cette
+   reprise, le bouton d'import du fond aurait la taille d'un bouton d'action
+   principale au milieu d'un panneau de réglages. */
+.contenu .button.petit, .contenu button.petit {
+  padding: 10px 20px; font-size: 13.5px;
+}

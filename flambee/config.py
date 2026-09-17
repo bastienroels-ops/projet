@@ -28,8 +28,12 @@ WORK_DIR = _path_env("FLAMBEE_WORK_DIR", BASE_DIR / "work")
 OUTPUT_DIR = _path_env("FLAMBEE_OUTPUT_DIR", BASE_DIR / "output")
 ASSETS_DIR = _path_env("FLAMBEE_ASSETS_DIR", BASE_DIR / "assets")
 MUSIC_DIR = ASSETS_DIR / "music"
+# Les fonds d'écran scindé : les boucles de jeu, de slime, de parkour qu'on
+# pose sous le montage. Même principe que la bibliothèque musicale — on y
+# dépose ses fichiers, ils apparaissent dans l'étape Style.
+FONDS_DIR = ASSETS_DIR / "fonds"
 
-for _d in (WORK_DIR, OUTPUT_DIR, MUSIC_DIR):
+for _d in (WORK_DIR, OUTPUT_DIR, MUSIC_DIR, FONDS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
@@ -375,4 +379,16 @@ class RenderSettings:
     motion: bool = True                # léger travelling sur chaque plan
     scene_aware: bool = True           # caler les coupes sur les changements de plan
     subtitle_preset: str = "punch"
+    # Caler les sous-titres sur l'audio plutôt que sur le minutage d'edge-tts.
+    # Voir `calage.py` : les deux échelles de temps ne sont pas la même.
+    subtitle_sync: bool = True
+
+    # --- Écran scindé ----------------------------------------------------
+    # Le montage occupe une bande, une seconde vidéo — jeu, boucle
+    # hypnotique — occupe l'autre. C'est le format le plus répandu du moment :
+    # l'œil reste accroché par le bas pendant que le haut raconte.
+    split_clip: str = ""               # "" = pas d'écran scindé
+    split_ratio: float = 0.62          # part de hauteur pour le montage
+    split_bottom: bool = True          # le compagnon en bas (sinon en haut)
+
     extra: dict = field(default_factory=dict)

@@ -174,7 +174,7 @@ def vertical_filter(
     chain: list[str] = []
     if motion and motion_duration > 0.2:
         zoom = 1.08
-        big_w, big_h = _even(width * zoom), _even(height * zoom)
+        big_w, big_h = even(width * zoom), even(height * zoom)
         margin_x, margin_y = big_w - width, big_h - height
         progress = f"min(1,t/{motion_duration:.3f})"
         moves = {
@@ -198,7 +198,7 @@ def vertical_filter(
     chain += [f"fps={fps}", "setsar=1"]
 
     if mask in ("blur", "black"):
-        band = _even(height * max(0.05, min(0.6, mask_height_ratio)))
+        band = even(height * max(0.05, min(0.6, mask_height_ratio)))
         top = height - band
         if mask == "black":
             chain.append(f"drawbox=x=0:y={top}:w={width}:h={band}:color=black@1:t=fill")
@@ -208,7 +208,7 @@ def vertical_filter(
             # `boxblur` : visuellement équivalent sur une bande de sous-titres,
             # et bien moins coûteux (c'est le filtre le plus cher du graphe).
             base, tocrop, blurred = f"b{tag}", f"c{tag}", f"k{tag}"
-            small_w, small_h = max(8, _even(width / 16)), max(8, _even(band / 16))
+            small_w, small_h = max(8, even(width / 16)), max(8, even(band / 16))
             return (
                 ",".join(chain)
                 + f",split=2[{base}][{tocrop}];"
@@ -220,8 +220,24 @@ def vertical_filter(
     return ",".join(chain)
 
 
-def _even(value: float) -> int:
-    """Arrondit à un entier pair (exigé par yuv420p)."""
+def split_bands(height: int, ratio: float) -> tuple[int, int]:
+    """Partage la hauteur entre le montage et le compagnon.
+
+    Les deux hauteurs sont paires — un encodeur H.264 refuse une dimension
+    impaire — et leur somme fait exactement la hauteur demandée, sinon
+    `vstack` rendrait une image d'un pixel de trop.
+    """
+    ratio = max(0.25, min(0.85, ratio))
+    montage = even(int(round(height * ratio)))
+    montage = max(2, min(height - 2, montage))
+    return montage, height - montage
+
+
+def even(value: float) -> int:
+    """Arrondit à un entier pair (exigé par yuv420p).
+
+    Public : l'assembleur partage la hauteur de l'image entre deux bandes, et
+    une bande de hauteur impaire fait échouer l'encodage."""
     result = int(round(value))
     return result - (result % 2)
 

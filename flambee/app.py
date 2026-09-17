@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
 import logging
 import os
@@ -19,9 +20,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import (__version__, account, config, downloader, media, pipeline,
-               plans, samples, scriptgen, site, transcribe, users, voice,
-               voicestudio)
+from . import (__version__, account, calage, config, downloader, media,
+               pipeline, plans, samples, scriptgen, site, transcribe, users,
+               voice, voicestudio)
 from . import courriel, icones
 from .auth import (fermer_session, install_auth, ouvrir_session,
                    requete_securisee, utilisateur_courant)
@@ -68,6 +69,10 @@ class SettingsIn(BaseModel):
     motion: bool = True
     scene_aware: bool = True
     subtitle_preset: str = config.DEFAULT_SUBTITLE_PRESET
+    subtitle_sync: bool = True
+    split_clip: str = ""
+    split_ratio: float = 0.62
+    split_bottom: bool = True
 
 
 class RenderIn(BaseModel):
@@ -909,6 +914,91 @@ async def music_sample(request: Request, track: str):
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+@app.get("/api/fonds")
+async def fonds(request: Request, projet: str = ""):
+    """Les boucles disponibles pour la bande du bas de l'écran scindé.
+
+    La bibliothèque partagée (`assets/fonds`) plus, le cas échéant, la vidéo
+    déposée sur ce projet — un fond de jeu qu'on n'utilise qu'une fois n'a pas
+    à encombrer la bibliothèque de tout le monde.
+    """
+    liste = await asyncio.to_thread(pipeline.list_fonds)
+    if projet:
+        try:
+            p = _get(projet, request)
+        except HTTPException:
+            p = None
+        if p is not None and (p.dir / pipeline.FOND_DU_PROJET_FICHIER).exists():
+            liste = [{"id": pipeline.FOND_DU_PROJET,
+                      "label": "Ta vidéo importée",
+                      "duree": 0.0, "projet": True}, *liste]
+    return {"fonds": liste, "dir": str(config.FONDS_DIR)}
+
+
+@app.get("/api/fonds/{fond}/poster")
+async def fond_poster(request: Request, fond: str, projet: str = ""):
+    """Vignette d'un fond : une image tirée de la boucle elle-même."""
+    p = None
+    if fond == pipeline.FOND_DU_PROJET and projet:
+        try:
+            p = _get(projet, request)
+        except HTTPException:
+            p = None
+    source = pipeline.fond_path(fond, p)
+    if source is None:
+        raise HTTPException(status_code=404, detail="Fond introuvable.")
+    if media.ensure_tools():
+        raise HTTPException(status_code=503, detail="ffmpeg est requis.")
+    try:
+        chemin = await asyncio.to_thread(samples.affiche_de_fond, source)
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return FileResponse(chemin, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.post("/api/projects/{project_id}/fond")
+async def upload_fond(request: Request, project_id: str,
+                      file: UploadFile = File(...)):
+    """Dépose la vidéo du bas pour ce projet (une boucle de jeu, en général)."""
+    project = _get(project_id, request)
+    _require_idle(project)
+
+    suffixe = Path(file.filename or "").suffix.lower()
+    if suffixe not in config.UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format non reconnu : {file.filename}. Formats acceptés : "
+                   + ", ".join(sorted(config.UPLOAD_EXTENSIONS)))
+
+    project.ensure_dirs()
+    chemin = project.dir / pipeline.FOND_DU_PROJET_FICHIER
+    try:
+        ecrits = await _stream_to_disk(file, chemin)
+    except ValueError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    if not ecrits:
+        chemin.unlink(missing_ok=True)
+        raise HTTPException(status_code=400,
+                            detail=f"Fichier vide : {file.filename}")
+    try:
+        infos = await asyncio.to_thread(media.probe, chemin)
+    except media.MediaError as exc:
+        chemin.unlink(missing_ok=True)
+        raise HTTPException(status_code=400,
+                            detail=f"Vidéo illisible : {exc}") from exc
+    if not infos.width or not infos.height:
+        chemin.unlink(missing_ok=True)
+        raise HTTPException(status_code=400,
+                            detail="Ce fichier ne contient pas d'image.")
+
+    project.settings = dataclasses.replace(
+        project.settings, split_clip=pipeline.FOND_DU_PROJET)
+    project.save()
+    return {"ok": True, "duree": round(infos.duration, 1),
+            "largeur": infos.width, "hauteur": infos.height}
+
+
 @app.get("/api/voices/{voix}/sample")
 async def voice_sample(request: Request, voix: str):
     """Quelques secondes de cette voix, pour l'entendre avant de la choisir."""
@@ -1206,6 +1296,12 @@ async def update_settings(request: Request, project_id: str, body: SettingsIn):
             not account.musique_autorisee(compte_reglages)
             or data["music"] not in {t["id"] for t in pipeline.list_music()}):
         data["music"] = None
+    # Un fond qui n'existe pas rendrait une image à moitié noire : on
+    # l'efface plutôt que de laisser le rendu échouer à la dernière étape.
+    if data.get("split_clip") and pipeline.fond_path(
+            data["split_clip"], project) is None:
+        data["split_clip"] = ""
+    data["split_ratio"] = max(0.25, min(0.85, data["split_ratio"]))
     data["music_volume"] = max(0.0, min(1.0, data["music_volume"]))
     data["mask_height_ratio"] = max(0.05, min(0.6, data["mask_height_ratio"]))
     data["source_audio_volume"] = max(0.0, min(1.0, data["source_audio_volume"]))
@@ -1360,6 +1456,9 @@ async def presets(request: Request):
         # « Flambée » sur une vidéo déjà payée d'un crédit est une surprise
         # qu'on ne doit à personne.
         "filigrane": account.filigrane(compte),
+        # Le calage demande le moteur de transcription : la case ne doit pas
+        # promettre ce que la machine ne peut pas tenir.
+        "calage_possible": calage.disponible(),
     }
 
 

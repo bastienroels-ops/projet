@@ -7,6 +7,7 @@ const state = {
   presets: [],
   voices: [],
   tracks: [],
+  fonds: [],
   filigrane: false,
 };
 
@@ -151,6 +152,11 @@ function renderSettings(settings) {
   $("#music_volume").value = Math.round(settings.music_volume * 100);
   $("#music_volume_v").textContent = `${Math.round(settings.music_volume * 100)}%`;
   $("#subtitles").checked = settings.subtitles;
+  $("#subtitle_sync").checked = settings.subtitle_sync;
+  $("#split_ratio").value = Math.round(settings.split_ratio * 100);
+  $("#split_ratio_v").textContent = `${Math.round(settings.split_ratio * 100)}%`;
+  $("#split_bottom").value = settings.split_bottom ? "1" : "0";
+  state.splitClip = settings.split_clip || "";
   $("#mask_source_subtitles").checked = settings.mask_source_subtitles;
   $("#keep_source_audio").checked = settings.keep_source_audio;
   $("#mask_mode").value = settings.mask_mode;
@@ -188,6 +194,18 @@ function syncCartes() {
   if (styles) styles.classList.toggle("eteint", !$("#subtitles").checked);
   const apercu = $("#preset-preview");
   if (apercu) apercu.classList.toggle("eteint", !$("#subtitles").checked);
+
+  /* Les cartes d'écran scindé se contentent d'être remarquées : cette
+     fonction tourne à chaque sondage pendant un rendu, et reconstruire la
+     grille deux fois par seconde ferait clignoter le panneau. */
+  const scinde = $("#choix-scinde");
+  if (scinde) marquerChoisie(scinde, state.splitClip || "");
+  const reglages = $("#reglages-scinde");
+  if (reglages) reglages.hidden = !state.splitClip;
+  const couture = $("#note-scinde");
+  if (couture) {
+    couture.hidden = !state.splitClip || $("#split_bottom").value !== "1";
+  }
   resumerReglages();
 }
 
@@ -586,8 +604,17 @@ function peindreVoix() {
 }
 
 async function loadPresets() {
-  const { subtitles, default: def, debit_reglable, filigrane } =
-    await api("/api/presets");
+  const { subtitles, default: def, debit_reglable, filigrane,
+          calage_possible } = await api("/api/presets");
+  const bloc = $("#bloc-calage");
+  if (bloc) bloc.hidden = !calage_possible;
+  const absence = $("#note-calage");
+  if (absence) {
+    absence.hidden = calage_possible;
+    absence.textContent = "Le calage précis des sous-titres demande le moteur "
+      + "de transcription, qui n'est pas installé sur cette machine. "
+      + "Voir la rubrique Paramètres.";
+  }
   state.presets = subtitles;
   state.filigrane = filigrane;
   /* Les styles réservés restent visibles mais non sélectionnables : les
@@ -762,6 +789,11 @@ function resumerReglages() {
   dire("#resume-musique", piste
     ? `${piste.label} · ${$("#music_volume").value}%` : "Aucune");
 
+  const fond = (state.fonds || []).find((f) => f.id === state.splitClip);
+  dire("#resume-scinde", fond
+    ? `${fond.label} · ${$("#split_ratio").value}% pour le montage`
+    : "Aucun");
+
   const options = [
     $("#motion").checked && "travelling",
     $("#scene_aware").checked && "coupes calées",
@@ -769,6 +801,56 @@ function resumerReglages() {
     $("#keep_source_audio").checked && "ambiance conservée",
   ].filter(Boolean);
   dire("#resume-image", options.length ? options.join(" · ") : "Aucun effet");
+}
+
+async function loadFonds() {
+  const id = state.project ? state.project.id : "";
+  const { fonds } = await api(`/api/fonds?projet=${encodeURIComponent(id)}`);
+  state.fonds = fonds;
+  peindreFonds();
+}
+
+function peindreFonds() {
+  const boite = $("#choix-scinde");
+  if (!boite) return;
+  boite.innerHTML = "";
+
+  const aucun = carteChoix({
+    valeur: "", titre: "Sans écran scindé",
+    note: "Le montage occupe tout le cadre, comme aujourd'hui.",
+  });
+  aucun.classList.add("carte-sans");
+  aucun.addEventListener("click", () => choisirFond(""));
+  boite.appendChild(aucun);
+
+  (state.fonds || []).forEach((fond) => {
+    const carte = carteChoix({
+      valeur: fond.id,
+      titre: fond.label,
+      detail: fond.projet ? "Déposée sur ce projet" : fmtMinutes(fond.duree),
+      note: fond.projet ? "" : "Bouclée pour couvrir toute la vidéo.",
+    });
+    // Une image tirée de la boucle : on choisit mal une vidéo sur son nom.
+    const vignette = document.createElement("span");
+    vignette.className = "carte-apercu";
+    vignette.style.backgroundImage =
+      `url("/api/fonds/${encodeURIComponent(fond.id)}/poster`
+      + `?projet=${encodeURIComponent(state.project ? state.project.id : "")}")`;
+    carte.prepend(vignette);
+    carte.addEventListener("click", () => choisirFond(fond.id));
+    boite.appendChild(carte);
+  });
+
+  marquerChoisie(boite, state.splitClip || "");
+  const actif = Boolean(state.splitClip);
+  $("#reglages-scinde").hidden = !actif;
+  $("#note-scinde").hidden = !actif || $("#split_bottom").value !== "1";
+  resumerReglages();
+}
+
+function choisirFond(valeur) {
+  state.splitClip = valeur;
+  peindreFonds();
 }
 
 async function newProject() {
@@ -863,6 +945,10 @@ function bind() {
     motion: $("#motion").checked,
     scene_aware: $("#scene_aware").checked,
     subtitle_preset: $("#subtitle_preset").value,
+    subtitle_sync: $("#subtitle_sync").checked,
+    split_clip: state.splitClip || "",
+    split_ratio: +$("#split_ratio").value / 100,
+    split_bottom: $("#split_bottom").value === "1",
   });
 
   $("#music_volume").addEventListener("input", (e) => {
@@ -885,9 +971,42 @@ function bind() {
   $("#voice").addEventListener("change", syncCartes);
   $("#music").addEventListener("change", syncCartes);
   $("#subtitles").addEventListener("change", syncCartes);
-  ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio"]
+  ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio",
+   "#subtitle_sync"]
     .forEach((sel) => $(sel).addEventListener("change", resumerReglages));
   $("#music_volume").addEventListener("input", resumerReglages);
+  $("#split_ratio").addEventListener("input", (e) => {
+    $("#split_ratio_v").textContent = `${e.target.value}%`;
+    paintRange(e.target);
+    resumerReglages();
+  });
+  $("#split_bottom").addEventListener("change", () => {
+    $("#note-scinde").hidden = !state.splitClip || $("#split_bottom").value !== "1";
+    resumerReglages();
+  });
+
+  $("#fond-fichier").addEventListener("change", async (e) => {
+    const fichier = (e.target.files || [])[0];
+    if (!fichier || !state.project) return;
+    const etat = $("#fond-etat");
+    etat.textContent = "Envoi…";
+    const form = new FormData();
+    form.append("file", fichier, fichier.name);
+    try {
+      const res = await fetch(`/api/projects/${state.project.id}/fond`,
+        { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data && data.detail) || `Erreur ${res.status}`);
+      etat.textContent = `${data.largeur}×${data.hauteur}, ${data.duree} s`;
+      state.splitClip = "@projet";
+      await loadFonds();
+    } catch (err) {
+      etat.textContent = "";
+      alertBox(err.message);
+    } finally {
+      e.target.value = "";
+    }
+  });
 
   // La carte « Sans sous-titres » est une bascule, pas un interrupteur caché.
   const sansSoustitres = $("#carte-sans-soustitres");
@@ -1009,4 +1128,6 @@ bind();
 loadHealth().catch((e) => console.error(e));
 Promise.all([loadVoices(), loadMusic(), loadPresets()])
   .then(loadOrCreate)
+  // Les fonds dépendent du projet : la liste inclut la vidéo qu'on y a déposée.
+  .then(() => loadFonds().catch((e) => console.error(e)))
   .catch((err) => alertBox(err.message));

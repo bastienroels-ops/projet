@@ -166,6 +166,15 @@
           Créateur, et l'Essai appose une mention « Flambée » en haut du rendu.
           <a href="/studio/abonnement">Voir les formules</a>.
         </p>
+        <div class="checks reglage-fin" id="bloc-calage" hidden>
+          <label><input type="checkbox" id="subtitle_sync" checked>
+            <span>Caler les sous-titres sur la voix
+              <small>Relève le minutage sur l'audio lui-même. Ajoute quelques
+                secondes au rendu, et supprime le décalage.</small></span>
+          </label>
+        </div>
+        <p class="mention" id="note-calage" hidden></p>
+
         <figure class="preview" id="preset-preview">
           <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
           <figcaption>
@@ -198,6 +207,48 @@
         </div>
         </div>
       </div>
+    </section>
+
+    <!-- Écran scindé ------------------------------------------------------ -->
+    <section class="reglage" data-reglage="scinde">
+      <button class="reglage-tete" type="button" aria-expanded="false">
+        <span class="reglage-icone">{{ icone("telephone") }}</span>
+        <span class="reglage-mots">
+          <b>Écran scindé</b>
+          <small class="reglage-resume" id="resume-scinde">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        <p class="hint">Ton montage occupe une bande, une seconde vidéo occupe
+          l'autre — une boucle de jeu, de parkour, de slime. L'œil reste
+          accroché par le bas pendant que le haut raconte.</p>
+
+        <div class="choix" id="choix-scinde"></div>
+
+        <div class="row">
+          <label class="button ghost file-button petit">
+            Importer une vidéo
+            <input type="file" id="fond-fichier" accept="video/*" hidden>
+          </label>
+          <span class="hint" id="fond-etat"></span>
+        </div>
+
+        <div class="grid reglage-fin" id="reglages-scinde" hidden>
+          <label><span>Part du montage <b class="value" id="split_ratio_v">62%</b></span>
+            <input type="range" id="split_ratio" min="25" max="85" value="62">
+          </label>
+          <label><span>La seconde vidéo va</span>
+            <select id="split_bottom">
+              <option value="1" selected>En bas</option>
+              <option value="0">En haut</option>
+            </select>
+          </label>
+        </div>
+        <p class="mention" id="note-scinde" hidden>Les sous-titres remontent
+          au-dessus de la couture : posés sur la vidéo du bas, ils seraient
+          illisibles.</p>
+      </div></div>
     </section>
 
     <!-- Image ----------------------------------------------------------- -->

@@ -27,3 +27,14 @@ flambee-data/
 # Le binaire du tunnel, téléchargé au premier lancement Colab (38 Mo).
 # Il se retélécharge tout seul : le versionner alourdirait chaque clone.
 colab/cloudflared
+
+# Même règle pour les fonds d'écran scindé : les trois boucles engendrées par
+# outils/engendrer_fonds.py sont suivies, tout le reste est ignoré. Une
+# capture de jeu déposée là t'appartient peut-être, mais son éditeur peut la
+# faire retirer — et avec elle la vidéo qui la contient. Elle n'a rien à
+# faire dans le dépôt.
+assets/fonds/*
+!assets/fonds/.gitkeep
+!assets/fonds/Damier.mp4
+!assets/fonds/Remous.mp4
+!assets/fonds/Vagues.mp4

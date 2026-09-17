@@ -13,10 +13,11 @@ import logging
 import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
-from . import (analyzer, assembler, config, downloader, subtitles, trimmer,
-               voice, voicestudio)
+from . import (analyzer, assembler, calage, config, downloader, subtitles,
+               trimmer, voice, voicestudio)
 from . import account, users
 from .media import Cancelled, MediaError, detect_encoder, ensure_tools, probe
 from .project import Project
@@ -251,7 +252,9 @@ def run_render(project: Project, *, fast: bool = False) -> None:
             project.subtitle_path = str(subtitles.write_ass(
                 track.words,
                 project.dir / "subtitles.ass",
-                style=config.subtitle_style(settings.subtitle_preset),
+                style=subtitles.style_pour_ecran_scinde(
+                    config.subtitle_style(settings.subtitle_preset),
+                    settings, config.FORMAT),
                 offset=track.lead_in,
                 max_duration=target_duration,
             ))
@@ -350,6 +353,7 @@ def _render_with_fallback(
     """Tente le rendu en une passe, et bascule sur le repli si ffmpeg refuse."""
     settings = project.settings
     chemin_musique = music_path(settings.music)
+    chemin_fond = fond_path(settings.split_clip, project)
     subtitle_path = Path(project.subtitle_path) if project.subtitle_path else None
     voice_path = Path(project.voice_path) if project.voice_path else None
     marque = filigrane_pour(project)
@@ -360,7 +364,7 @@ def _render_with_fallback(
             voice_path=voice_path, subtitle_path=subtitle_path,
             music_path=chemin_musique, settings=settings, duration=duration,
             fmt=fmt, encoder=encoder, fast=fast, watermark=marque,
-            on_progress=on_progress, cancel=cancel,
+            split_path=chemin_fond, on_progress=on_progress, cancel=cancel,
         )
     except Cancelled:
         raise
@@ -389,7 +393,7 @@ def _render_with_fallback(
             montage, out_path, voice_path=voice_path, subtitle_path=subtitle_path,
             music_path=chemin_musique, settings=settings, duration=duration,
             fmt=fmt, encoder=encoder, watermark=marque,
-            on_progress=on_progress, cancel=cancel,
+            split_path=chemin_fond, on_progress=on_progress, cancel=cancel,
         )
 
 
@@ -399,6 +403,9 @@ def _voice_signature(project: Project) -> str:
     payload = "|".join([
         project.script.strip(), settings.voice, settings.voice_rate,
         settings.voice_pitch,
+        # Le calage change le minutage mis en cache, pas l'audio : sans lui
+        # dans l'empreinte, décocher la case rendrait la piste d'avant.
+        "cale" if settings.subtitle_sync else "brut",
     ])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -444,6 +451,18 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
         rate=project.settings.voice_rate,
         pitch=project.settings.voice_pitch,
     )
+    # Le minutage d'edge-tts ne décrit pas le fichier livré : il ne contient
+    # aucune pause, là où l'audio en a trois secondes sur dix. On le remplace
+    # par un minutage relevé sur le son lui-même quand c'est possible.
+    if project.settings.subtitle_sync and calage.disponible():
+        project.set_job("render", "running", progress=0.08,
+                        message="Calage des sous-titres sur la voix…")
+        cales = calage.caler(track.words, path)
+        if cales is not track.words:
+            # Les mots calés sont déjà dans le temps de l'audio : le décalage
+            # du silence initial n'a plus lieu d'être, il ferait double emploi.
+            track = replace(track, words=cales, lead_in=0.0)
+
     project.voice_signature = signature
     project.voice_words = [word.to_dict() for word in track.words]
     project.voice_lead_in = track.lead_in
@@ -485,6 +504,40 @@ def duree_musique(path: Path) -> float:
         except (MediaError, OSError, ValueError):
             _DUREES_MUSIQUE[cle] = 0.0
     return _DUREES_MUSIQUE[cle]
+
+
+# --- Fonds d'écran scindé -------------------------------------------------
+# Identifiant réservé au fichier déposé sur le projet lui-même, par opposition
+# aux fonds de la bibliothèque partagée.
+FOND_DU_PROJET = "@projet"
+FOND_DU_PROJET_FICHIER = "fond.mp4"
+
+
+def fond_path(nom: str | None, projet: Project | None = None) -> Path | None:
+    """Chemin du fond d'écran scindé. Même garde que pour les musiques."""
+    if not nom:
+        return None
+    if nom == FOND_DU_PROJET:
+        if projet is None:
+            return None
+        chemin = projet.dir / FOND_DU_PROJET_FICHIER
+        return chemin if chemin.exists() else None
+    candidat = (config.FONDS_DIR / nom).resolve()
+    if not str(candidat).startswith(str(config.FONDS_DIR.resolve())):
+        return None                      # jamais de chemin hors bibliothèque
+    return candidat if candidat.exists() else None
+
+
+def list_fonds() -> list[dict[str, object]]:
+    """Les boucles disponibles pour la bande du bas (assets/fonds)."""
+    fonds = []
+    dossier = config.FONDS_DIR
+    for chemin in sorted(dossier.iterdir()) if dossier.exists() else []:
+        if chemin.is_file() and chemin.suffix.lower() in config.UPLOAD_EXTENSIONS:
+            fonds.append({"id": chemin.name,
+                          "label": chemin.stem.replace("_", " "),
+                          "duree": round(duree_musique(chemin), 1)})
+    return fonds
 
 
 def list_music() -> list[dict[str, object]]:

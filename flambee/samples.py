@@ -805,3 +805,30 @@ def _duree(path: Path) -> float:
         return probe(path).duration
     except (MediaError, OSError, ValueError):
         return 0.0
+
+
+# --- Affiche d'un fond d'écran scindé --------------------------------------
+def affiche_de_fond_path(nom: str, taille: int, modifie: int) -> Path:
+    """Comme pour les extraits musicaux, la signature suit le fichier."""
+    cle = hashlib.sha256(f"{nom}|{taille}|{modifie}".encode()).hexdigest()[:16]
+    return config.WORK_DIR / ".samples" / f"fond-{cle}.jpg"
+
+
+def affiche_de_fond(source: Path) -> Path:
+    """Une image du fond, pour sa vignette. On choisit mal une vidéo sur son nom."""
+    stat = source.stat()
+    out_path = affiche_de_fond_path(source.name, stat.st_size, int(stat.st_mtime))
+    if out_path.exists() and out_path.stat().st_size > 512:
+        return out_path
+
+    with _lock_for(out_path.name):
+        if out_path.exists() and out_path.stat().st_size > 512:
+            return out_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # À deux secondes : beaucoup de captures ouvrent sur un fondu au noir,
+        # qui ne dit rien de la boucle.
+        depart = 2.0 if _duree(source) > 5 else 0.0
+        ffmpeg(["-ss", f"{depart:.2f}", "-i", str(source), "-frames:v", "1",
+                "-vf", "scale=216:-2", "-q:v", "4", str(out_path)])
+        log.info("Affiche de fond rendue : %s", out_path.name)
+        return out_path

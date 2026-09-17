@@ -8,10 +8,11 @@ agrandi, avec un petit effet de pop à chaque nouvelle ligne.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import config
+from .media import split_bands
 from .voice import Word
 
 _ASS_HEADER = """[Script Info]
@@ -239,6 +240,26 @@ def _dialogue(start: float, end: float, text: str) -> str:
     # Effect, Text — l'en-tête [Events] doit les déclarer dans le même ordre,
     # sans quoi le champ en trop se retrouve collé au début du texte affiché.
     return f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Flambee,,0,0,0,,{text}"
+
+
+def style_pour_ecran_scinde(style: config.SubtitleStyle,
+                            reglages: config.RenderSettings,
+                            fmt: config.VideoFormat) -> config.SubtitleStyle:
+    """Remonte les sous-titres au-dessus de la couture, si couture il y a.
+
+    Le compagnon occupe le bas du cadre. Avec sa marge d'origine — 300 à
+    470 pixels selon le style — le texte tomberait au milieu de la vidéo de
+    jeu : illisible, et posé sur ce qui bouge le plus dans l'image. On le
+    replace juste au-dessus de la couture, dans la bande du montage, à une
+    demi-hauteur de caractère du bord.
+
+    Quand le compagnon est en haut, rien à faire : le montage occupe déjà le
+    bas du cadre, là où la marge d'origine place le texte.
+    """
+    if not reglages.split_clip or not reglages.split_bottom:
+        return style
+    _, compagnon = split_bands(fmt.height, reglages.split_ratio)
+    return replace(style, margin_v=compagnon + int(style.font_size * 0.5))
 
 
 def write_ass(words: list[Word], out_path: Path, **kwargs) -> Path:
