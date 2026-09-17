@@ -1351,6 +1351,10 @@ async def presets(request: Request):
         ],
         "default": config.DEFAULT_SUBTITLE_PRESET,
         "debit_reglable": account.debit_reglable(compte),
+        # Le récapitulatif l'annonce avant le rendu : découvrir une mention
+        # « Flambée » sur une vidéo déjà payée d'un crédit est une surprise
+        # qu'on ne doit à personne.
+        "filigrane": account.filigrane(compte),
     }
 
 

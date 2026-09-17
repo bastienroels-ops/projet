@@ -7,6 +7,7 @@ const state = {
   presets: [],
   voices: [],
   tracks: [],
+  filigrane: false,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -190,17 +191,32 @@ function syncCartes() {
   resumerReglages();
 }
 
+/* Le récapitulatif : six cartes plutôt qu'un tableau. Avant de dépenser un
+   crédit, ce qui part au rendu doit se lire d'un coup d'œil. */
 function renderRecap(project) {
   const hook = project.sources.find((s) => s.index === project.hook_index);
-  const music = $("#music").selectedOptions[0];
-  $("#recap").innerHTML = `<dl>
-    <dt>Sources</dt><dd>${project.sources.filter((s) => s.ok).length} vidéo(s)</dd>
-    <dt>Accroche</dt><dd>${escapeHtml(hook ? (hook.title || "Source " + hook.index) : "—")}</dd>
-    <dt>Voix</dt><dd>${escapeHtml($("#voice").selectedOptions[0]?.textContent || project.settings.voice)}</dd>
-    <dt>Sous-titres</dt><dd>${project.settings.subtitles ? "Animés" : "Désactivés"}</dd>
-    <dt>Musique</dt><dd>${escapeHtml(music && music.value ? music.textContent : "Aucune")}</dd>
-    <dt>Durée estimée</dt><dd>${fmtDuration(project.estimated_duration)}</dd>
-  </dl>`;
+  const voix = (state.voices || []).find((v) => v.id === $("#voice").value);
+  const style = (state.presets || []).find((p) => p.id === $("#subtitle_preset").value);
+  const piste = (state.tracks || []).find((t) => t.id === $("#music").value);
+
+  const poser = (id, valeur) => {
+    const el = $(id);
+    if (el) el.textContent = String(valeur);
+  };
+  poser("#recap-sources", `${project.sources.filter((s) => s.ok).length} vidéo(s)`);
+  poser("#recap-accroche", hook ? (hook.title || "Source " + hook.index) : "—");
+  poser("#recap-voix", voix
+    ? `${voix.prenom || voix.label}${voix.pays_long ? " · " + voix.pays_long : ""}`
+    : project.settings.voice);
+  poser("#recap-soustitres", project.settings.subtitles
+    ? (style ? style.label : "Animés") : "Désactivés");
+  poser("#recap-musique", piste
+    ? `${piste.label} · ${Math.round(project.settings.music_volume * 100)}%`
+    : "Aucune");
+  poser("#recap-duree", fmtDuration(project.estimated_duration));
+
+  const mention = $("#recap-filigrane");
+  if (mention) mention.hidden = !state.filigrane;
 }
 
 function renderResult(project) {
@@ -395,11 +411,13 @@ function applyScriptMode(hasApiKey) {
 /* écrit, et une carte ne fait que les piloter.                            */
 /* ====================================================================== */
 
-const ICONES = {
-  lecture: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M8 5.4 18.4 12 8 18.6V5.4Z" fill="currentColor"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M9.4 5.6v12.8M14.6 5.6v12.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
-  cadenas: '<svg viewBox="0 0 24 24" class="icone" aria-hidden="true"><path d="M6.6 10.4h10.8v9H6.6v-9ZM8.8 10.4V7.8a3.2 3.2 0 0 1 6.4 0v2.6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>',
-};
+/* Les icônes viennent du gabarit, qui les tient du jeu d'icônes du serveur.
+   Rien n'est redessiné ici : une icône n'a qu'un seul tracé, et il est en
+   Python. */
+function icone(nom) {
+  const source = document.querySelector(`#sprites [data-icone="${nom}"]`);
+  return source ? source.innerHTML : "";
+}
 
 /* Un seul lecteur pour toute la page : sans cela, deux extraits se
    superposent et l'on n'entend plus ni l'un ni l'autre. */
@@ -408,7 +426,7 @@ const audition = { lecteur: null, bouton: null };
 function arreterAudition() {
   if (audition.lecteur) { audition.lecteur.pause(); audition.lecteur = null; }
   if (audition.bouton) {
-    audition.bouton.innerHTML = ICONES.lecture;
+    audition.bouton.innerHTML = icone("lecture");
     audition.bouton.classList.remove("joue", "charge");
     audition.bouton = null;
   }
@@ -426,7 +444,7 @@ function ecouter(url, bouton) {
   lecteur.addEventListener("playing", () => {
     bouton.classList.remove("charge");
     bouton.classList.add("joue");
-    bouton.innerHTML = ICONES.pause;
+    bouton.innerHTML = icone("pause");
   });
   lecteur.addEventListener("ended", arreterAudition);
   /* La première audition d'une voix passe par une synthèse : elle peut
@@ -463,11 +481,11 @@ function carteChoix(option) {
       ${option.detail ? `<small>${escapeHtml(option.detail)}</small>` : ""}
       ${option.note ? `<em>${escapeHtml(option.note)}</em>` : ""}
       ${option.verrouille
-        ? `<span class="carte-verrou">${ICONES.cadenas} Créateur</span>` : ""}
+        ? `<span class="carte-verrou">${icone("cadenas")} Créateur</span>` : ""}
     </span>
     ${option.ecoute && !option.verrouille
       ? `<span class="carte-ecoute" role="button" tabindex="-1"
-             aria-label="Écouter">${ICONES.lecture}</span>` : ""}
+             aria-label="Écouter">${icone("lecture")}</span>` : ""}
     <span class="carte-marque"></span>`;
 
   if (option.ecoute && !option.verrouille) {
@@ -545,8 +563,10 @@ function peindreVoix() {
 }
 
 async function loadPresets() {
-  const { subtitles, default: def, debit_reglable } = await api("/api/presets");
+  const { subtitles, default: def, debit_reglable, filigrane } =
+    await api("/api/presets");
   state.presets = subtitles;
+  state.filigrane = filigrane;
   /* Les styles réservés restent visibles mais non sélectionnables : les
      masquer rendrait la différence entre formules invisible, et l'on choisit
      mal ce qu'on ne voit pas. */

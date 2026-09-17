@@ -83,6 +83,16 @@
     {# Les listes déroulantes restent la source de vérité — tout le reste du
        script les lit et les écrit. Les cartes ci-dessous les pilotent ; elles
        sont masquées à l'œil, jamais retirées du document. #}
+    {# Les trois icônes que le script pose sur les cartes qu'il fabrique. Les
+       redessiner en JavaScript reviendrait à recopier leur tracé : le jeu
+       d'icônes cesserait de vivre à un seul endroit. Le script les recopie
+       d'ici. #}
+    <div class="selects-caches" id="sprites" hidden aria-hidden="true">
+      <span data-icone="lecture">{{ icone("lecture") }}</span>
+      <span data-icone="pause">{{ icone("pause") }}</span>
+      <span data-icone="cadenas">{{ icone("cadenas") }}</span>
+    </div>
+
     <div class="selects-caches" hidden aria-hidden="true">
       <select id="voice"></select>
       <select id="music"><option value="">Aucune</option></select>
@@ -171,7 +181,7 @@
     <!-- Musique --------------------------------------------------------- -->
     <section class="reglage" data-reglage="musique">
       <button class="reglage-tete" type="button" aria-expanded="false">
-        <span class="reglage-icone">{{ icone("eclair") }}</span>
+        <span class="reglage-icone">{{ icone("note") }}</span>
         <span class="reglage-mots">
           <b>Musique de fond</b>
           <small class="reglage-resume" id="resume-musique">—</small>
@@ -275,7 +285,46 @@
     <p class="hint">Un aperçu en 540p pour juger le montage en quelques secondes,
       puis le rendu définitif en 1080 × 1920.</p>
 
-    <div id="recap" class="recap"></div>
+    {# Les six lignes vivent ici, avec les icônes du serveur : les fabriquer
+       en JavaScript obligerait à recopier leur tracé, et le jeu d'icônes
+       n'existerait plus à un seul endroit. Le script ne pose que les
+       valeurs. #}
+    <div id="recap" class="recap">
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("film") }}</span>
+        <span class="bilan-mots"><small>Sources</small>
+          <b id="recap-sources">—</b></span>
+      </div>
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("eclair") }}</span>
+        <span class="bilan-mots"><small>Accroche</small>
+          <b id="recap-accroche">—</b></span>
+      </div>
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("micro") }}</span>
+        <span class="bilan-mots"><small>Voix off</small>
+          <b id="recap-voix">—</b></span>
+      </div>
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("sous-titres") }}</span>
+        <span class="bilan-mots"><small>Sous-titres</small>
+          <b id="recap-soustitres">—</b></span>
+      </div>
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("note") }}</span>
+        <span class="bilan-mots"><small>Musique</small>
+          <b id="recap-musique">—</b></span>
+      </div>
+      <div class="bilan">
+        <span class="bilan-icone">{{ icone("horloge") }}</span>
+        <span class="bilan-mots"><small>Durée estimée</small>
+          <b id="recap-duree">—</b></span>
+      </div>
+    </div>
+    <p class="mention filigrane" id="recap-filigrane" hidden>
+      L'Essai appose une mention « Flambée » en haut du rendu.
+      <a href="/studio/abonnement">Voir les formules</a>.
+    </p>
     <div class="row">
       <button class="primary" id="btn-render">Lancer le rendu</button>
       <button class="ghost" id="btn-preview">Aperçu rapide</button>

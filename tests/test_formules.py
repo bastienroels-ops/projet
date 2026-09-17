@@ -159,6 +159,19 @@ def test_le_createur_a_toutes_les_voix(compte_pro):
     assert donnees["toutes"] is True
 
 
+def test_le_recapitulatif_annonce_le_filigrane_a_l_essai(compte):
+    """Découvrir une mention « Flambée » sur une vidéo déjà payée d'un crédit
+    est une surprise qu'on ne doit à personne : l'étape Rendu la montre.
+
+    `compte_pro` est le même client que `compte`, déjà passé en Créateur :
+    demander les deux dans un seul test ne compare rien."""
+    assert compte.get("/api/presets").json()["filigrane"] is True
+
+
+def test_le_createur_n_a_pas_de_filigrane(compte_pro):
+    assert compte_pro.get("/api/presets").json()["filigrane"] is False
+
+
 # --- Filigrane -------------------------------------------------------------
 def test_le_filigrane_entre_dans_le_graphe_ffmpeg():
     """Un filigrane décidé mais jamais incrusté ne vaut rien : on vérifie

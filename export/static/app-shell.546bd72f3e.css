@@ -552,7 +552,10 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   transition: color .2s, border-color .2s, background .2s;
 }
 .carte-ecoute:hover { color: var(--eclat); border-color: var(--eclat); }
-.carte-ecoute .icone { width: 13px; height: 13px; }
+/* Le triangle de lecture est dessiné au trait, comme tout le jeu d'icônes.
+   À treize pixels il sonne creux : on le remplit ici plutôt que d'ajouter un
+   second tracé au jeu. La pause, faite de deux segments, n'en bouge pas. */
+.carte-ecoute .icone { width: 13px; height: 13px; fill: currentColor; }
 .carte-ecoute.joue {
   color: var(--sur-flamme); border-color: transparent;
   background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
@@ -591,4 +594,36 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   .reglage-tete { padding: 14px; gap: 11px; }
   .reglage-dedans { padding: 0 14px; }
   .reglage.ouvert .reglage-dedans { padding-bottom: 16px; }
+}
+
+/* --------------------------------------------------- Le récapitulatif --- */
+/* Six cartes au lieu d'un tableau : ce qui part au rendu se lit d'un coup
+   d'œil, et l'étape parle enfin la même langue que les réglages. */
+.recap {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px; margin-top: 4px;
+}
+.bilan {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgb(var(--os-rvb) / .025);
+}
+.bilan-icone {
+  display: grid; place-items: center; flex: none;
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgb(var(--flamme-claire-rvb) / .1); color: var(--eclat);
+}
+.bilan-icone .icone { width: 17px; height: 17px; }
+.bilan-mots { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bilan-mots small {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.bilan-mots b {
+  font-size: 14px; font-weight: 600; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.filigrane {
+  display: block; margin: 14px 0 0; font-size: 12.5px; color: var(--text-faint);
 }

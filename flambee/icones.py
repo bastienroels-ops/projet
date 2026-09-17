@@ -103,6 +103,11 @@ _TRACES: dict[str, str] = {
     "plus": '<path d="M12 5.2v13.6M5.2 12h13.6"/>',
     "lecture": '<path d="M8 5.4 18.4 12 8 18.6V5.4Z"/>',
     "pause": '<path d="M9.4 5.6v12.8M14.6 5.6v12.8"/>',
+    "note": ('<path d="M9.4 17.4V6.2l8.4-1.8v11.2"/>'
+             '<circle cx="7.2" cy="17.6" r="2.4"/>'
+             '<circle cx="15.6" cy="15.6" r="2.4"/>'),
+    "horloge": ('<circle cx="12" cy="12" r="8.2"/>'
+                '<path d="M12 7.4V12l3.2 2"/>'),
     "chevron": '<path d="m7.4 10 4.6 4.6L16.6 10"/>',
 
     # La flamme est pleine : c'est une marque, pas un pictogramme.
