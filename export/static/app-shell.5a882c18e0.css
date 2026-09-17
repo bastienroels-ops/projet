@@ -663,3 +663,12 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 @media (prefers-reduced-motion: reduce) {
   .jauge-part { transition: none; }
 }
+
+/* Les deux paliers d'une fonctionnalité fermée doivent se distinguer d'un
+   coup d'œil. Pas d'emoji : leur dessin appartient au système, et la même
+   page n'aurait ni le même trait ni la même couleur d'un appareil à l'autre.
+   Deux teintes de la palette suffisent — le laiton pour Créateur, l'indigo
+   clair pour Studio. */
+.verrou-liste .palier { flex: none; margin-top: 1px; }
+.verrou-liste .palier-createur { color: var(--laiton); }
+.verrou-liste .palier-studio { color: var(--eclat); }
