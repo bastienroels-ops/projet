@@ -147,69 +147,147 @@ une machine Colab reste une machine que Google reprend.
 un serveur avec sa propre adresse, allumé en permanence. C'est exactement ce
 que décrit le chapitre suivant, et il est gratuit.
 
-## Gratuit, depuis un iPhone : Oracle Cloud
+## Quitter Colab : un serveur à soi
 
-Oracle offre, sans limite de durée, un serveur ARM de 4 cœurs et 24 Go de
-mémoire — plus puissant que la plupart des offres payantes d'entrée de gamme.
-Toute la chaîne de Flambée existe en ARM64, transcription comprise : les roues
-`ctranslate2`, `onnxruntime`, `av` et `tokenizers` ont toutes une version
-`aarch64`, ce qui a été vérifié avant d'écrire ce chapitre.
+Un serveur permanent supprime l'erreur 1033 à la racine — il n'y a plus de
+tunnel — et avec elle tout le reste : l'adresse qui change, la machine reprise
+au bout de quelques heures, les vidéos à télécharger avant la fin de la
+session, le rendu qui s'arrête quand on ferme l'onglet.
 
-L'installation ne demande aucun terminal : le fichier
-[`deploiement/oracle-cloud-init.yaml`](../deploiement/oracle-cloud-init.yaml)
-se colle dans le formulaire de création du serveur, et la machine fait le reste
-— Docker, construction de l'image, pare-feu, certificat HTTPS, sauvegarde
-nocturne.
+L'installation ne demande **aucun terminal** : le fichier
+[`deploiement/serveur-cloud-init.yaml`](../deploiement/serveur-cloud-init.yaml)
+se colle dans le formulaire de création du serveur, et la machine fait le
+reste — Docker, construction de l'image, pare-feu, certificat HTTPS,
+sauvegarde nocturne, mises à jour.
 
 ### Quel hébergeur
 
-Le même fichier `deploiement/oracle-cloud-init.yaml` s'utilise tel quel chez
-n'importe quel hébergeur qui propose un champ *cloud-init* ou *script de
-démarrage*. Le choix ne change rien au contenu de ce chapitre, seulement le
-formulaire où l'on colle le fichier.
+Le même fichier s'utilise tel quel partout où il existe un champ *cloud-init*.
+Le choix ne change que le formulaire où on le colle.
 
 | | Prix | Ce qu'on y gagne | Ce qu'on y perd |
 |---|---|---|---|
-| **Oracle Cloud, offre « Always Free »** | 0 € | 4 cœurs ARM et 24 Go, plus que la plupart des offres payantes | L'inscription demande une carte bancaire (non débitée) et les instances ARM gratuites sont souvent en rupture. Le compte peut être suspendu sans préavis. |
-| **Hetzner CAX11** (ou Scaleway, OVH) | ~4 €/mois | S'ouvre en cinq minutes, ne tombe pas, et la machine existe vraiment | Quatre euros par mois |
+| **Hetzner** | ~4 €/mois | S'ouvre en cinq minutes, sans carte à faire valider, et la machine existe vraiment | Quatre euros par mois |
+| **Oracle Cloud « Always Free »** | 0 € | 4 cœurs ARM et 24 Go | L'inscription demande une carte bancaire (non débitée), les instances ARM gratuites sont souvent en rupture, et le compte peut être suspendu sans préavis |
 
 Si Flambée devient ton outil de travail, les quatre euros achètent surtout de
-ne plus jamais y penser. L'offre gratuite d'Oracle reste le bon essai pour
-voir si la chose te convient avant de payer quoi que ce soit.
+ne plus jamais y penser.
 
-### La marche à suivre
+### Chez Hetzner, depuis Safari
 
-C'est la voie à prendre dès que des clients paient : voir
-[`VENDRE.md`](VENDRE.md).
+Compter vingt minutes en tout, dont dix d'attente pendant lesquelles il n'y a
+rien à faire.
 
-1. **Une adresse gratuite.** Sur [duckdns.org](https://www.duckdns.org),
-   connecte-toi (GitHub ou Google), choisis un nom — `flambee-bastien` par
-   exemple — et note le jeton affiché en haut de la page.
-2. **Le serveur.** Crée une instance *Ampere A1* (ARM) sous Ubuntu 22.04 ou
-   24.04, avec 2 à 4 cœurs et 6 à 24 Go.
-3. **Le fichier.** Ouvre `deploiement/oracle-cloud-init.yaml`, renseigne les
-   deux champs DuckDNS en haut, puis colle tout le contenu dans
-   *Show advanced options* → *Paste cloud-init script*.
-4. **Attendre, en regardant.** Ouvre `http://<ton-nom>.duckdns.org` — en
-   `http`, sans le `s` — une minute après la création. Une page affiche
-   l'étape en cours et se rafraîchit toute seule :
+**1. L'adresse (2 min).** Sur [duckdns.org](https://www.duckdns.org),
+connecte-toi (GitHub ou Google), tape un nom dans le champ *sub domain* —
+`flambee-bastien` par exemple — et touche **add domain**. Note le **token**
+affiché en haut de la page : une longue suite de lettres et de chiffres.
 
-   > **Flambée s'installe**
-   > Étape 6 sur 7 — Construction de l'image (plusieurs minutes)
+> Pourquoi pas directement l'adresse IP du serveur : Let's Encrypt ne délivre
+> de certificat HTTPS que pour un nom, jamais pour une IP. Et `duckdns.org`
+> figure sur la *Public Suffix List*, ce qui donne à chaque sous-domaine son
+> propre quota de certificats — `sslip.io`, qui ne demande aucune
+> inscription, partage un quota unique entre tous ses utilisateurs, et le
+> HTTPS y échoue de façon imprévisible.
 
-   Elle existe pour une raison précise : sans elle, la machine ne répond rien
-   pendant dix minutes, ce qui est exactement ce qu'elle ferait si
-   l'installation avait échoué. On ne pouvait pas distinguer les deux, et il
-   n'y a pas de terminal sur un iPhone pour aller voir le journal. Si quelque
-   chose s'arrête, cette même page le dit en français et montre les dernières
-   lignes du journal.
+**2. Le compte Hetzner (5 min).** [console.hetzner.cloud](https://console.hetzner.cloud)
+→ *Sign up*. Vérification par courriel, puis une carte ou PayPal. Crée un
+projet, appelle-le *Flambée*.
 
-   Quand elle affiche **Ouvrir Flambée**, le site répond sur
-   `https://<ton-nom>.duckdns.org`. Compter une dizaine de minutes en tout.
+**3. Le fichier à coller (3 min).** Ouvre
+[`deploiement/serveur-cloud-init.yaml`](../deploiement/serveur-cloud-init.yaml)
+sur GitHub, touche l'icône *Copy raw file*. Colle-le dans l'app **Notes**, et
+remplis les deux lignes du haut :
 
-Le premier compte créé est le tien, et il reçoit d'office la formule Studio :
-crédits illimités, toutes les rubriques. Ferme les inscriptions juste après
-(`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env`).
+```
+DUCKDNS_SOUS_DOMAINE="flambee-bastien"
+DUCKDNS_JETON="le-token-copié-à-l-étape-1"
+```
+
+Si tu as une clé API Anthropic, mets-la dans `ANTHROPIC_API_KEY` au passage :
+le bouton *Écrire le script avec Claude* fonctionnera alors en un clic.
+Laisse tout le reste tel quel. Sélectionne tout, copie.
+
+**4. La machine (3 min).** Dans le projet Hetzner : **Add Server**.
+
+| Champ | Valeur | Pourquoi |
+|---|---|---|
+| Location | **Falkenstein** ou **Nuremberg** | Allemagne : le plus proche de la France, donc le plus rapide |
+| Image | **Ubuntu 24.04** | Le fichier attend Ubuntu et refuse de s'installer ailleurs, en le disant |
+| Type | onglet **Arm64** → **CAX11** | 2 cœurs, 4 Go, 40 Go de disque, ~3,90 €/mois |
+| SSH keys | *laisser vide* | Tu n'ouvriras jamais de terminal. Hetzner enverra un mot de passe root par courriel : garde-le, sans t'en servir |
+| **Cloud config** | **colle ici le fichier de l'étape 3** | C'est tout le contenu de l'installation |
+| Name | `flambee` | |
+
+Puis **Create & Buy now**.
+
+> **CAX11 ou CAX21 ?** CAX11 (2 cœurs, 4 Go, 40 Go) suffit et encode à peu
+> près comme Colab. CAX21 (4 cœurs, 8 Go, 80 Go, ~6,50 €/mois) divise le temps
+> de rendu par deux environ et laisse de la place aux vidéos. Si tu montes
+> plusieurs vidéos par jour, prends le CAX21 — on peut changer de taille plus
+> tard, mais pas réduire le disque.
+
+**5. Regarder (10 min).** Une minute après la création, ouvre dans Safari :
+
+```
+http://flambee-bastien.duckdns.org
+```
+
+en **http**, sans le `s` — le certificat n'existe pas encore. Une page
+affiche l'étape en cours et se rafraîchit toute seule :
+
+> **Flambée s'installe**
+> *Rien à faire de ton côté.*
+> **Étape 6 sur 7** — Construction de l'image (plusieurs minutes)
+
+Elle existe pour une raison précise : sans elle, la machine ne répond rien
+pendant dix minutes, ce qui est exactement ce qu'elle ferait si l'installation
+avait échoué. On ne pouvait pas distinguer les deux, et il n'y a pas de
+terminal sur un iPhone pour aller voir le journal. Si quelque chose s'arrête,
+cette même page le dit en français et montre les dernières lignes du journal.
+Tu peux la fermer : l'installation continue sans elle.
+
+**6. Entrer.** Quand la page affiche **Ouvrir Flambée**, touche le bouton. Tu
+arrives sur `https://flambee-bastien.duckdns.org`. Crée ton compte : le
+premier créé est le tien, et il reçoit d'office la formule Studio — crédits
+illimités, toutes les rubriques.
+
+**7. Fermer la porte derrière toi.** Tant que les inscriptions sont ouvertes,
+n'importe qui tombant sur l'adresse peut se créer un compte sur ta machine.
+Dans *Paramètres*, referme-les. (En ligne de commande, ce serait
+`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env` — mais justement, tu n'as pas
+de ligne de commande.)
+
+**8. Sur l'écran d'accueil.** *Partager → Sur l'écran d'accueil.* Cette
+adresse-là ne changera plus jamais : l'icône restera juste.
+
+### Si quelque chose ne va pas
+
+| Ce que tu vois | Ce que c'est | Quoi faire |
+|---|---|---|
+| Safari ne se connecte pas, même en `http`, cinq minutes après | Le nom DuckDNS ne pointe pas encore, ou le fichier n'a pas été collé dans le bon champ | Attends deux minutes. Toujours rien : recrée la machine en vérifiant que le contenu est bien dans **Cloud config**, et pas ailleurs |
+| La page dit **Installation interrompue** | Une étape a échoué ; la raison est juste en dessous | Le plus fréquent : *DuckDNS a refusé le nom ou le jeton*. Recopie-les et recrée la machine |
+| La page reste sur la même étape plus de quinze minutes | Rare, mais l'installation a pu se bloquer | Touche *Voir le détail* : les dernières lignes du journal disent où |
+| **Ouvrir Flambée** s'affiche mais `https://` ne répond pas | Le certificat se demande à ce moment-là | Attends une minute et recharge |
+
+Dans tous les cas, **détruire la machine et recommencer ne coûte rien** :
+Hetzner facture à l'heure, et une installation ratée revient à quelques
+centimes.
+
+### Et Colab, alors ?
+
+| | Colab | Serveur permanent |
+|---|---|---|
+| Adresse | Nouvelle à chaque lancement | La même, pour toujours |
+| Erreurs 530 / 1033 | Possibles, c'est un tunnel | **Impossibles : il n'y a plus de tunnel** |
+| Durée de vie | Quelques heures, puis la machine est reprise | Permanente |
+| Les vidéos produites | Disparaissent avec la machine | Restent, et sont sauvegardées chaque nuit |
+| Un rendu quand l'onglet est fermé | S'arrête | Continue |
+| Démarrage | Lancer une cellule, attendre deux minutes | Rien à faire, c'est allumé |
+| Téléchargement TikTok/YouTube | Bloqué depuis une IP Google | Un peu moins bloqué depuis un autre hébergeur, mais les plateformes filtrent aussi les centres de données : ne compte pas dessus, l'import de fichiers reste la voie sûre |
+
+Le carnet reste dans le dépôt, et il marche toujours. Il devient le dépannage
+du jour où le serveur a un souci — pas l'outil de tous les jours.
 
 ### Les corrections arrivent toutes seules
 
@@ -229,21 +307,6 @@ mise à jour du tout :
 Le journal se lit dans `/var/log/flambee-mise-a-jour.log`. Pour ne plus rien
 recevoir, commenter la ligne dans `crontab -e`, ou pointer `BRANCHE` sur une
 version figée.
-
-### Ce qui change par rapport à Colab
-
-| | Colab | Serveur permanent |
-|---|---|---|
-| Adresse | Nouvelle à chaque lancement | La même, pour toujours |
-| Erreurs 530 / 1033 | Possibles, c'est un tunnel | **Impossibles : il n'y a plus de tunnel** |
-| Durée de vie | Quelques heures, puis la machine est reprise | Permanente |
-| Les vidéos produites | Disparaissent avec la machine | Restent, et sont sauvegardées chaque nuit |
-| Un rendu quand l'onglet est fermé | S'arrête | Continue |
-| Démarrage | Lancer une cellule, attendre deux minutes | Rien à faire, c'est allumé |
-| Téléchargement TikTok/YouTube | Bloqué depuis une IP Google | Un peu moins bloqué depuis un autre hébergeur, mais les plateformes filtrent aussi les centres de données : ne compte pas dessus, l'import de fichiers reste la voie sûre |
-
-Le carnet Colab n'est pas supprimé pour autant : il reste le dépannage du
-jour où le serveur a un problème.
 
 ### Brancher la vitrine sur l'atelier
 
@@ -268,27 +331,23 @@ gratuitement depuis un hébergeur de fichiers, où elle encaisse n'importe quell
 affluence, pendant que le serveur ne travaille que pour les gens réellement
 inscrits.
 
-### Pourquoi DuckDNS et pas sslip.io
+### Ce que le fichier fait
 
-`sslip.io` ne demande aucune inscription et transforme une IP en nom de
-domaine, ce qui est séduisant. Mais il ne figure pas sur la *Public Suffix
-List* : tous ses sous-domaines partagent donc le même quota de certificats
-Let's Encrypt, et l'obtention du HTTPS échoue de façon imprévisible.
-`duckdns.org` y figure, et chaque sous-domaine dispose de son propre quota.
-Le fichier accepte les deux, mais se rabat sur `sslip.io` uniquement si rien
-n'est renseigné, en le signalant dans le journal.
+Il ouvre les ports 80 et 443 dans le pare-feu local, engendre la clé de
+signature des sessions sur la machine — pour qu'elle ne transite par aucun
+formulaire —, installe une sauvegarde quotidienne du volume dans
+`/var/backups/flambee` en gardant une semaine, et une mise à jour nocturne.
 
-### Ce que le fichier fait, et ses limites
+Si les trois champs d'adresse restent vides, il se rabat sur `sslip.io`, qui
+ne demande aucune inscription mais partage son quota de certificats entre tous
+ses utilisateurs : le HTTPS y échoue certains jours. C'est un dépannage, pas
+un choix — il le signale dans le journal.
 
-Il ouvre les ports 80 et 443 dans le pare-feu local — c'est la cause numéro un
-d'un site injoignable alors que le conteneur tourne, les images Oracle rejetant
-tout sauf SSH. Il engendre la clé de signature des sessions sur la machine,
-pour qu'elle ne transite par aucun formulaire. Il installe une sauvegarde
-quotidienne du volume dans `/var/backups/flambee`, et garde une semaine.
-
-Reste à faire de ton côté : ouvrir aussi les ports 80 et 443 dans la *Security
-List* du réseau virtuel, côté console Oracle — le pare-feu de la machine ne
-suffit pas, celui du réseau compte aussi.
+**Chez Oracle seulement**, il reste une chose à faire à la main : ouvrir aussi
+les ports 80 et 443 dans la *Security List* du réseau virtuel, côté console.
+Le pare-feu de la machine ne suffit pas, celui du réseau compte aussi. C'est
+la cause numéro un d'un site injoignable alors que le conteneur tourne. Chez
+Hetzner, il n'y a rien à ouvrir.
 
 ### Ce qui a été vérifié, et ce qui ne peut pas l'être
 
@@ -313,15 +372,17 @@ version ne redémarre pas ». La page d'attente aussi, dans un navigateur, à
 Ce qui ne l'a pas été : **le fichier n'a jamais tourné sur une vraie
 instance**, je n'y ai pas accès. Les chemins d'erreur sont écrits et relus
 (adresse DuckDNS valide, jeton refusé, domaine propre, repli), pas exécutés
-sur une machine Oracle. En cas d'échec, la page d'attente affiche la raison,
+sur une vraie machine, chez Hetzner ni ailleurs. En cas d'échec, la page d'attente affiche la raison,
 et le journal complet se lit dans `/var/log/flambee-installation.log`.
 
-### Si le serveur gratuit n'est pas disponible
+### Si tu passes par Oracle plutôt que Hetzner
 
-Les instances ARM gratuites sont souvent en rupture dans les régions
-populaires. Deux replis : essayer une autre région, ou rester sur Google Colab
-(voir le README) — gratuit aussi, mais l'adresse change à chaque lancement et
-la machine est reprise au bout de quelques heures.
+Trois différences, et rien d'autre : l'instance à créer est une *Ampere A1*
+(ARM) sous Ubuntu 22.04 ou 24.04 avec 2 à 4 cœurs ; le champ où coller le
+fichier s'appelle *Show advanced options* → *Paste cloud-init script* ; et il
+faut ouvrir les ports dans la *Security List* du réseau virtuel, comme dit
+plus haut. Les instances ARM gratuites sont souvent en rupture dans les
+régions populaires : essayer une autre région est le premier réflexe.
 
 ## Ce qui a été vérifié
 

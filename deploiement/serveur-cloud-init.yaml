@@ -1,14 +1,25 @@
 #cloud-config
 # ---------------------------------------------------------------------------
-# Flambée — installation automatique sur un serveur Oracle Cloud « Always Free »
+# Flambée — installation automatique d'un serveur, sans terminal
 #
-# Ce fichier se colle dans le formulaire de création du serveur, à la rubrique
-# « Show advanced options » → « Paste cloud-init script ». Il n'y a aucune
-# commande à taper ensuite : la machine installe Docker, construit l'image,
-# obtient un certificat HTTPS et démarre le site toute seule.
+# Ce fichier se colle dans le formulaire de création du serveur, dans le champ
+# prévu pour ça :
 #
-# Compter environ dix minutes avant que l'adresse réponde (la construction de
-# l'image est le poste le plus long).
+#   · Hetzner Cloud   « Cloud config », en bas du formulaire de création
+#   · Oracle Cloud    « Show advanced options » → « Paste cloud-init script »
+#   · Scaleway, OVH   « cloud-init » / « script de démarrage »
+#
+# Il n'y a aucune commande à taper ensuite : la machine installe Docker,
+# construit l'image, obtient un certificat HTTPS et démarre le site toute
+# seule. Elle se met à jour chaque nuit, et se sauvegarde.
+#
+# Compter environ dix minutes. Pendant ce temps, l'adresse en http (sans le
+# « s ») affiche une page qui dit où en est l'installation : c'est le seul
+# moyen de la suivre depuis un téléphone.
+#
+# Fonctionne en x86 comme en ARM64 : toute la chaîne de Flambée a une roue
+# Linux aarch64, transcription comprise (vérifié paquet par paquet sur PyPI —
+# ctranslate2, onnxruntime, av, tokenizers, numpy, pydantic-core, uvloop).
 # ---------------------------------------------------------------------------
 
 write_files:
@@ -104,8 +115,9 @@ write_files:
         systeme=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME")
         echo "!!! Cette installation attend Ubuntu 22.04 ou 24.04."
         echo "!!! Cette machine tourne sous : ${systeme:-système inconnu}"
-        echo "!!! Recrée l'instance en choisissant l'image « Canonical Ubuntu »"
-        echo "!!! dans la rubrique Image and shape."
+        echo "!!! Recrée la machine en choisissant une image Ubuntu :"
+        echo "!!!   Hetzner → Image → Ubuntu 24.04"
+        echo "!!!   Oracle  → Image and shape → Canonical Ubuntu"
         etape "Echec Cette machine n'est pas sous Ubuntu : recrée-la avec l'image Canonical Ubuntu."
         exit 1
       fi
@@ -115,6 +127,11 @@ write_files:
       # sauf SSH. C'est la cause n°1 d'un site « injoignable » alors que le
       # conteneur tourne : la règle REJECT finale doit être contournée, donc
       # on insère les autorisations avant elle.
+      #
+      # Chez Hetzner, rien ne bloque par défaut : ces règles ne font alors
+      # qu'ajouter deux autorisations à une table déjà ouverte. Inutile, mais
+      # inoffensif — et c'est ce qui permet au même fichier de servir chez les
+      # deux sans qu'on ait à choisir.
       ouvrir_port() {
         local port="$1"
         iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null && return 0

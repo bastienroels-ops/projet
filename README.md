@@ -176,6 +176,18 @@ Limites à garder en tête :
 
 ## Sans ordinateur : héberger Flambée soi-même
 
+C'est la voie à préférer dès que Flambée sert vraiment : une adresse qui ne
+change jamais, aucun tunnel donc aucune erreur 530 ni 1033, les vidéos qui
+restent, et un rendu qui continue quand on ferme l'onglet. L'installation ne
+demande aucun terminal — un fichier à coller dans le formulaire de création
+du serveur, et une page qui montre l'avancement depuis Safari. Tout est
+détaillé, écran par écran, dans
+[`docs/HEBERGEMENT.md`](docs/HEBERGEMENT.md) : compter vingt minutes et
+environ quatre euros par mois, ou rien du tout sur l'offre gratuite d'Oracle.
+
+Le reste de cette section décrit le fonctionnement à la main, pour qui a déjà
+une machine.
+
 Flambée a besoin de Python, ffmpeg et yt-dlp : elle ne tourne pas sur iOS. Si tu
 n'as pas de machine, elle peut vivre sur un petit serveur que tu pilotes depuis
 Safari. Deux choses sont alors indispensables — et fournies :

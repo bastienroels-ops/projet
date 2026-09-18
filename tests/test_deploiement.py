@@ -23,7 +23,7 @@ import pytest
 yaml = pytest.importorskip("yaml")
 
 RACINE = Path(__file__).resolve().parent.parent
-CLOUD_INIT = RACINE / "deploiement" / "oracle-cloud-init.yaml"
+CLOUD_INIT = RACINE / "deploiement" / "serveur-cloud-init.yaml"
 
 
 @pytest.fixture(scope="module")
@@ -72,7 +72,7 @@ def test_aucun_reglage_ecrit_dans_le_vide():
     lues = set(re.findall(r'["\'](FLAMBEE_[A-Z0-9_]+)["\']', code))
 
     ecrites = set()
-    for fichier in ("deploiement/oracle-cloud-init.yaml",
+    for fichier in ("deploiement/serveur-cloud-init.yaml",
                     "docker-compose.yml", "Dockerfile"):
         ecrites |= set(re.findall(r"\b(FLAMBEE_[A-Z0-9_]+)\b",
                                   (RACINE / fichier).read_text(encoding="utf-8")))

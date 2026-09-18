@@ -89,7 +89,7 @@ est en place :
 | Cloisonnement : un projet appartient à un compte | fait — `store.get(id, owner=…)` sur toutes les routes |
 | Quotas mensuels par formule | fait — `flambee/account.py` |
 | Formules et prix | fait — `flambee/plans.py`, modifiables à un seul endroit |
-| Image Docker, HTTPS, sauvegarde nocturne | fait — `Dockerfile`, `deploiement/oracle-cloud-init.yaml` |
+| Image Docker, HTTPS, sauvegarde nocturne | fait — `Dockerfile`, `deploiement/serveur-cloud-init.yaml` |
 | **Paiement** | **manquant** |
 | **Mentions légales complétées** | **manquant** — zones `[à compléter]` dans `flambee/site.py` |
 | File d'attente de rendu | pas nécessaire avant une trentaine de clients |
@@ -131,7 +131,7 @@ Tout est déjà écrit. Le détail complet est dans
 2. **Le serveur.** Crée la machine sous Ubuntu 24.04. Chez la plupart des
    hébergeurs, le formulaire de création propose un champ *cloud-init* ou
    *script de démarrage* : colle-y
-   [`deploiement/oracle-cloud-init.yaml`](../deploiement/oracle-cloud-init.yaml)
+   [`deploiement/serveur-cloud-init.yaml`](../deploiement/serveur-cloud-init.yaml)
    après avoir renseigné le domaine en haut. La machine installe Docker,
    construit l'image, ouvre le pare-feu, obtient le certificat HTTPS et met en
    place la sauvegarde nocturne. Compter une dizaine de minutes.
