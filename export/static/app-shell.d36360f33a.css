@@ -689,3 +689,31 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   .ligne-lien { flex-direction: column; }
   .ligne-lien button { width: 100%; }
 }
+
+/* ----------------------------------------------- La chasse aux liens --- */
+/* TikTok et YouTube interdisent qu'on les affiche dans une autre page
+   (`x-frame-options: SAMEORIGIN`). On ouvre donc un onglet à côté, et on
+   supprime le geste pénible : celui du retour, quand il faut coller. */
+.chasse {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.chasse-bouton { padding: 11px 18px; font-size: 13.5px; }
+.chasse-bouton .icone { width: 16px; height: 16px; }
+
+/* Il revient de l'application : le bouton se fait remarquer, sans rien lire.
+   Lire le presse-papier demande son geste à lui, et c'est très bien ainsi. */
+.chasse-bouton.appelle { animation: appel 1.4s ease-in-out 3; }
+@keyframes appel {
+  0%, 100% { transform: none; box-shadow: 0 12px 30px -16px rgb(var(--flamme-rvb) / .65); }
+  50%      { transform: translateY(-3px) scale(1.02);
+             box-shadow: 0 16px 38px -14px rgb(var(--flamme-rvb) / .95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chasse-bouton.appelle { animation: none; outline: 2px solid var(--eclat); }
+}
+
+.compte-liens {
+  margin: 10px 0 0; font-size: 12.5px; color: var(--text-faint);
+}
+.compte-liens[data-etat="juste"] { color: var(--ok); }
+.compte-liens[data-etat="long"] { color: var(--laiton); }

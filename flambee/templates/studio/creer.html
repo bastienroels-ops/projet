@@ -37,8 +37,31 @@
       sur une même thématique, un par ligne. Flambée en tire un montage vertical,
       une voix et des sous-titres.</p>
 
+    {# TikTok et YouTube refusent d'être affichés dans une autre page — ils
+       envoient `x-frame-options: SAMEORIGIN` et un `frame-ancestors` qui ne
+       liste qu'eux-mêmes. On ouvre donc un onglet à côté : celui-ci reste
+       ouvert, avec ses liens et son projet, et un glissement suffit à
+       revenir. #}
+    <div class="chasse">
+      <a class="button ghost chasse-bouton" id="lien-tiktok"
+         href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer">
+        {{ icone("tiktok") }} Ouvrir TikTok
+      </a>
+      <a class="button ghost chasse-bouton" id="lien-shorts"
+         href="https://www.youtube.com/shorts" target="_blank" rel="noopener noreferrer">
+        {{ icone("lecture") }} Ouvrir Shorts
+      </a>
+      <button class="primary chasse-bouton" id="btn-coller" type="button" hidden>
+        {{ icone("presse_papier") }} Coller le lien
+      </button>
+    </div>
+    <p class="hint" id="chasse-aide">Ouvre l'application, copie le lien de la
+      vidéo, reviens ici : le bouton <b>Coller</b> l'ajoutera à la liste.</p>
+
     <textarea id="urls" rows="5" spellcheck="false"
       placeholder="https://www.tiktok.com/@compte/video/123...&#10;https://www.youtube.com/shorts/abc..."></textarea>
+    <p class="compte-liens" id="compte-liens"
+       data-min="{{ min_sources }}" data-max="{{ max_sources }}"></p>
     <div class="row">
       <button class="primary" id="btn-download">Télécharger les vidéos</button>
       <button class="ghost" id="btn-new">Nouveau projet</button>

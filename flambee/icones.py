@@ -109,6 +109,16 @@ _TRACES: dict[str, str] = {
     "horloge": ('<circle cx="12" cy="12" r="8.2"/>'
                 '<path d="M12 7.4V12l3.2 2"/>'),
     "chevron": '<path d="m7.4 10 4.6 4.6L16.6 10"/>',
+    # La note de musique de TikTok, redessinée à la grammaire du jeu : une
+    # croche dont la hampe se prolonge. Ce n'est pas leur logo — on ne
+    # reproduit pas une marque déposée — mais le signe que tout le monde
+    # associe à l'application.
+    "tiktok": ('<path d="M14.2 3.4v10.9a3.6 3.6 0 1 1-3.6-3.6"/>'
+               '<path d="M14.2 6.2a4.6 4.6 0 0 0 4.4 3.3"/>'),
+    "presse_papier": ('<rect x="6.2" y="4.8" width="11.6" height="14.4" rx="2"/>'
+                      '<path d="M9.6 4.8V3.6h4.8v1.2"/>'),
+    "lien": ('<path d="M10.2 13.8a3.4 3.4 0 0 0 4.8 0l2.8-2.8a3.4 3.4 0 0 0-4.8-4.8l-1 1"/>'
+             '<path d="M13.8 10.2a3.4 3.4 0 0 0-4.8 0l-2.8 2.8a3.4 3.4 0 0 0 4.8 4.8l1-1"/>'),
 
     # La flamme est pleine : c'est une marque, pas un pictogramme.
     "flamme": (

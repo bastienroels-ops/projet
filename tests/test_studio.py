@@ -63,6 +63,32 @@ def test_les_icones_des_cartes_viennent_du_jeu_du_serveur(compte):
     assert "<svg" in texte.split('data-icone="lecture"')[1][:200]
 
 
+def test_les_liens_vers_les_plateformes_ouvrent_un_onglet_isole(compte):
+    """TikTok et YouTube refusent d'être affichés dans la page — mesuré, ils
+    envoient `x-frame-options: SAMEORIGIN`. On ouvre donc un onglet à côté.
+
+    `rel="noopener"` n'est pas décoratif : sans lui, la page ouverte garde une
+    référence sur celle-ci et peut la remplacer pendant qu'on regarde
+    ailleurs. C'est une page qu'on ne contrôle pas, et un projet en cours.
+    """
+    texte = compte.get("/studio").text
+    for identifiant in ("lien-tiktok", "lien-shorts"):
+        debut = texte.index(f'id="{identifiant}"')
+        balise = texte[max(0, debut - 200):debut + 200]
+        assert 'target="_blank"' in balise, identifiant
+        assert "noopener" in balise, identifiant
+
+
+def test_le_compteur_de_liens_porte_les_bornes_du_moteur(compte):
+    """Deux à cinq sources : c'est une règle de `config`. Recopiée dans le
+    JavaScript, elle dériverait au premier changement."""
+    from flambee import config
+
+    texte = compte.get("/studio").text
+    assert f'data-min="{config.MIN_SOURCES}"' in texte
+    assert f'data-max="{config.MAX_SOURCES}"' in texte
+
+
 def test_l_attribut_hidden_l_emporte_sur_la_feuille_de_style():
     """Sans cette règle, `hidden` ne masque rien dès que l'élément porte une
     classe qui pose un `display`.

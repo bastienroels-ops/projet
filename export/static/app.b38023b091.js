@@ -850,6 +850,104 @@ function choisirFond(valeur) {
   peindreFonds();
 }
 
+/* ====================================================================== */
+/* La chasse aux liens                                                     */
+/*                                                                         */
+/* TikTok et YouTube refusent d'être affichés dans une autre page — mesuré :*/
+/* `x-frame-options: SAMEORIGIN` et un `frame-ancestors` qui ne liste       */
+/* qu'eux-mêmes. On ne peut donc pas les montrer ici. Ce qu'on peut faire,  */
+/* c'est supprimer le geste pénible : au retour, un bouton met le lien      */
+/* copié dans la liste, au lieu du appui-long + « Coller » du clavier.     */
+/* ====================================================================== */
+
+/* TikTok ne copie presque jamais une URL nue : le presse-papier contient
+   « Regarde cette vidéo ! https://vm.tiktok.com/xxx/ … ». On y pêche le
+   lien plutôt que d'exiger de l'utilisateur qu'il fasse le ménage. */
+const LIEN = /https?:\/\/[^\s<>"']+/g;
+
+function liensDuTexte(texte) {
+  return (String(texte || "").match(LIEN) || [])
+    .map((l) => l.replace(/[.,;)\]]+$/, ""));   // ponctuation de fin de phrase
+}
+
+function liensActuels() {
+  return liensDuTexte($("#urls").value);
+}
+
+function compterLesLiens() {
+  const boite = $("#compte-liens");
+  if (!boite) return;
+  const liens = liensActuels();
+  const mini = +boite.dataset.min || 2;
+  const maxi = +boite.dataset.max || 5;
+  boite.dataset.etat = !liens.length ? "vide"
+    : liens.length < mini ? "court" : liens.length > maxi ? "long" : "juste";
+  boite.textContent = !liens.length
+    ? `Aucun lien — il en faut ${mini} à ${maxi}`
+    : `${liens.length} lien${liens.length > 1 ? "s" : ""} sur ${maxi}`
+      + (liens.length < mini ? ` — il en faut au moins ${mini}` : "");
+  const bouton = $("#btn-download");
+  if (bouton) bouton.disabled = liens.length < mini;
+}
+
+/* La lecture du presse-papier demande un geste de l'utilisateur et un
+   contexte sécurisé. Sans elle, le bouton n'a rien à promettre : on le
+   cache plutôt que de le laisser échouer sous le doigt. */
+function collageDisponible() {
+  return Boolean(navigator.clipboard && navigator.clipboard.readText
+                 && window.isSecureContext);
+}
+
+async function collerUnLien(bouton) {
+  let texte = "";
+  try {
+    texte = await navigator.clipboard.readText();
+  } catch (_) {
+    alertBox("Le presse-papier n'a pas pu être lu. Colle le lien à la main "
+      + "dans la zone ci-dessous.");
+    return;
+  }
+
+  const trouves = liensDuTexte(texte);
+  if (!trouves.length) {
+    alertBox("Aucun lien dans le presse-papier. Depuis TikTok : Partager, "
+      + "puis « Copier le lien ».");
+    return;
+  }
+
+  const deja = liensActuels();
+  const neufs = trouves.filter((l) => !deja.includes(l));
+  if (!neufs.length) {
+    signaler(bouton, "Déjà dans la liste");
+    return;
+  }
+
+  const zone = $("#urls");
+  zone.value = (zone.value.trim() ? zone.value.replace(/\s*$/, "\n") : "")
+    + neufs.join("\n");
+  alertBox("");
+  compterLesLiens();
+  signaler(bouton, neufs.length > 1 ? `${neufs.length} liens ajoutés` : "Ajouté");
+}
+
+/* Un mot sur le bouton, le temps qu'on le lise, puis il redevient lui-même.
+   Le libellé d'origine est mis de côté une seule fois : le relire à chaque
+   appel reprendrait le mot précédent et le bouton ne reviendrait jamais. Et
+   un deuxième message chasse le premier — celui qui colle deux fois de suite
+   a droit à la réponse de son deuxième geste, pas à l'écho du premier. */
+const _libelles = new WeakMap();
+const _minuteries = new WeakMap();
+
+function signaler(bouton, mot) {
+  if (!bouton) return;
+  if (!_libelles.has(bouton)) _libelles.set(bouton, bouton.innerHTML);
+  clearTimeout(_minuteries.get(bouton));
+  bouton.textContent = mot;
+  _minuteries.set(bouton, setTimeout(() => {
+    bouton.innerHTML = _libelles.get(bouton);
+  }, 1600));
+}
+
 async function newProject() {
   const project = await api("/api/projects", { method: "POST" });
   $("#script").value = "";
@@ -876,6 +974,29 @@ async function loadOrCreate() {
 function bind() {
   $("#btn-new").addEventListener("click", newProject);
 
+  // --- La chasse aux liens ---
+  const coller = $("#btn-coller");
+  if (coller) {
+    coller.hidden = !collageDisponible();
+    coller.addEventListener("click", () => collerUnLien(coller));
+    /* Il revient de TikTok avec un lien dans le presse-papier : le bouton se
+       fait remarquer, sans rien lire — la lecture demande son geste à lui. */
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && state.step === 1) {
+        coller.classList.add("appelle");
+        setTimeout(() => coller.classList.remove("appelle"), 4000);
+      }
+    });
+  }
+  const aide = $("#chasse-aide");
+  if (aide && !collageDisponible()) {
+    aide.textContent = "Ouvre l'application, copie le lien de la vidéo, puis "
+      + "reviens le coller dans la zone ci-dessous. (Le bouton Coller demande "
+      + "une adresse en https ; ici la page est servie en clair.)";
+  }
+  $("#urls").addEventListener("input", compterLesLiens);
+  compterLesLiens();
+
   $$(".step").forEach((b) => b.addEventListener("click", () => {
     if (!b.disabled) showStep(+b.dataset.step);
   }));
@@ -889,7 +1010,9 @@ function bind() {
         { method: "POST", body: { urls } }));
       startPolling();
     } catch (err) { alertBox(err.message); }
-    finally { e.target.disabled = false; }
+    // `compterLesLiens` décide de l'état du bouton : le réactiver ici le
+    // rendrait cliquable avec zéro lien.
+    finally { compterLesLiens(); }
   });
 
   $("#uploads").addEventListener("change", (e) => {
