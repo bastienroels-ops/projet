@@ -73,6 +73,7 @@ class SettingsIn(BaseModel):
     motion: bool = True
     scene_aware: bool = True
     subtitle_preset: str = config.DEFAULT_SUBTITLE_PRESET
+    subtitle_position: float = 0.24
     split_clip: str = ""
     split_ratio: float = 0.62
     split_bottom: bool = True
@@ -1328,6 +1329,7 @@ async def update_settings(request: Request, project_id: str, body: SettingsIn):
     if data.get("split_clip") and pipeline.fond_path(
             data["split_clip"], project) is None:
         data["split_clip"] = ""
+    data["subtitle_position"] = max(0.10, min(0.50, data["subtitle_position"]))
     data["split_ratio"] = max(0.25, min(0.85, data["split_ratio"]))
     data["music_volume"] = max(0.0, min(1.0, data["music_volume"]))
     data["mask_height_ratio"] = max(0.05, min(0.6, data["mask_height_ratio"]))

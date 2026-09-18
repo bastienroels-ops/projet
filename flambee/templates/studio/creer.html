@@ -193,6 +193,29 @@
           pas sur le minutage annoncé par la synthèse : chaque mot s'allume
           quand il est prononcé.</p>
 
+        {# La hauteur appartient à l'utilisateur, pas au style : c'est son
+           écran et son application, et l'interface de TikTok ne recouvre pas
+           la même chose d'un téléphone à l'autre. Les zones grisées sont des
+           repères, pas des mesures — on ne peut pas connaître l'interface
+           d'une application qu'on ne contrôle pas. #}
+        <div class="hauteur-sous-titres reglage-fin">
+          <div class="cadre-repere" aria-hidden="true">
+            <span class="repere repere-haut"></span>
+            <span class="repere repere-droite"></span>
+            <span class="repere repere-bas"></span>
+            <span class="repere-texte" id="repere-texte"></span>
+          </div>
+          <div class="hauteur-reglage">
+            <label><span>Hauteur du texte
+                <b class="value" id="subtitle_position_v">24%</b></span>
+              <input type="range" id="subtitle_position" min="10" max="50" value="24">
+            </label>
+            <p class="mention">Les zones grisées sont un repère : à peu près
+              ce que l'interface de TikTok recouvre. Remonte le texte s'il
+              passe derrière la légende sur tes vidéos publiées.</p>
+          </div>
+        </div>
+
         <figure class="preview" id="preset-preview">
           <video id="preset-video" muted loop autoplay playsinline preload="auto"></video>
           <figcaption>

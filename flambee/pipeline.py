@@ -253,7 +253,7 @@ def run_render(project: Project, *, fast: bool = False) -> None:
             project.subtitle_path = str(subtitles.write_ass(
                 track.words,
                 project.dir / "subtitles.ass",
-                style=subtitles.style_pour_ecran_scinde(
+                style=subtitles.placer(
                     config.subtitle_style(settings.subtitle_preset),
                     settings, config.FORMAT),
                 offset=track.lead_in,

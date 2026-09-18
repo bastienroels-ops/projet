@@ -114,6 +114,60 @@ def test_le_compagnon_en_haut_ne_deplace_pas_les_sous_titres():
         style, reglages, config.FORMAT) is style
 
 
+def test_la_hauteur_choisie_place_le_texte():
+    """Le style décide de la police et de la couleur ; la hauteur appartient
+    à l'utilisateur — c'est son écran et son application."""
+    style = config.subtitle_style("punch")
+    for part, attendu in ((0.12, 230), (0.24, 461), (0.40, 768)):
+        place = subtitles.placer(
+            style, config.RenderSettings(subtitle_position=part), config.FORMAT)
+        assert place.margin_v == attendu, part
+
+
+def test_une_hauteur_absurde_est_ramenee_dans_les_clous():
+    """À zéro le texte sortirait du cadre par le bas ; à un, par le haut."""
+    style = config.subtitle_style("punch")
+    for part in (-1.0, 0.0, 0.99, 12.0):
+        place = subtitles.placer(
+            style, config.RenderSettings(subtitle_position=part), config.FORMAT)
+        assert 0.09 * config.FORMAT.height <= place.margin_v \
+            <= 0.51 * config.FORMAT.height, part
+
+
+def test_l_ecran_scinde_l_emporte_sur_la_hauteur_choisie():
+    """La place disponible n'est pas une préférence : un texte posé bas
+    tomberait dans la vidéo du bas, et aucun réglage ne doit pouvoir le
+    demander."""
+    style = config.subtitle_style("punch")
+    reglages = config.RenderSettings(subtitle_position=0.12,
+                                     split_clip="jeu.mp4", split_ratio=0.62)
+    _, compagnon = media.split_bands(config.FORMAT.height, 0.62)
+    place = subtitles.placer(style, reglages, config.FORMAT)
+    assert place.margin_v > compagnon
+
+
+def test_le_serveur_borne_la_hauteur(compte):
+    """Le réglage vient du navigateur : il ne décide pas seul."""
+    projet = _projet(compte)
+    for envoye, mini, maxi in ((5.0, 0.10, 0.50), (-3.0, 0.10, 0.50)):
+        compte.post(f"/api/projects/{projet}/settings",
+                    json={**_reglages_complets(), "subtitle_position": envoye})
+        recu = compte.get(f"/api/projects/{projet}").json()["settings"]
+        assert mini <= recu["subtitle_position"] <= maxi, envoye
+
+
+def _reglages_complets() -> dict:
+    return {
+        "voice": config.DEFAULT_VOICE, "voice_rate": "+0%", "voice_pitch": "+0Hz",
+        "music": None, "music_volume": 0.12, "subtitles": True,
+        "subtitle_preset": "punch", "mask_source_subtitles": False,
+        "mask_mode": "blur", "mask_height_ratio": 0.18, "motion": False,
+        "source_audio_volume": 0.0, "keep_source_audio": False,
+        "scene_aware": True, "split_clip": "", "split_ratio": 0.62,
+        "split_bottom": True,
+    }
+
+
 def test_sans_ecran_scinde_le_style_n_est_pas_touche():
     style = config.subtitle_style("neon")
     assert subtitles.style_pour_ecran_scinde(

@@ -717,3 +717,50 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 }
 .compte-liens[data-etat="juste"] { color: var(--ok); }
 .compte-liens[data-etat="long"] { color: var(--laiton); }
+
+/* ------------------------------------------- La hauteur des sous-titres --- */
+/* Un schéma vaut mieux qu'un nombre : on voit d'un coup où le texte tombe,
+   et ce que l'interface de la plateforme risque de recouvrir. Les zones
+   grisées sont des repères, pas des mesures — l'interface de TikTok change
+   d'un téléphone et d'une version à l'autre, et nous ne la contrôlons pas.
+   C'est bien pour ça que la hauteur est un réglage et non une constante. */
+.hauteur-sous-titres {
+  display: flex; gap: 16px; align-items: flex-start; margin-top: 18px;
+}
+.cadre-repere {
+  position: relative; flex: none;
+  width: 72px; aspect-ratio: 9 / 16;
+  border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--hairline-2);
+  background: linear-gradient(160deg, rgb(var(--flamme-rvb) / .22),
+                              rgb(var(--creux-rvb) / .5));
+}
+.repere { position: absolute; background: rgb(var(--os-rvb) / .16); }
+.repere-haut { inset: 0 0 auto 0; height: 8%; }
+.repere-bas { inset: auto 0 0 0; height: 22%; }
+.repere-droite { inset: 35% 0 20% auto; width: 16%; }
+
+.repere-texte {
+  position: absolute; left: 8%; right: 8%; height: 7%;
+  border-radius: 2px;
+  background: rgb(var(--os-rvb));
+  box-shadow: 0 0 0 1px rgb(var(--creux-rvb) / .6);
+  transition: bottom .2s cubic-bezier(.16, 1, .3, 1);
+}
+.hauteur-reglage { flex: 1; min-width: 0; }
+.hauteur-reglage label { display: block; }
+.hauteur-reglage .mention { margin-top: 10px; display: block; }
+
+@media (max-width: 460px) {
+  .hauteur-sous-titres { gap: 12px; }
+  .cadre-repere { width: 58px; }
+}
+
+/* Le texte entre dans la bande du bas : on le dit par la couleur, pas par
+   une phrase de plus à lire. Le laiton, pas le rouge — descendre le texte
+   est un choix, pas une faute. */
+.repere-texte.risque {
+  background: var(--laiton);
+  box-shadow: 0 0 0 1px rgb(var(--creux-rvb) / .6),
+              0 0 10px -2px rgb(var(--laiton-rvb) / .9);
+}

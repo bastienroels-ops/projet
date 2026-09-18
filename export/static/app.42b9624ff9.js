@@ -152,6 +152,8 @@ function renderSettings(settings) {
   $("#music_volume").value = Math.round(settings.music_volume * 100);
   $("#music_volume_v").textContent = `${Math.round(settings.music_volume * 100)}%`;
   $("#subtitles").checked = settings.subtitles;
+  $("#subtitle_position").value = Math.round(settings.subtitle_position * 100);
+  peindreHauteur();
   $("#split_ratio").value = Math.round(settings.split_ratio * 100);
   $("#split_ratio_v").textContent = `${Math.round(settings.split_ratio * 100)}%`;
   $("#split_bottom").value = settings.split_bottom ? "1" : "0";
@@ -710,6 +712,22 @@ function peindreStyles() {
   resumerReglages();
 }
 
+/* Le schéma de hauteur : la barre blanche descend et monte avec le curseur,
+   et l'on voit d'un coup si elle entre dans la zone que l'interface de la
+   plateforme recouvre. */
+function peindreHauteur() {
+  const curseur = $("#subtitle_position");
+  const barre = $("#repere-texte");
+  if (!curseur || !barre) return;
+  const part = +curseur.value;
+  barre.style.bottom = `${part}%`;
+  $("#subtitle_position_v").textContent = `${part}%`;
+  /* Sous 22 %, le texte entre dans la bande du bas : on le dit en le
+     colorant, plutôt que par une phrase de plus à lire. */
+  barre.classList.toggle("risque", part < 22);
+  paintRange(curseur);
+}
+
 function fmtMinutes(secondes) {
   if (!secondes) return "";
   const m = Math.floor(secondes / 60), s = Math.round(secondes % 60);
@@ -780,7 +798,7 @@ function resumerReglages() {
 
   const style = (state.presets || []).find((p) => p.id === $("#subtitle_preset").value);
   dire("#resume-soustitres", !$("#subtitles").checked ? "Désactivés"
-    : (style ? style.label : "—"));
+    : `${style ? style.label : "—"} · hauteur ${$("#subtitle_position").value}%`);
 
   const piste = (state.tracks || []).find((t) => t.id === $("#music").value);
   dire("#resume-musique", piste
@@ -1065,6 +1083,7 @@ function bind() {
     motion: $("#motion").checked,
     scene_aware: $("#scene_aware").checked,
     subtitle_preset: $("#subtitle_preset").value,
+    subtitle_position: +$("#subtitle_position").value / 100,
     split_clip: state.splitClip || "",
     split_ratio: +$("#split_ratio").value / 100,
     split_bottom: $("#split_bottom").value === "1",
@@ -1093,6 +1112,10 @@ function bind() {
   ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio"]
     .forEach((sel) => $(sel).addEventListener("change", resumerReglages));
   $("#music_volume").addEventListener("input", resumerReglages);
+  $("#subtitle_position").addEventListener("input", () => {
+    peindreHauteur();
+    resumerReglages();
+  });
   $("#split_ratio").addEventListener("input", (e) => {
     $("#split_ratio_v").textContent = `${e.target.value}%`;
     paintRange(e.target);

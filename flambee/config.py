@@ -379,6 +379,12 @@ class RenderSettings:
     motion: bool = True                # léger travelling sur chaque plan
     scene_aware: bool = True           # caler les coupes sur les changements de plan
     subtitle_preset: str = "punch"
+    # Hauteur du texte, en part de l'image comptée depuis le bas. Le style
+    # décide de la police, de la couleur et de l'animation ; la hauteur, elle,
+    # appartient à l'utilisateur — c'est son écran, son application, et
+    # l'interface de TikTok ne couvre pas la même chose d'un téléphone à
+    # l'autre. 0,24 place le texte à peu près là où les styles le mettaient.
+    subtitle_position: float = 0.24
 
     # --- Écran scindé ----------------------------------------------------
     # Le montage occupe une bande, une seconde vidéo — jeu, boucle

@@ -242,6 +242,27 @@ def _dialogue(start: float, end: float, text: str) -> str:
     return f"Dialogue: 0,{_ass_time(start)},{_ass_time(end)},Flambee,,0,0,0,,{text}"
 
 
+def placer(style: config.SubtitleStyle, reglages: config.RenderSettings,
+           fmt: config.VideoFormat) -> config.SubtitleStyle:
+    """Applique la hauteur choisie, puis la contrainte de l'écran scindé.
+
+    Dans cet ordre, et pas l'inverse : l'écran scindé n'est pas une
+    préférence, c'est une place disponible. Un texte posé trop bas y
+    tomberait dans la vidéo du bas, et aucun réglage ne doit pouvoir le
+    demander.
+    """
+    return style_pour_ecran_scinde(
+        replace(style, margin_v=hauteur_en_pixels(reglages, fmt)),
+        reglages, fmt)
+
+
+def hauteur_en_pixels(reglages: config.RenderSettings,
+                      fmt: config.VideoFormat) -> int:
+    """La hauteur du texte en pixels, depuis le bas de l'image."""
+    part = max(0.10, min(0.50, reglages.subtitle_position))
+    return int(round(fmt.height * part))
+
+
 def style_pour_ecran_scinde(style: config.SubtitleStyle,
                             reglages: config.RenderSettings,
                             fmt: config.VideoFormat) -> config.SubtitleStyle:
