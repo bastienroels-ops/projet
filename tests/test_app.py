@@ -168,12 +168,19 @@ def test_liste_des_projets(compte):
 
 
 def test_message_derreur_yt_dlp_donne_une_piste():
+    """Le conseil a changé de destinataire.
+
+    Il visait quelqu'un devant un terminal — « configure
+    FLAMBEE_COOKIES_FROM_BROWSER » — alors que Flambée se pilote depuis un
+    téléphone, d'où cette variable est inatteignable. Il renvoie maintenant
+    vers l'import, la seule action possible de là. Le détail est dans
+    `tests/test_messages.py`."""
     from flambee.downloader import _clean_ydl_error
 
     message = _clean_ydl_error(
         "ERROR: [youtube] abc: Sign in to confirm you're not a bot. See https://x"
     )
-    assert "FLAMBEE_COOKIES_FROM_BROWSER" in message
+    assert "importer" in message.lower()
     assert "https://x" not in message
 
 

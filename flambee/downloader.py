@@ -208,29 +208,76 @@ def _check_source(source: Source) -> list[str]:
     return warnings
 
 
+# Ces messages s'adressent à quelqu'un qui tient un téléphone, pas à
+# quelqu'un devant un terminal. « Configure FLAMBEE_COOKIES_FROM_BROWSER »
+# était la bonne réponse technique et la mauvaise réponse tout court : la
+# seule action possible depuis un iPhone, c'est d'enregistrer la vidéo dans
+# l'application puis de l'importer. On le dit, et on garde la piste des
+# cookies pour ceux qui tournent sur leur propre machine.
+_REPLI_IMPORT = ("Enregistre-la depuis l'application (Partager → Enregistrer "
+                 "la vidéo), puis reviens l'importer avec « Choisir des "
+                 "vidéos ».")
+
+# L'ordre décide : la première correspondance gagne, et « Private video.
+# Sign in if you have been granted access » contient les deux. Conseiller
+# d'enregistrer depuis l'application une vidéo privée serait un mauvais
+# conseil — elle ne s'y enregistre pas non plus.
 _ERROR_HINTS = (
-    ("not a bot", "YouTube demande une connexion. Configure "
-                  "FLAMBEE_COOKIES_FROM_BROWSER=chrome (ou safari, firefox…) "
-                  "avant de relancer Flambée."),
-    ("login required", "Vidéo réservée aux comptes connectés : utilise "
-                       "FLAMBEE_COOKIES_FROM_BROWSER."),
-    ("private", "Vidéo privée : elle ne peut pas être téléchargée."),
-    ("unavailable", "Vidéo indisponible (supprimée ou bloquée dans ta région)."),
-    ("unsupported url", "Lien non reconnu par yt-dlp."),
-    ("http error 403", "Accès refusé par la plateforme. Mets yt-dlp à jour : "
-                       "`pip install -U yt-dlp`."),
+    ("private", "Vidéo privée : elle ne peut pas être téléchargée, même en "
+                "étant connecté."),
+    ("not a bot", "La plateforme demande une connexion pour cette vidéo. "
+                  + _REPLI_IMPORT),
+    ("login required", "Vidéo réservée aux comptes connectés. " + _REPLI_IMPORT),
+    ("sign in", "La plateforme demande une connexion. " + _REPLI_IMPORT),
+    ("unavailable", "Vidéo indisponible : supprimée, ou bloquée dans ta "
+                    "région."),
+    ("not available", "Vidéo indisponible : supprimée, ou bloquée dans ta "
+                      "région."),
+    ("unsupported url", "Lien non reconnu. Vérifie que c'est bien l'adresse "
+                        "d'une vidéo, pas celle d'un profil ou d'un son."),
+    ("http error 403", "La plateforme a refusé l'accès. " + _REPLI_IMPORT),
+    ("http error 404", "Cette adresse ne mène à aucune vidéo : le lien est "
+                       "peut-être tronqué."),
+    ("timed out", "La plateforme n'a pas répondu à temps. Réessaie, puis "
+                  "importe la vidéo si ça recommence."),
+    ("no video formats", "Aucune vidéo derrière ce lien. " + _REPLI_IMPORT),
 )
 
 
+def _sans_prefixe(ligne: str) -> str:
+    """Retire « [TikTok] 7234567890 : » en tête, sans manger un vrai mot.
+
+    Un identifiant se reconnaît à ceci : collé aux deux-points, et soit
+    chiffré, soit trop long pour être un mot. « Unsupported URL: » n'en est
+    pas un — il y a une espace avant le deux-points. « Warning: » non plus.
+    """
+    ligne = re.sub(r"^\[[^\]]+\]\s*", "", ligne)
+    tete = re.match(r"^([\w.-]+):\s*", ligne)
+    if tete:
+        jeton = tete.group(1)
+        if any(c.isdigit() for c in jeton) or len(jeton) >= 8:
+            ligne = ligne[tete.end():]
+    ligne = ligne.strip()
+    return ligne[:1].upper() + ligne[1:] if ligne else ligne
+
+
 def _clean_ydl_error(message: str) -> str:
+    """Rend la première ligne de yt-dlp lisible, et lui ajoute quoi faire.
+
+    On retire le préfixe d'extracteur — « [TikTok] 7234… : » — qui n'apprend
+    rien à qui lit : la liste des sources dit déjà quel lien a échoué.
+    """
     message = re.sub(r"\x1b\[[0-9;]*m", "", message)
     message = message.replace("ERROR: ", "").strip()
     first = message.splitlines()[0] if message else "Téléchargement impossible."
     lowered = first.lower()
+    # Le repérage se fait sur la ligne entière ; seul l'affichage est nettoyé.
+    visible = _sans_prefixe(first)
+
     for needle, hint in _ERROR_HINTS:
         if needle in lowered:
-            return f"{first.split(' See ')[0].strip()} → {hint}"
-    return first
+            return f"{visible.split(' See ')[0].strip()} → {hint}"
+    return visible
 
 
 def download_all(

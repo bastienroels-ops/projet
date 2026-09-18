@@ -62,8 +62,38 @@ function showStep(step) {
 }
 
 /* ---------------------------------------------------------- Rendu UI --- */
+/* Un rendu dure une minute. On ne reste pas devant : on retourne sur TikTok,
+   on répond à un message. Le titre de l'onglet est le seul endroit qui reste
+   visible depuis ailleurs — l'API de notification demande une application
+   installée sur iOS, ce que personne n'a fait. */
+const TITRE = document.title;
+
+function annoncerDansLeTitre(job) {
+  if (!job) return;
+  const enCours = job.state === "running";
+  const part = Math.round((job.progress || 0) * 100);
+  if (enCours) {
+    document.title = `${part}% — ${TITRE}`;
+  } else if (job.state === "done" && job.name === "render") {
+    document.title = `✅ Vidéo prête — ${TITRE}`;
+  } else if (job.state === "error") {
+    document.title = `⚠️ ${TITRE}`;
+  } else {
+    document.title = TITRE;
+  }
+}
+
+/* Revenu sur l'onglet, il a lu le titre : il n'a plus besoin qu'on le lui
+   crie. Le titre reprend son nom, sauf si quelque chose tourne encore. */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  const job = state.project && state.project.job;
+  if (!job || job.state !== "running") document.title = TITRE;
+});
+
 function renderJob(job) {
   const box = $("#job");
+  annoncerDansLeTitre(job);
   if (!job || job.state === "idle") { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
   $("#btn-cancel").classList.toggle("hidden", job.state !== "running");
