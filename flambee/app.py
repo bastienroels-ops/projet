@@ -1422,6 +1422,23 @@ async def save_script(request: Request, project_id: str, body: ScriptIn):
     return _project_payload(project)
 
 
+@app.post("/api/projects/{project_id}/variante")
+async def variante(request: Request, project_id: str):
+    """Repart des mêmes vidéos pour essayer autre chose.
+
+    Changer de style après coup obligeait à recommencer depuis les liens :
+    retéléchargement, ré-analyse des plans, nouvelle synthèse. Rien de tout
+    cela ne dépend du style — il ne reste que l'encodage.
+    """
+    project = _get(project_id, request)
+    if not project.ready_sources:
+        raise HTTPException(status_code=400,
+                            detail="Ce projet n'a aucune vidéo à reprendre.")
+    neuf = await asyncio.to_thread(project.variante)
+    store.inscrire(neuf)
+    return _project_payload(neuf)
+
+
 # --- Étape 5 : rendu ------------------------------------------------------
 @app.post("/api/projects/{project_id}/render")
 async def render(request: Request, project_id: str,

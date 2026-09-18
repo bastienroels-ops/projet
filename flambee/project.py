@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import threading
 import time
 import uuid
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 
 from . import config
@@ -86,6 +88,60 @@ class Project:
     def ensure_dirs(self) -> None:
         for path in (self.dir, self.sources_dir, self.hooks_dir, self.clips_dir):
             path.mkdir(parents=True, exist_ok=True)
+
+    # --- Variante ---------------------------------------------------------
+    def variante(self) -> "Project":
+        """Un nouveau projet qui repart des mêmes vidéos, prêt à être modifié.
+
+        Changer de style après coup obligeait à recommencer depuis les liens :
+        retéléchargement, ré-analyse des plans, nouvelle synthèse. Or rien de
+        tout cela ne dépend du style. On repart donc du travail déjà fait, et
+        il ne reste que l'encodage.
+
+        Les fichiers sont liés en dur, pas copiés : deux noms pour les mêmes
+        octets, aucun espace disque de plus. Supprimer l'un des deux projets
+        ne casse pas l'autre — le fichier ne disparaît qu'avec son dernier
+        nom. Sur un système de fichiers qui refuse le lien dur, on copie.
+
+        Le rendu et l'aperçu ne suivent pas : la variante n'a pas encore de
+        vidéo, c'est tout son objet.
+        """
+        neuf = Project(owner=self.owner)
+        neuf.ensure_dirs()
+
+        for dossier in ("sources", "hooks"):
+            _dupliquer(self.dir / dossier, neuf.dir / dossier)
+
+        neuf.urls = list(self.urls)
+        neuf.sources = [_source_deplacee(s, self.dir, neuf.dir)
+                        for s in self.sources]
+        neuf.analyses = dict(self.analyses)
+        neuf.hook_index = self.hook_index
+        neuf.recommended_hook = self.recommended_hook
+        neuf.topic, neuf.instructions, neuf.script = (
+            self.topic, self.instructions, self.script)
+        neuf.settings = replace(self.settings)
+
+        # La voix ne dépend que du script et des réglages de voix : si la
+        # variante ne les change pas, elle est déjà bonne. Le contrôle de
+        # signature du pipeline le vérifiera de toute façon.
+        voix = self.dir / "voice.mp3"
+        if voix.exists() and self.voice_signature:
+            _dupliquer_fichier(voix, neuf.dir / "voice.mp3")
+            neuf.voice_path = str(neuf.dir / "voice.mp3")
+            neuf.voice_duration = self.voice_duration
+            neuf.voice_signature = self.voice_signature
+            neuf.voice_lead_in = self.voice_lead_in
+            neuf.voice_words = [dict(m) for m in self.voice_words]
+
+        # Le fond d'écran scindé déposé sur le projet, s'il y en a un.
+        fond = self.dir / "fond.mp4"
+        if fond.exists():
+            _dupliquer_fichier(fond, neuf.dir / "fond.mp4")
+
+        neuf.step = max(3, min(self.step, 5))
+        neuf.save()
+        return neuf
 
     # --- Accès ------------------------------------------------------------
     def source(self, index: int) -> Source | None:
@@ -224,6 +280,19 @@ class ProjectStore:
             self._cache[project.id] = project
         return project
 
+    def inscrire(self, project: Project) -> Project:
+        """Range un projet né ailleurs — une variante, par exemple.
+
+        Sans cela il vivrait sur le disque mais pas dans le cache mémoire :
+        `get` le retrouverait quand même, en relisant son JSON à chaque fois,
+        et deux lectures rendraient deux objets différents pour le même
+        projet. Une tâche de fond écrirait alors dans l'un pendant que la
+        route répond depuis l'autre.
+        """
+        with _LOCK:
+            self._cache[project.id] = project
+        return project
+
     def get(self, project_id: str, owner: int = 0) -> Project | None:
         """Retourne un projet, à condition qu'il appartienne bien au compte."""
         with _LOCK:
@@ -285,3 +354,38 @@ class ProjectStore:
 
 
 store = ProjectStore()
+
+
+def _dupliquer(source: Path, destination: Path) -> None:
+    """Recopie un dossier de travail, fichier par fichier, en liens durs."""
+    if not source.is_dir():
+        return
+    destination.mkdir(parents=True, exist_ok=True)
+    for fichier in source.iterdir():
+        if fichier.is_file():
+            _dupliquer_fichier(fichier, destination / fichier.name)
+
+
+def _dupliquer_fichier(source: Path, destination: Path) -> None:
+    """Deux noms pour les mêmes octets, ou une copie si le disque refuse.
+
+    Le lien dur ne coûte rien et survit à la suppression de l'original : le
+    fichier ne disparaît qu'avec son dernier nom. Les partages réseau et
+    certains montages Colab ne le permettent pas — on copie alors.
+    """
+    if destination.exists():
+        return
+    try:
+        os.link(source, destination)
+    except (OSError, AttributeError, NotImplementedError):
+        shutil.copy2(source, destination)
+
+
+def _source_deplacee(source: Source, ancien: Path, neuf: Path) -> Source:
+    """La même vidéo, vue depuis le dossier de la variante."""
+    copie = replace(source)
+    for champ in ("path", "hook_path"):
+        chemin = getattr(copie, champ, "")
+        if chemin and str(chemin).startswith(str(ancien)):
+            setattr(copie, champ, str(neuf / Path(chemin).relative_to(ancien)))
+    return copie

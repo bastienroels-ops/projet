@@ -238,6 +238,17 @@ function renderRecap(project) {
   if (mention) mention.hidden = !state.filigrane;
 }
 
+/* Faire une variante n'a de sens qu'une fois les vidéos en place : avant, le
+   bouton promettrait de repartir de rien. */
+function montrerLaVariante(project) {
+  const bouton = $("#btn-variante");
+  if (!bouton) return;
+  const pret = (project.sources || []).some((s) => s.ok);
+  bouton.hidden = !pret;
+  const aide = $("#variante-aide");
+  if (aide) aide.hidden = !pret;
+}
+
 function renderResult(project) {
   const box = $("#result");
   const url = project.output_url || project.preview_url;
@@ -316,6 +327,7 @@ function applyProject(project) {
   renderSettings(project.settings);
   renderRecap(project);
   renderResult(project);
+  montrerLaVariante(project);
   if (project.topic) $("#topic").value = project.topic;
   if (project.instructions) $("#instructions").value = project.instructions;
   if (project.script && !$("#script").value.trim()) $("#script").value = project.script;
@@ -1319,6 +1331,23 @@ function bind() {
       oublierLeBrouillon();
       showStep(5);
     } catch (err) { alertBox(err.message); }
+  });
+
+  $("#btn-variante").addEventListener("click", async (e) => {
+    try {
+      alertBox("");
+      e.target.disabled = true;
+      const neuf = await api(`/api/projects/${state.project.id}/variante`,
+        { method: "POST" });
+      // Le brouillon appartient à l'ancien projet : il n'a rien à dire ici.
+      oublierLeBrouillon();
+      $("#script").value = "";
+      applyProject(neuf);
+      showStep(3);
+      alertBox("Variante prête : mêmes vidéos, même script. Change ce que tu "
+        + "veux et relance le rendu.", true);
+    } catch (err) { alertBox(err.message); }
+    finally { e.target.disabled = false; }
   });
 
   const startRender = async (button, fast) => {
