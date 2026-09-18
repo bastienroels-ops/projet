@@ -1,33 +1,32 @@
 #cloud-config
-# ---------------------------------------------------------------------------
-# Flambée — installation automatique d'un serveur, sans terminal
-#
-# Ce fichier se colle dans le formulaire de création du serveur, dans le champ
-# prévu pour ça :
-#
-#   · Hetzner Cloud   « Cloud config », en bas du formulaire de création
-#   · Oracle Cloud    « Show advanced options » → « Paste cloud-init script »
-#   · Scaleway, OVH   « cloud-init » / « script de démarrage »
-#
-# Il n'y a aucune commande à taper ensuite : la machine installe Docker,
-# construit l'image, obtient un certificat HTTPS et démarre le site toute
-# seule. Elle se met à jour chaque nuit, et se sauvegarde.
-#
-# Compter environ dix minutes. Pendant ce temps, l'adresse en http (sans le
-# « s ») affiche une page qui dit où en est l'installation : c'est le seul
-# moyen de la suivre depuis un téléphone.
-#
-# Fonctionne en x86 comme en ARM64 : toute la chaîne de Flambée a une roue
-# Linux aarch64, transcription comprise (vérifié paquet par paquet sur PyPI —
-# ctranslate2, onnxruntime, av, tokenizers, numpy, pydantic-core, uvloop).
-# ---------------------------------------------------------------------------
+# =========================================================================
+#  FLAMBÉE — REMPLIS LES DEUX LIGNES CI-DESSOUS, PUIS COLLE TOUT LE FICHIER
+#  dans le champ « Cloud config » du formulaire de création du serveur.
+#  Le nom et le jeton s'obtiennent en deux minutes sur www.duckdns.org.
+#  Tout le reste s'explique à la fin du fichier. Rien à taper ensuite.
+# =========================================================================
 
 write_files:
-  # Les réglages, au même endroit, pour être relus et modifiés facilement.
   - path: /etc/flambee/parametres
     permissions: "0600"
     content: |
-      # ---- À REMPLIR AVANT DE COLLER CE FICHIER -----------------------------
+      # ################ LES DEUX LIGNES À REMPLIR ######################
+      #
+      # Sur www.duckdns.org : connecte-toi, tape un nom dans « sub domain »,
+      # touche « add domain ». Recopie ce nom ici, puis le « token » affiché
+      # en haut de la page. Ce sera l'adresse de ton site, pour toujours.
+
+      DUCKDNS_SOUS_DOMAINE=""
+      DUCKDNS_JETON=""
+
+      # ##################################################################
+
+      # Facultatif : ta clé API Anthropic, pour que « Écrire le script avec
+      # Claude » fonctionne en un clic. Laisse vide sinon — l'application
+      # bascule alors sur un prompt à copier dans une conversation.
+      ANTHROPIC_API_KEY=""
+
+      # ---- Au-delà, rien n'est à changer pour une installation normale ----
 
       # Ton dépôt. S'il est privé, insère un jeton GitHub :
       #   https://<jeton>@github.com/bastienroels-ops/projet.git
@@ -36,26 +35,15 @@ write_files:
       DEPOT="https://github.com/bastienroels-ops/projet.git"
       BRANCHE="claude/fastapi-viral-video-montage-e9x7i8"
 
-      # Génération de script en un clic. Laisse vide si tu n'en veux pas.
-      ANTHROPIC_API_KEY=""
-
-      # Adresse du site. Deux façons de l'obtenir sans rien acheter.
-      #
-      # 1) DuckDNS — recommandé. Va sur https://www.duckdns.org depuis Safari,
-      #    connecte-toi (GitHub ou Google), choisis un nom, et recopie ici ce
-      #    nom puis le jeton affiché en haut de la page. Le serveur tiendra
-      #    l'adresse à jour tout seul, même si son IP change.
-      DUCKDNS_SOUS_DOMAINE=""
-      DUCKDNS_JETON=""
-      #
-      # 2) Ou bien ton propre nom de domaine, le jour où tu en achètes un.
-      #    Crée un enregistrement A vers l'IP du serveur, puis renseigne-le.
+      # Ton propre nom de domaine, le jour où tu en achètes un : crée un
+      # enregistrement A vers l'IP du serveur, puis renseigne-le ici. Il a
+      # priorité sur DuckDNS.
       DOMAINE=""
       #
-      # Si les trois champs restent vides, le script se rabat sur sslip.io, qui
-      # ne demande aucune inscription — mais dont le quota de certificats est
-      # partagé par tous ses utilisateurs : le HTTPS peut échouer certains
-      # jours. À réserver à un essai rapide.
+      # Si les trois champs d'adresse restent vides, le script se rabat sur
+      # sslip.io, qui ne demande aucune inscription — mais dont le quota de
+      # certificats est partagé par tous ses utilisateurs : le HTTPS peut
+      # échouer certains jours. À réserver à un essai rapide.
 
       # La clé que tu vends. Renseignée, elle devient obligatoire pour créer
       # un compte : personne n'entre sans elle, et le site public peut rester
@@ -618,3 +606,29 @@ runcmd:
   # jamais pendant un rendu. Pour ne plus rien recevoir : commenter cette ligne
   # dans « crontab -e », ou pointer BRANCHE sur une version figée.
   - (crontab -l 2>/dev/null; echo "10 4 * * * /usr/local/bin/flambee-mise-a-jour") | crontab -
+
+# =========================================================================
+#  CE QUE FAIT CE FICHIER
+#
+#  Il se colle dans le champ prévu par l'hébergeur :
+#    · Hetzner Cloud   « Cloud config », en bas du formulaire de création
+#    · Oracle Cloud    « Show advanced options » → « Paste cloud-init script »
+#    · Scaleway, OVH   « cloud-init » / « script de démarrage »
+#
+#  La machine installe alors Docker, récupère Flambée, construit son image,
+#  obtient un certificat HTTPS et démarre le site — sans qu'on tape une seule
+#  commande. Elle se sauvegarde chaque nuit à 3 h 20 et va chercher les
+#  corrections à 4 h 10, jamais pendant un rendu.
+#
+#  Compter environ dix minutes. Pendant ce temps, l'adresse en http (sans le
+#  « s ») affiche une page qui dit où en est l'installation, et ce qui a
+#  échoué le cas échéant : c'est le seul moyen de la suivre depuis un
+#  téléphone.
+#
+#  Fonctionne en x86 comme en ARM64 : toute la chaîne de Flambée a une roue
+#  Linux aarch64, transcription comprise — vérifié paquet par paquet sur PyPI
+#  (ctranslate2, onnxruntime, av, tokenizers, numpy, pydantic-core, uvloop).
+#  Une machine ARM à quatre euros convient donc.
+#
+#  Marche à suivre complète, écran par écran : docs/HEBERGEMENT.md
+# =========================================================================

@@ -82,6 +82,30 @@ def test_aucun_reglage_ecrit_dans_le_vide():
         + ", ".join(sorted(ecrites - lues)))
 
 
+def test_le_bloc_de_reglages_est_du_bash_valide(plan):
+    """L'installateur le « source ». Une ligne de décoration mal placée le
+    casserait au tout premier geste, avant même que Docker s'installe."""
+    reglages = _fichier(plan, "/etc/flambee/parametres")
+    with tempfile.NamedTemporaryFile("w", suffix=".sh") as t:
+        t.write(reglages + '\necho "${BRANCHE}"\n')
+        t.flush()
+        r = subprocess.run(["bash", t.name], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip().startswith("claude/"), r.stdout
+
+
+def test_les_champs_a_remplir_sont_en_haut_du_fichier():
+    """On copie ce fichier sur un téléphone, dans l'app Notes. Deux lignes à
+    modifier au milieu de trois cents, c'est une ligne qu'on ne trouve pas,
+    et une installation qui se rabat silencieusement sur sslip.io."""
+    lignes = CLOUD_INIT.read_text(encoding="utf-8").splitlines()
+    rang = next((i for i, l in enumerate(lignes, 1)
+                 if "DUCKDNS_SOUS_DOMAINE=" in l), None)
+    assert rang is not None and rang <= 30, (
+        f"les champs à remplir sont ligne {rang} : trop bas pour être vus "
+        "sans défiler")
+
+
 # --- La page d'attente -----------------------------------------------------
 def test_les_etapes_annoncees_sont_celles_que_la_page_connait(plan):
     """Une étape inconnue laisse la barre de progression bloquée au début,
