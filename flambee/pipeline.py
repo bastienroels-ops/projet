@@ -404,9 +404,6 @@ def _voice_signature(project: Project) -> str:
     payload = "|".join([
         project.script.strip(), settings.voice, settings.voice_rate,
         settings.voice_pitch,
-        # Le calage change le minutage mis en cache, pas l'audio : sans lui
-        # dans l'empreinte, décocher la case rendrait la piste d'avant.
-        "cale" if settings.subtitle_sync else "brut",
     ])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
@@ -453,16 +450,16 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
         pitch=project.settings.voice_pitch,
     )
     # Le minutage d'edge-tts ne décrit pas le fichier livré : il ne contient
-    # aucune pause, là où l'audio en a trois secondes sur dix. On le remplace
-    # par un minutage relevé sur le son lui-même quand c'est possible.
-    if project.settings.subtitle_sync and calage.disponible():
-        project.set_job("render", "running", progress=0.08,
-                        message="Calage des sous-titres sur la voix…")
-        cales = calage.caler(track.words, path)
-        if cales is not track.words:
-            # Les mots calés sont déjà dans le temps de l'audio : le décalage
-            # du silence initial n'a plus lieu d'être, il ferait double emploi.
-            track = replace(track, words=cales, lead_in=0.0)
+    # aucune pause, là où l'audio en a trois secondes sur dix. On le relève
+    # donc sur le son lui-même. Sans condition : ça ne coûte qu'une passe
+    # ffmpeg, et c'est mesuré dix fois plus juste.
+    project.set_job("render", "running", progress=0.08,
+                    message="Calage des sous-titres sur la voix…")
+    cales = calage.caler(track.words, path)
+    if cales is not track.words:
+        # Les mots calés sont déjà dans le temps de l'audio : le décalage du
+        # silence initial n'a plus lieu d'être, il ferait double emploi.
+        track = replace(track, words=cales, lead_in=0.0)
 
     project.voice_signature = signature
     project.voice_words = [word.to_dict() for word in track.words]

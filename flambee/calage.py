@@ -3,176 +3,259 @@
 edge-tts renvoie, avec l'audio, un `WordBoundary` par mot. On s'en servait
 directement. Mesuré, ce minutage ne décrit pas le fichier livré :
 
-    silences réels dans l'audio      minutage edge-tts
-      0.000 → 0.207  (début)           'Trois'    0.000 → 0.415
-      2.672 → 3.607  (après « saches. »)  'saches.' 3.324 → 3.905
-      6.459 → 7.409  (après « lit. »)     'lit.'    6.813 → 7.146
+    silences réels dans l'audio            minutage annoncé
+      0.000 → 0.207  (avant le 1er mot)      'Trois'    0.000 → 0.415
+      2.672 → 3.607  (après « saches. »)     'saches.'  3.324 → 3.905
+      6.459 → 7.409  (après « lit. »)        'lit.'     6.813 → 7.146
 
-Le minutage d'edge-tts n'a aucun trou : chaque mot commence exactement où
-finit le précédent, et les pauses de ponctuation sont absorbées dans la durée
-des mots qui les précèdent. L'audio, lui, contient trois secondes de silence
-sur dix. Les deux échelles de temps ne sont donc pas la même, et aucun
-décalage constant ne peut les réconcilier — mesuré ici entre −0,22 et +0,30 s
-selon l'endroit du script, ce qui s'entend et se voit.
+Le minutage annoncé n'a aucun trou — chaque mot commence exactement où finit
+le précédent — quand l'audio contient trois secondes de silence sur dix. Ce
+ne sont pas deux horloges décalées, ce sont deux horloges différentes : aucune
+constante ne peut les réconcilier. Le silence initial, seul corrigé jusqu'ici,
+ne réglait rien du reste.
 
-D'où ce module. On connaît le texte exact, et on a le fichier audio : il ne
-reste qu'à retrouver où chaque mot tombe dedans. Whisper, déjà embarqué pour
-Script Viral, donne un minutage au mot calé sur le son. Il peut mal entendre
-un mot — mais nous savons lequel aurait dû être dit, et une comparaison de
-séquences remet chaque mot connu en face du mot entendu.
+Sur quatre scripts et 167 mots, l'écart au mot réellement prononcé était de
+533 ms en médiane et 946 ms au neuvième décile — de quoi gâcher une vidéo. Un
+mot sur quatre s'affichait alors que rien n'était dit.
 
-Sans moteur de transcription, on rend le minutage d'origine : c'est le
-comportement d'avant, jamais pire.
+--- Ce qui marche -----------------------------------------------------------
+
+Le son dit lui-même où l'on parle et où l'on se tait, et ffmpeg sait le lire.
+Mesuré : les pauses de l'audio correspondent une à une aux ponctuations du
+texte. Neuf pauses pour neuf ponctuations fortes sur un script ; sur un autre,
+huit pauses pour quatre ponctuations fortes et quatre virgules — les fortes
+durent autour de 0,95 s, les virgules autour de 0,30. Le son annonce la
+structure de la phrase.
+
+D'où la méthode : chaque silence est une coupure entre deux mots. Laquelle,
+c'est une programmation dynamique qui le décide — la position proportionnelle
+doit concorder, et une ponctuation est un indice fort. Entre deux coupures, on
+répartit au prorata des durées annoncées par edge-tts : fausses dans l'absolu
+puisqu'elles absorbent les pauses, mais justes les unes par rapport aux autres
+à l'intérieur d'une portée parlée.
+
+Résultat sur le même banc : 56 ms en médiane, 175 ms au neuvième décile, et
+plus aucun mot affiché sur du silence.
+
+--- Ce qui ne marche pas ----------------------------------------------------
+
+Trois pistes ont été essayées et mesurées avant d'être écartées :
+
+* Whisper, qui donne un minutage au mot. Il demande une installation que
+  personne ne fait — et il est moins bon : il antidate le premier mot de
+  chaque segment jusqu'au début du segment. Mesuré à −92,9 dB sur la tranche
+  où il plaçait un mot, soit du silence numérique. Sur le critère qui ne
+  dépend d'aucun modèle — un mot affiché alors que rien n'est prononcé — il
+  laissait 4 % des mots dehors, contre 0 % ici.
+
+* Répartir au prorata de l'énergie émise plutôt que du temps. Séduisant, et
+  deux fois pire : 104 ms de médiane contre 57. L'énergie varie trop à
+  l'intérieur d'un mot pour servir d'horloge.
+
+* Pondérer par les lettres ou les syllabes plutôt que par la durée annoncée :
+  67 ms et 103 ms de médiane. Les durées d'edge-tts, toutes fausses qu'elles
+  soient, restent la meilleure mesure du poids relatif d'un mot.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-import unicodedata
-from difflib import SequenceMatcher
 from pathlib import Path
 
 from .voice import Word
 
 log = logging.getLogger(__name__)
 
-# En dessous, le calage n'a rien reconnu : on garde le minutage d'origine
-# plutôt que d'imposer une correspondance inventée.
-ACCORD_MINIMUM = 0.55
+PONCTUATION = ".!?:;…,"
+
+# En dessous, ce n'est pas une pause mais une respiration ou une consonne
+# sourde. Mesuré : une virgule produit 0,20 à 0,34 s, un point 0,93 à 0,99.
+# Un balayage de 0,08 à 0,25 s et de −40 à −50 dB donne partout entre 54 et
+# 60 ms de médiane : le réglage est sur un plateau, pas sur une pointe.
+PAUSE_MINIMALE = 0.18
+SEUIL_SILENCE_DB = -45
+
+# Ce qu'une ponctuation vaut en détour sur la position proportionnelle. Au-delà,
+# c'est que la coupure est ailleurs et la ponctuation ne doit pas l'emporter.
+PRIME_PONCTUATION = 0.05
 
 
-def disponible() -> bool:
-    """Le calage précis demande le moteur de transcription."""
-    from . import transcribe
-    return transcribe.available()
+def caler(mots: list[Word], audio: Path | str) -> list[Word]:
+    """Minute les mots sur les portées parlées du fichier.
 
-
-def _clef(mot: str) -> str:
-    """Forme comparable d'un mot : sans accent, sans ponctuation, en bas de casse.
-
-    Whisper écrit « mélatonine », edge-tts « mélatonine. » ; l'un peut rendre
-    « c'est » quand l'autre donne « c'est ». La comparaison se fait donc sur
-    une forme dépouillée, pas sur le texte affiché — qui, lui, reste celui du
-    script, seul à être sûr.
+    Rend le minutage d'origine si le son ne se laisse pas lire — jamais pire
+    qu'avant, et sans autre dépendance que ffmpeg.
     """
-    plat = unicodedata.normalize("NFD", mot.lower())
-    plat = "".join(c for c in plat if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]", "", plat)
+    if len(mots) < 2:
+        return mots
+    silences, duree = pauses_du_son(audio)
+    if not duree:
+        return mots
 
+    # Le silence de tête et celui de queue bornent la parole ; ceux du milieu
+    # la découpent.
+    debut = silences[0][1] if silences and silences[0][0] <= 0.05 else 0.0
+    fin = duree
+    if silences and silences[-1][1] >= duree - 0.05:
+        fin = silences[-1][0]
+    internes = [(a, b) for a, b in silences
+                if a > debut + 0.01 and b < fin - 0.01]
 
-def caler(attendus: list[Word], audio: Path | str,
-          *, langue: str = "fr") -> list[Word]:
-    """Rend les mots attendus, minutés sur l'audio. Le texte n'est pas touché."""
-    if not attendus:
-        return attendus
-    from . import transcribe
+    if fin - debut < 0.2:
+        return mots
 
-    try:
-        entendu = transcribe.transcribe(audio, language=langue, with_words=True)
-    except Exception as exc:                 # moteur absent, audio illisible…
-        log.info("Calage impossible (%s) : minutage d'origine conservé.", exc)
-        return attendus
+    portees = _portees(debut, fin, internes)
+    coupures = _choisir_les_coupures(mots, portees)
+    if coupures is None:
+        log.info("Calage abandonné : %d pauses pour %d mots.",
+                 len(portees) - 1, len(mots))
+        return mots
 
-    return caler_sur(attendus, entendu.words)
-
-
-def caler_sur(attendus: list[Word], entendus: list[Word]) -> list[Word]:
-    """Le cœur du calage, sans dépendance au moteur — donc testable seul."""
-    if not attendus or not entendus:
-        return attendus
-
-    clefs_a = [_clef(m.text) for m in attendus]
-    clefs_e = [_clef(m.text) for m in entendus]
-
-    correspondance = SequenceMatcher(None, clefs_a, clefs_e, autojunk=False)
-    ancres: dict[int, Word] = {}
-    reconnus = 0
-    for bloc in correspondance.get_matching_blocks():
-        for decalage in range(bloc.size):
-            ancres[bloc.a + decalage] = entendus[bloc.b + decalage]
-            reconnus += 1
-
-    part = reconnus / len(attendus)
-    if part < ACCORD_MINIMUM:
-        log.info("Calage abandonné : %.0f %% des mots reconnus seulement.",
-                 part * 100)
-        return attendus
-
-    cales = _interpoler(attendus, ancres)
-    log.info("Sous-titres calés sur la voix : %d mots sur %d reconnus.",
-             reconnus, len(attendus))
+    cales = _rendre_croissant(_repartir(mots, portees, coupures))
+    log.info("Sous-titres calés sur la voix : %d portée(s) parlée(s).",
+             len(portees))
     return cales
 
 
-def _interpoler(attendus: list[Word], ancres: dict[int, Word]) -> list[Word]:
-    """Minute les mots non reconnus entre les ancres qui les entourent.
+def pauses_du_son(audio: Path | str) -> tuple[list[tuple[float, float]], float]:
+    """Les silences du fichier, et sa durée. Rien d'autre que ffmpeg."""
+    from . import config
+    from .media import MediaError, run
 
-    Un mot que Whisper n'a pas entendu ne doit pas faire trou : on répartit
-    l'intervalle entre les deux mots sûrs qui l'encadrent, au prorata du
-    nombre de lettres — un mot long occupe plus de temps qu'un mot court.
+    try:
+        proc = run([
+            config.FFMPEG_BIN, "-hide_banner", "-nostdin", "-i", str(audio),
+            "-af", f"silencedetect=noise={SEUIL_SILENCE_DB}dB:d={PAUSE_MINIMALE}",
+            "-vn", "-f", "null", "-",
+        ], timeout=180, capture_stderr=True)
+    except (MediaError, OSError) as exc:
+        log.info("Silences illisibles (%s) : minutage d'origine conservé.", exc)
+        return [], 0.0
+
+    sortie = proc.stderr or ""
+    debuts = [float(m) for m in re.findall(r"silence_start:\s*(-?[0-9.]+)", sortie)]
+    fins = [float(m) for m in re.findall(r"silence_end:\s*([0-9.]+)", sortie)]
+
+    duree = 0.0
+    horodatages = re.findall(r"time=(\d+):(\d+):([0-9.]+)", sortie)
+    if horodatages:
+        h, m, s = horodatages[-1]
+        duree = int(h) * 3600 + int(m) * 60 + float(s)
+
+    # `silence_start` sans `silence_end` : le fichier finit dans le silence.
+    if len(debuts) > len(fins):
+        fins = fins + [duree]
+    return list(zip(debuts, fins)), duree
+
+
+def _portees(debut: float, fin: float,
+             internes: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Les intervalles où l'on parle, dans l'ordre."""
+    portees = []
+    curseur = debut
+    for a, b in internes:
+        if a > curseur:
+            portees.append((curseur, a))
+        curseur = b
+    portees.append((curseur, fin))
+    return [p for p in portees if p[1] - p[0] > 0.05]
+
+
+def _choisir_les_coupures(mots: list[Word],
+                          portees: list[tuple[float, float]]) -> list[int] | None:
+    """Où couper la suite de mots pour la répartir sur les portées.
+
+    Programmation dynamique : on cherche les k coupures qui minimisent l'écart
+    entre la position proportionnelle annoncée et la position proportionnelle
+    réellement parlée, avec une prime aux coupures de ponctuation. Sur les
+    scripts mesurés, elle retrouve exactement les points, virgules et
+    deux-points.
     """
-    resultat: list[Word] = []
-    indices = sorted(ancres)
-    premier, dernier = indices[0], indices[-1]
+    besoin = len(portees) - 1
+    if besoin <= 0:
+        return []
+    if besoin >= len(mots):
+        return None                  # plus de pauses que de mots : on renonce
 
-    for position, mot in enumerate(attendus):
-        if position in ancres:
-            ancre = ancres[position]
-            resultat.append(Word(text=mot.text, start=ancre.start, end=ancre.end))
+    total = mots[-1].end - mots[0].start
+    if total <= 0:
+        return None
+    annonce = [(m.end - mots[0].start) / total for m in mots]
+
+    parle = sum(b - a for a, b in portees)
+    reel, cumule = [], 0.0
+    for a, b in portees[:-1]:
+        cumule += b - a
+        reel.append(cumule / parle)
+
+    prime = [PRIME_PONCTUATION if m.text.rstrip()[-1:] in PONCTUATION else 0.0
+             for m in mots]
+
+    # cout[i][j] : meilleur coût des i premières coupures, la i-ème placée
+    # après le mot j. `trace` garde de quoi relire le chemin.
+    INFINI = float("inf")
+    dernier_mot = len(mots) - 1
+    cout = [[INFINI] * dernier_mot for _ in range(besoin + 1)]
+    trace = [[-1] * dernier_mot for _ in range(besoin + 1)]
+    for j in range(dernier_mot):
+        cout[1][j] = abs(annonce[j] - reel[0]) - prime[j]
+    for i in range(2, besoin + 1):
+        meilleur, ou = INFINI, -1
+        for j in range(dernier_mot):
+            if j >= 1 and cout[i - 1][j - 1] < meilleur:
+                meilleur, ou = cout[i - 1][j - 1], j - 1
+            if meilleur < INFINI:
+                cout[i][j] = meilleur + abs(annonce[j] - reel[i - 1]) - prime[j]
+                trace[i][j] = ou
+
+    fin = min(range(dernier_mot), key=lambda j: cout[besoin][j])
+    if cout[besoin][fin] == INFINI:
+        return None
+    coupures = [fin]
+    for i in range(besoin, 1, -1):
+        fin = trace[i][fin]
+        if fin < 0:
+            return None
+        coupures.append(fin)
+    return sorted(coupures)
+
+
+def _repartir(mots: list[Word], portees: list[tuple[float, float]],
+              coupures: list[int]) -> list[Word]:
+    """Chaque groupe de mots occupe sa portée, au prorata des durées annoncées.
+
+    Les durées d'edge-tts sont fausses dans l'absolu — elles absorbent les
+    pauses — mais leur rapport entre deux mots d'une même portée tient : un mot
+    long y occupe bien plus de place qu'un mot court. Mesuré meilleur que les
+    lettres, les syllabes et l'énergie émise.
+    """
+    groupes, debut = [], 0
+    for coupure in coupures:
+        groupes.append(mots[debut:coupure + 1])
+        debut = coupure + 1
+    groupes.append(mots[debut:])
+
+    cales: list[Word] = []
+    for groupe, (ouverture, fermeture) in zip(groupes, portees):
+        if not groupe:
             continue
-        resultat.append(Word(text=mot.text, start=0.0, end=0.0))  # comblé après
-
-    # Avant la première ancre et après la dernière, on ne peut qu'extrapoler à
-    # partir du minutage d'origine, en le recalant sur l'ancre voisine.
-    _extrapoler_debut(resultat, attendus, premier, ancres[premier])
-    _extrapoler_fin(resultat, attendus, dernier, ancres[dernier])
-
-    # Entre deux ancres, on répartit.
-    for gauche, droite in zip(indices, indices[1:]):
-        if droite - gauche <= 1:
-            continue
-        debut, fin = resultat[gauche].end, resultat[droite].start
-        trous = list(range(gauche + 1, droite))
-        poids = [max(1, len(attendus[i].text)) for i in trous]
+        poids = [max(0.04, m.end - m.start) for m in groupe]
         total = sum(poids)
-        curseur = debut
-        for i, p in zip(trous, poids):
-            duree = max(0.0, (fin - debut)) * p / total
-            resultat[i] = Word(text=attendus[i].text, start=curseur,
-                               end=curseur + duree)
+        curseur = ouverture
+        largeur = fermeture - ouverture
+        for mot, part in zip(groupe, poids):
+            duree = largeur * part / total
+            cales.append(Word(text=mot.text, start=curseur, end=curseur + duree))
             curseur += duree
-
-    return _rendre_croissant(resultat)
-
-
-def _extrapoler_debut(resultat: list[Word], attendus: list[Word],
-                      premier: int, ancre: Word) -> None:
-    """Les mots d'avant la première ancre gardent leurs durées d'origine,
-    posées en reculant depuis elle."""
-    curseur = ancre.start
-    for i in range(premier - 1, -1, -1):
-        duree = max(0.05, attendus[i].end - attendus[i].start)
-        debut = max(0.0, curseur - duree)
-        resultat[i] = Word(text=attendus[i].text, start=debut, end=curseur)
-        curseur = debut
-
-
-def _extrapoler_fin(resultat: list[Word], attendus: list[Word],
-                    dernier: int, ancre: Word) -> None:
-    curseur = ancre.end
-    for i in range(dernier + 1, len(attendus)):
-        duree = max(0.05, attendus[i].end - attendus[i].start)
-        resultat[i] = Word(text=attendus[i].text, start=curseur,
-                           end=curseur + duree)
-        curseur += duree
+    return cales
 
 
 def _rendre_croissant(mots: list[Word]) -> list[Word]:
     """Un sous-titre qui recule d'un mot à l'autre casse le surlignage.
 
-    Whisper rend parfois deux mots qui se chevauchent d'un ou deux
-    centièmes ; libass, lui, exige un minutage qui avance.
+    libass exige un minutage qui avance ; un arrondi malheureux suffirait à
+    produire deux mots qui se chevauchent.
     """
     propre: list[Word] = []
     curseur = 0.0

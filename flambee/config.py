@@ -379,9 +379,6 @@ class RenderSettings:
     motion: bool = True                # léger travelling sur chaque plan
     scene_aware: bool = True           # caler les coupes sur les changements de plan
     subtitle_preset: str = "punch"
-    # Caler les sous-titres sur l'audio plutôt que sur le minutage d'edge-tts.
-    # Voir `calage.py` : les deux échelles de temps ne sont pas la même.
-    subtitle_sync: bool = True
 
     # --- Écran scindé ----------------------------------------------------
     # Le montage occupe une bande, une seconde vidéo — jeu, boucle

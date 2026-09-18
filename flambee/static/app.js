@@ -152,7 +152,6 @@ function renderSettings(settings) {
   $("#music_volume").value = Math.round(settings.music_volume * 100);
   $("#music_volume_v").textContent = `${Math.round(settings.music_volume * 100)}%`;
   $("#subtitles").checked = settings.subtitles;
-  $("#subtitle_sync").checked = settings.subtitle_sync;
   $("#split_ratio").value = Math.round(settings.split_ratio * 100);
   $("#split_ratio_v").textContent = `${Math.round(settings.split_ratio * 100)}%`;
   $("#split_bottom").value = settings.split_bottom ? "1" : "0";
@@ -611,17 +610,8 @@ function peindreVoix() {
 }
 
 async function loadPresets() {
-  const { subtitles, default: def, debit_reglable, filigrane,
-          calage_possible } = await api("/api/presets");
-  const bloc = $("#bloc-calage");
-  if (bloc) bloc.hidden = !calage_possible;
-  const absence = $("#note-calage");
-  if (absence) {
-    absence.hidden = calage_possible;
-    absence.textContent = "Le calage précis des sous-titres demande le moteur "
-      + "de transcription, qui n'est pas installé sur cette machine. "
-      + "Voir la rubrique Paramètres.";
-  }
+  const { subtitles, default: def, debit_reglable, filigrane } =
+    await api("/api/presets");
   state.presets = subtitles;
   state.filigrane = filigrane;
   /* Les styles réservés restent visibles mais non sélectionnables : les
@@ -952,7 +942,6 @@ function bind() {
     motion: $("#motion").checked,
     scene_aware: $("#scene_aware").checked,
     subtitle_preset: $("#subtitle_preset").value,
-    subtitle_sync: $("#subtitle_sync").checked,
     split_clip: state.splitClip || "",
     split_ratio: +$("#split_ratio").value / 100,
     split_bottom: $("#split_bottom").value === "1",
@@ -978,8 +967,7 @@ function bind() {
   $("#voice").addEventListener("change", syncCartes);
   $("#music").addEventListener("change", syncCartes);
   $("#subtitles").addEventListener("change", syncCartes);
-  ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio",
-   "#subtitle_sync"]
+  ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio"]
     .forEach((sel) => $(sel).addEventListener("change", resumerReglages));
   $("#music_volume").addEventListener("input", resumerReglages);
   $("#split_ratio").addEventListener("input", (e) => {

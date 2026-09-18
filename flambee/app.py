@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import (__version__, account, calage, config, downloader, media,
+from . import (__version__, account, config, downloader, media,
                pipeline, plans, samples, scriptgen, site, transcribe, users,
                voice, voicestudio)
 from . import courriel, icones
@@ -73,7 +73,6 @@ class SettingsIn(BaseModel):
     motion: bool = True
     scene_aware: bool = True
     subtitle_preset: str = config.DEFAULT_SUBTITLE_PRESET
-    subtitle_sync: bool = True
     split_clip: str = ""
     split_ratio: float = 0.62
     split_bottom: bool = True
@@ -1484,9 +1483,6 @@ async def presets(request: Request):
         # « Flambée » sur une vidéo déjà payée d'un crédit est une surprise
         # qu'on ne doit à personne.
         "filigrane": account.filigrane(compte),
-        # Le calage demande le moteur de transcription : la case ne doit pas
-        # promettre ce que la machine ne peut pas tenir.
-        "calage_possible": calage.disponible(),
     }
 
 
