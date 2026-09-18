@@ -33,7 +33,20 @@
   <link rel="stylesheet" href="/static/app-shell.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ff7a2f' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
-<body class="app">
+<body class="app"{% if porte_directe %} data-porte-directe="{{ porte_directe }}"{% endif %}>
+
+{# L'autre porte. Le tunnel Cloudflare qui mène jusqu'ici peut tomber — la
+   machine, elle, continue de travailler derrière. Ce bandeau ne s'affiche
+   qu'à ce moment-là, et seulement si une seconde adresse existe : le
+   JavaScript le sort de sa cachette, puis l'y remet dès qu'un appel repasse.
+   Le lien est écrit à ce moment-là aussi, avec le chemin de la page en cours,
+   pour revenir exactement là où l'on était. #}
+<div class="porte-secours hidden" id="porte-secours" role="status">
+  <p class="porte-secours-mot">Le chemin habituel ne répond plus. Ton travail
+    est intact&nbsp;: la machine tourne toujours derrière.</p>
+  <a class="button primary" id="porte-secours-lien" href="#" rel="noopener">
+    Passer par l’adresse directe</a>
+</div>
 
 <header class="barre">
   <button class="tiroir-bouton" id="tiroir-bouton" aria-label="Menu" aria-expanded="false">

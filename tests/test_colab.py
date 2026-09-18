@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from colab import launch  # noqa: E402
 
 NOTEBOOK = ROOT / "colab" / "Flambee.ipynb"
+LANCEUR = ROOT / "colab" / "launch.py"
 
 
 def test_adresse_du_tunnel_extraite():
@@ -183,7 +184,13 @@ def test_cellule_de_code_compilable_et_complete():
     assert branche in connues, f"branche {branche} absente du dépôt"
 
     assert "keep_alive" in code                    # la session reste éveillée
-    assert "proxyPort" in code                     # lien de secours Colab
+
+    # La seconde adresse — celle qui ne traverse aucun tunnel. La cellule ne
+    # la demande plus elle-même à Colab : `launch` l'a déjà recueillie, et
+    # doit l'avoir passée au serveur avant de le démarrer. Deux collectes
+    # auraient pu diverger ; c'est une fonction qui les réunit.
+    assert "launch.porte_directe()" in code
+    assert "proxyPort" in LANCEUR.read_text()
 
 
 def test_instructions_mentionnent_les_limites():

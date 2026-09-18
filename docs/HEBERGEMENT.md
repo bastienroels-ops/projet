@@ -127,6 +127,26 @@ sans serveur. Le bloc reste vivant — les six écritures défilent sur les clip
 déjà calculés — mais le champ de saisie disparaît. Il retrouve toute sa
 fonction dès que le site est servi par l'application.
 
+## Ne plus jamais voir « Error 530 » ni « Error 1033 »
+
+Ces deux codes ne viennent pas de Flambée. Ils viennent de Cloudflare, et ils
+disent la même chose de deux façons :
+
+| Code | Ce que Cloudflare raconte | Ce qui s'est passé |
+|---|---|---|
+| **530** | « Je n'arrive pas à joindre l'origine » | Le tunnel existe, mais sa liaison avec le Colab est rompue — souvent parce qu'un encodage sature la machine. Ça revient presque toujours tout seul. |
+| **1033** | « Je ne sais pas résoudre ce nom » | Le tunnel n'existe plus du tout. Adresse de la veille ouverte depuis un signet, session Colab reprise par Google, ou tunnel rouvert entre-temps à une autre adresse. |
+
+Le carnet Colab absorbe les deux autant qu'il est possible : il donne une
+seconde adresse qui ne traverse aucun tunnel, l'application propose un bouton
+vers cette adresse dès qu'un appel échoue, et la surveillance rouvre un tunnel
+mort au bout d'une minute. Mais un tunnel gratuit reste un tunnel gratuit, et
+une machine Colab reste une machine que Google reprend.
+
+**La seule façon de ne plus jamais les voir est de ne plus avoir de tunnel** :
+un serveur avec sa propre adresse, allumé en permanence. C'est exactement ce
+que décrit le chapitre suivant, et il est gratuit.
+
 ## Gratuit, depuis un iPhone : Oracle Cloud
 
 Oracle offre, sans limite de durée, un serveur ARM de 4 cœurs et 24 Go de

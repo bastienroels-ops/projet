@@ -149,6 +149,24 @@ class _Faux:
         self._vivant = False
 
 
+def _dormeur(restant, tours):
+    """Remplace `time.sleep` : n'attend rien, et met fin à la boucle.
+
+    Deux sorties, et la seconde compte autant que la première : quand les
+    réponses préparées sont épuisées, et au bout d'un nombre de tours fixé.
+    Sans cette borne, une surveillance qui cesserait de sonder ne ferait pas
+    échouer le test — elle le ferait tourner sans fin.
+    """
+    passages = [0]
+
+    def dormir(_secondes):
+        passages[0] += 1
+        if not restant or passages[0] > tours + 2:
+            raise KeyboardInterrupt        # sortie propre de la boucle
+
+    return dormir
+
+
 def _surveiller(monkeypatch, reponses, tours):
     """Fait tourner `keep_alive` un nombre fixe de tours, sans attendre."""
     serveur, tunnel = _Faux(), _Faux()
@@ -156,11 +174,7 @@ def _surveiller(monkeypatch, reponses, tours):
 
     restant = list(reponses)
 
-    def dormir(_secondes):
-        if not restant:
-            raise KeyboardInterrupt        # sortie propre de la boucle
-
-    monkeypatch.setattr(launch.time, "sleep", dormir)
+    monkeypatch.setattr(launch.time, "sleep", _dormeur(restant, tours))
     monkeypatch.setattr(launch, "tunnel_repond", lambda url, **k: restant.pop(0))
     monkeypatch.setattr(launch, "log", lambda *a: None)
     monkeypatch.setattr(launch, "afficher_le_lien", lambda url: None)
@@ -201,3 +215,185 @@ def test_l_ancien_tunnel_est_arrete_avant_la_reouverture(monkeypatch):
     deux tunnels concurrents sur le même port."""
     tunnel, _ = _surveiller(monkeypatch, [False, False, False], 3)
     assert tunnel.arrete is True
+
+
+# --- L'autre porte ---------------------------------------------------------
+# Rejouer un appel ne sert à rien quand le tunnel est mort pour de bon :
+# l'utilisateur voit alors « Error 530 » ou « Error 1033 », deux pages
+# anglaises qui ne disent pas quoi faire. Sur Colab, un second chemin existe
+# pourtant — le lien direct de Google, qui ne traverse pas Cloudflare. Ces
+# tests vérifient qu'il arrive jusqu'à la page, et qu'il y arrive seul.
+import json                                                   # noqa: E402
+import os                                                     # noqa: E402
+import types                                                  # noqa: E402
+
+from flambee import app as app_module                         # noqa: E402
+
+STATIQUE = RACINE / "flambee" / "static"
+
+
+def _config_avec(valeur):
+    """Importe `flambee.config` dans un processus neuf, avec cette valeur.
+
+    La constante est lue une seule fois, à l'import : la recharger dans le
+    processus de test contaminerait tous les suivants.
+    """
+    environnement = {**os.environ, "FLAMBEE_PORTE_DIRECTE": valeur}
+    sortie = subprocess.run(
+        [sys.executable, "-c",
+         "from flambee import config; print(config.PORTE_DIRECTE)"],
+        cwd=str(RACINE), env=environnement, capture_output=True, text=True,
+        check=True)
+    return sortie.stdout.strip()
+
+
+def test_une_adresse_https_est_retenue():
+    assert _config_avec("https://exemple.colab.googleusercontent.com/") == \
+        "https://exemple.colab.googleusercontent.com/"
+
+
+@pytest.mark.parametrize("valeur", [
+    "javascript:alert(1)",          # finit dans un href : elle s'exécuterait
+    "http://exemple.fr",            # en clair, depuis une page en https
+    "//exemple.fr",
+    "pas une adresse",
+])
+def test_une_adresse_douteuse_est_ecartee(valeur):
+    """La valeur atterrit dans un attribut `href` du gabarit."""
+    assert _config_avec(valeur) == ""
+
+
+def test_la_page_porte_l_adresse_quand_elle_existe(compte, monkeypatch):
+    monkeypatch.setattr(app_module.config, "PORTE_DIRECTE",
+                        "https://direct.exemple.fr")
+    page = compte.get("/studio").text
+    assert 'data-porte-directe="https://direct.exemple.fr"' in page
+    assert 'id="porte-secours"' in page
+
+
+def test_la_page_n_invente_pas_d_adresse(compte, monkeypatch):
+    """Hors Colab il n'y a pas de second chemin : proposer un bouton mort
+    serait pire que de ne rien proposer."""
+    monkeypatch.setattr(app_module.config, "PORTE_DIRECTE", "")
+    page = compte.get("/studio").text
+    assert "data-porte-directe" not in page
+
+
+def test_le_bandeau_part_cache(compte, monkeypatch):
+    """Il ne doit paraître qu'au premier appel qui échoue."""
+    monkeypatch.setattr(app_module.config, "PORTE_DIRECTE",
+                        "https://direct.exemple.fr")
+    page = compte.get("/studio").text
+    assert 'class="porte-secours hidden" id="porte-secours"' in page
+
+
+# --- Le cadre du carnet ----------------------------------------------------
+def test_le_cadre_montre_l_adresse_directe_en_premier(monkeypatch):
+    """Présenter la fragile en tête envoyait l'utilisateur droit sur la seule
+    des deux qui puisse afficher un mur en anglais."""
+    monkeypatch.setattr(launch, "_SECOURS", "https://direct.googleusercontent.com")
+    monkeypatch.setattr(launch, "_COMPTE", None)
+    monkeypatch.setattr(launch, "etat_transcription", lambda: "ok")
+    cadre = launch.banner("https://tunnel.trycloudflare.com", "flambee", "kiwi")
+    assert cadre.index("direct.googleusercontent.com") < \
+        cadre.index("tunnel.trycloudflare.com")
+
+
+def test_le_cadre_dit_quoi_faire_devant_une_1033(monkeypatch):
+    monkeypatch.setattr(launch, "_SECOURS", "https://direct.googleusercontent.com")
+    monkeypatch.setattr(launch, "_COMPTE", None)
+    monkeypatch.setattr(launch, "etat_transcription", lambda: "ok")
+    cadre = launch.banner("https://tunnel.trycloudflare.com", "flambee", "kiwi")
+    assert "1033" in cadre and "l'autre" in cadre
+
+
+def test_le_cadre_reste_lisible_sans_lien_direct(monkeypatch):
+    """Hors Colab, `_SECOURS` est None : le cadre ne doit pas parler d'une
+    porte qui n'existe pas."""
+    monkeypatch.setattr(launch, "_SECOURS", None)
+    monkeypatch.setattr(launch, "_COMPTE", None)
+    monkeypatch.setattr(launch, "etat_transcription", lambda: "ok")
+    cadre = launch.banner("https://tunnel.trycloudflare.com", "flambee", "kiwi")
+    assert "1033" not in cadre
+    assert "tunnel.trycloudflare.com" in cadre
+
+
+def _boutons_affiches(monkeypatch, url, direct):
+    """Fait croire à `launch` qu'il tourne dans un carnet, et récolte le HTML."""
+    rendu = []
+    faux = types.ModuleType("IPython.display")
+    faux.HTML = lambda html: html
+    faux.display = rendu.append
+    monkeypatch.setitem(sys.modules, "IPython", types.ModuleType("IPython"))
+    monkeypatch.setitem(sys.modules, "IPython.display", faux)
+    monkeypatch.setattr(launch, "_SECOURS", direct)
+    launch.afficher_le_lien(url, direct)
+    return rendu[0] if rendu else ""
+
+
+def test_deux_chemins_donnent_deux_boutons(monkeypatch):
+    html = _boutons_affiches(monkeypatch, "https://tunnel.trycloudflare.com",
+                             "https://direct.googleusercontent.com")
+    assert html.count("<a href=") == 2
+    assert html.index("direct.googleusercontent.com") < \
+        html.index("tunnel.trycloudflare.com")
+
+
+def test_une_seule_adresse_ne_donne_qu_un_bouton(monkeypatch):
+    """Cas du tunnel qui ne s'est pas ouvert : deux boutons identiques
+    n'aideraient personne à choisir."""
+    html = _boutons_affiches(monkeypatch, "https://direct.googleusercontent.com",
+                             "https://direct.googleusercontent.com")
+    assert html.count("<a href=") == 1
+
+
+# --- La cellule que Colab garde en mémoire ---------------------------------
+def test_la_surveillance_retrouve_l_adresse_toute_seule(monkeypatch):
+    """La cellule gardée en mémoire par le navigateur appelle `keep_alive`
+    sans lui passer `url`. Sans repli, la surveillance du tunnel ne
+    s'exécutait jamais chez qui avait déjà lancé le carnet une fois."""
+    vues = []
+    serveur, tunnel = _Faux(), _Faux()
+    restant = [True, True]
+
+    def sonder(url, **_k):
+        vues.append(url)
+        return restant.pop(0)
+
+    monkeypatch.setattr(launch.time, "sleep", _dormeur(restant, 2))
+    monkeypatch.setattr(launch, "tunnel_repond", sonder)
+    monkeypatch.setattr(launch, "log", lambda *a: None)
+    monkeypatch.setattr(launch, "_ADRESSE", "https://memoire.trycloudflare.com")
+
+    launch.keep_alive(serveur, tunnel, port=8000)      # sans url, comme la cellule
+    assert vues == ["https://memoire.trycloudflare.com"] * 2
+
+
+def test_la_cellule_du_carnet_passe_bien_l_adresse():
+    """Le carnet du dépôt, lui, n'a plus à s'en remettre au repli."""
+    carnet = json.loads((RACINE / "colab" / "Flambee.ipynb").read_text())
+    cellule = "".join(carnet["cells"][1]["source"])
+    assert "launch.keep_alive(" in cellule
+    assert "url=adresse" in cellule
+    assert "launch.porte_directe()" in cellule
+
+
+# --- Le bandeau, côté navigateur -------------------------------------------
+def test_le_bandeau_se_retire_des_qu_un_appel_repasse():
+    """Sinon il resterait affiché sur une application qui remarche."""
+    source = (STATIQUE / "app.js").read_text()
+    assert "tunnelRevenu();" in source
+    assert source.count("tunnelCoupe();") == 2      # les deux abandons
+
+
+def test_le_bandeau_ne_se_propose_pas_a_lui_meme():
+    """Déjà passé par la porte directe, la proposer serait proposer de
+    rester."""
+    source = (STATIQUE / "app-shell.js").read_text()
+    assert "adresse === window.location.origin" in source
+
+
+def test_le_bandeau_garde_le_chemin_de_la_page():
+    """Renvoyer à l'accueil ferait perdre l'écran où l'on était."""
+    source = (STATIQUE / "app-shell.js").read_text()
+    assert "window.location.pathname" in source

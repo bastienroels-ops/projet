@@ -248,6 +248,9 @@ def start_server(
         "FLAMBEE_AUTO_SESSION": os.environ.get("FLAMBEE_AUTO_SESSION", ""),
         "FLAMBEE_HOST": "127.0.0.1",
         "FLAMBEE_PORT": str(port),
+        # Le lien direct de Colab, transmis à l'application : quand le tunnel
+        # tombe, la page affiche ce chemin-là plutôt qu'un mur.
+        "FLAMBEE_PORTE_DIRECTE": os.environ.get("FLAMBEE_PORTE_DIRECTE", ""),
         "PYTHONUNBUFFERED": "1",
     }
     if anthropic_key.strip():
@@ -388,6 +391,13 @@ _SECOURS: str | None = None
 # carnets-là, alors que ce fichier, lui, vient d'être récupéré.
 _COMPTE: str | None = None
 
+# L'adresse publique du tunnel, tenue à jour à chaque réouverture. Même
+# raison que ci-dessus, et une conséquence concrète : la cellule que Colab
+# garde en mémoire appelle `keep_alive(serveur, tunnel, port=…, password=…)`
+# sans lui passer `url`. Sans ce global, la surveillance du tunnel ne
+# s'exécutait jamais chez qui a déjà lancé le carnet une fois.
+_ADRESSE: str = ""
+
 COMPTE_COLAB = "moi@flambee.local"
 
 
@@ -444,13 +454,20 @@ def banner(url: str, username: str, password: str) -> str:
 
     Écrit pour un téléphone tenu à la main, pas pour un terminal large.
 
-    L'adresse est seule sur sa ligne et commence à la première colonne. Elle
-    est plus longue que l'écran quoi qu'on fasse — une adresse
-    `trycloudflare` fait une cinquantaine de caractères — mais commencer à
-    gauche garantit qu'on en voit le début sans rien faire défiler, et qu'on
-    peut la toucher. Collée après une étiquette et quinze espaces, comme
-    avant, elle commençait hors de l'écran : on ne pouvait ni la lire ni la
-    toucher, seulement la recopier de travers.
+    Les adresses sont seules sur leur ligne et commencent à la première
+    colonne. Elles sont plus longues que l'écran quoi qu'on fasse — une
+    adresse `trycloudflare` fait une cinquantaine de caractères — mais
+    commencer à gauche garantit qu'on en voit le début sans rien faire
+    défiler, et qu'on peut les toucher. Collées après une étiquette et quinze
+    espaces, comme avant, elles commençaient hors de l'écran : on ne pouvait
+    ni les lire ni les toucher, seulement les recopier de travers.
+
+    Deux adresses, et la directe en premier. Elles mènent au même serveur par
+    deux chemins qui n'ont rien en commun : celle de Colab ne traverse pas
+    Cloudflare, donc ni 530 ni 1033, jamais — tandis que le tunnel, lui,
+    tombe. Présenter la fragile en tête, comme on le faisait, revenait à
+    envoyer l'utilisateur droit sur la seule des deux qui puisse afficher un
+    mur en anglais.
     """
     trait = "═" * LARGEUR
     heure = time.strftime("%H:%M")
@@ -461,10 +478,34 @@ def banner(url: str, username: str, password: str) -> str:
         f"      Lancé à {heure}",
         trait,
         "",
-        "  👉 TOUCHE LE LIEN BLEU :",
-        "",
-        url,
-        "",
+    ]
+
+    if _SECOURS:
+        lignes += [
+            "  👉 DEPUIS CE TÉLÉPHONE,",
+            "     TOUCHE CE LIEN :",
+            "",
+            _SECOURS,
+            "",
+            "  Il ne passe par aucun tunnel :",
+            "  ni erreur 530, ni erreur 1033.",
+            "",
+            "  ─────────────────────────",
+            "",
+            "  Depuis un autre appareil :",
+            "",
+            url,
+            "",
+        ]
+    else:
+        lignes += [
+            "  👉 TOUCHE LE LIEN BLEU :",
+            "",
+            url,
+            "",
+        ]
+
+    lignes += [
         f"  Identifiant     {username}",
         f"  Mot de passe    {password}",
         "",
@@ -480,18 +521,21 @@ def banner(url: str, username: str, password: str) -> str:
             "",
         ]
 
+    lignes += [
+        f"  Transcription   {etat_transcription()}",
+        "",
+    ]
+
     if _SECOURS:
         lignes += [
-            "  ⭐ Pendant un rendu, préfère :",
-            "     (jamais d'erreur 1033)",
-            "",
-            _SECOURS,
+            "  ⚠️  « Error 530 » ou « 1033 » sur",
+            "      une adresse ? Prends l'autre :",
+            "      c'est le même atelier, et ton",
+            "      travail est intact.",
             "",
         ]
 
     lignes += [
-        f"  Transcription   {etat_transcription()}",
-        "",
         "  ⚠️  Garde cet onglet ouvert :",
         "      il fait tourner le serveur.",
         "  ⚠️  Télécharge tes vidéos avant",
@@ -501,13 +545,50 @@ def banner(url: str, username: str, password: str) -> str:
     return "\n".join(lignes)
 
 
-def afficher_le_lien(url: str) -> None:
-    """Un vrai bouton, quand on est dans un carnet.
+def porte_directe() -> str:
+    """L'adresse qui ne traverse aucun tunnel, ou une chaîne vide.
+
+    Une fonction plutôt qu'un accès direct à `_SECOURS` : le carnet Colab est
+    la seule chose que je ne puisse pas mettre à jour à distance — sa cellule
+    est gardée en mémoire par le navigateur. Une fonction, elle, garde son
+    nom quoi qu'il arrive derrière.
+    """
+    return _SECOURS or ""
+
+
+def _bouton(url: str, titre: str, sous_titre: str, principal: bool) -> str:
+    """Le HTML d'un bouton-lien, dans le carnet."""
+    fond = ("linear-gradient(168deg,#6c5ce7,#3b2b8f)" if principal
+            else "rgba(108,92,231,.14)")
+    bordure = "none" if principal else "1px solid rgba(167,139,250,.45)"
+    couleur = "#f6f4ff" if principal else "#c9c2f0"
+    ombre = ("box-shadow:0 8px 20px -10px rgba(108,92,231,.9);"
+             if principal else "")
+    return (
+        f'<a href="{url}" target="_blank" rel="noopener" style="'
+        'display:block;margin:14px 0;padding:18px 20px;border-radius:14px;'
+        f'background:{fond};color:{couleur};border:{bordure};{ombre}'
+        'font:600 17px/1.3 system-ui,-apple-system,sans-serif;'
+        'text-align:center;text-decoration:none">'
+        f'{titre}'
+        '<div style="font:400 12px/1.5 system-ui,-apple-system,sans-serif;'
+        f'opacity:.8;margin-top:4px">{sous_titre}</div>'
+        '<div style="font:400 12px/1.5 ui-monospace,monospace;opacity:.6;'
+        f'margin-top:6px;word-break:break-all">{url}</div></a>')
+
+
+def afficher_le_lien(url: str, direct: str = "") -> None:
+    """De vrais boutons, quand on est dans un carnet.
 
     Le cadre en texte reste la référence — il s'affiche partout. Mais dans
     Colab, une adresse imprimée est une ligne de texte de cinquante
     caractères qu'on vise au doigt ; un bouton, non. C'est le seul geste que
     l'utilisateur ait à faire, autant qu'il soit large.
+
+    Deux boutons quand les deux chemins existent, et le direct en premier :
+    c'est le seul qui ne puisse pas afficher d'erreur Cloudflare. Le second
+    reste offert — il marche depuis n'importe quel appareil, pas seulement
+    celui où Colab est ouvert.
 
     Silencieux hors carnet : le script doit tourner aussi bien depuis un
     terminal, où `IPython` n'existe pas.
@@ -516,16 +597,19 @@ def afficher_le_lien(url: str) -> None:
         from IPython.display import HTML, display
     except Exception:
         return
-    display(HTML(
-        f'<a href="{url}" target="_blank" rel="noopener" style="'
-        'display:block;margin:14px 0;padding:18px 20px;border-radius:14px;'
-        'background:linear-gradient(168deg,#6c5ce7,#3b2b8f);color:#f6f4ff;'
-        'font:600 17px/1.3 system-ui,-apple-system,sans-serif;'
-        'text-align:center;text-decoration:none;'
-        'box-shadow:0 8px 20px -10px rgba(108,92,231,.9)">'
-        'Ouvrir Flambée'
-        '<div style="font:400 12px/1.5 ui-monospace,monospace;opacity:.75;'
-        'margin-top:7px;word-break:break-all">' + url + '</div></a>'))
+
+    direct = direct or (_SECOURS or "")
+    # Deux boutons vers la même adresse — cas du tunnel qui ne s'est pas
+    # ouvert, où l'on n'affiche plus que la porte directe — n'aideraient
+    # personne à choisir.
+    if direct and direct != url:
+        display(HTML(
+            _bouton(direct, "Ouvrir Flambée",
+                    "depuis ce téléphone — sans tunnel", True)
+            + _bouton(url, "Ouvrir depuis un autre appareil",
+                      "passe par Cloudflare", False)))
+    else:
+        display(HTML(_bouton(url, "Ouvrir Flambée", "", True)))
 
 
 def start_all(
@@ -562,7 +646,7 @@ def start_all(
     # Le compte est créé avant le serveur : celui-ci démarre alors avec les
     # inscriptions fermées, et l'adresse publique du tunnel ne permet à
     # personne d'ouvrir un compte sur ta machine.
-    global _COMPTE, _SECOURS
+    global _COMPTE
     _COMPTE = ouvrir_un_compte(password)
     if _COMPTE:
         os.environ["FLAMBEE_SIGNUP"] = "ferme"
@@ -570,6 +654,15 @@ def start_all(
         # par formulaire n'ajoute rien, et l'adresse changeant à chaque
         # lancement, le cookie ne survivrait pas de toute façon.
         os.environ["FLAMBEE_AUTO_SESSION"] = _COMPTE
+
+    # Recueilli avant le serveur, et non après : c'est une variable
+    # d'environnement, et `start_server` fige les siennes au démarrage. Ne
+    # dépend que de Colab — la demande porte sur un numéro de port, pas sur
+    # quelque chose qui écoute déjà.
+    global _SECOURS
+    _SECOURS = colab_fallback_url(port)
+    if _SECOURS:
+        os.environ["FLAMBEE_PORTE_DIRECTE"] = _SECOURS
 
     server = start_server(port, password, username, anthropic_key)
     # Le relais démarre avant l'attente : c'est pendant le démarrage que les
@@ -582,14 +675,12 @@ def start_all(
     if not tunnel:
         return server, None, None, password
 
-    # Recueilli avant le tunnel : il ne dépend que de Colab, et reste valable
-    # même quand cloudflared tombe.
-    _SECOURS = colab_fallback_url(port)
-
     binary = ensure_cloudflared(ROOT / "colab" / "cloudflared")
     log("→ Ouverture du tunnel HTTPS…")
     try:
         tunnel_process, url = start_tunnel(binary, port)
+        global _ADRESSE
+        _ADRESSE = url
         return server, tunnel_process, url, password
     except RuntimeError as exc:
         log(f"⚠️  {exc}")
@@ -652,6 +743,10 @@ def keep_alive(
     Seule la première était surveillée. On sonde donc l'adresse publique.
     """
     binary = ROOT / "colab" / "cloudflared"
+    # Une cellule Colab d'une version antérieure n'a pas d'argument `url` à
+    # passer : sans ce repli, elle surveillerait un tunnel dont elle ignore
+    # l'adresse, c'est-à-dire pas du tout.
+    url = url or _ADRESSE
     muets = 0
     try:
         while True:
@@ -688,11 +783,17 @@ def keep_alive(
                     tunnel.kill()
             try:
                 tunnel, url = start_tunnel(binary, port)
+                globals()["_ADRESSE"] = url
                 muets = 0
                 log(banner(url, username, password))
                 afficher_le_lien(url)
-                log("  ⚠️  L'adresse a changé : utilise la nouvelle "
-                    "ci-dessus. Ton travail en cours est intact.\n")
+                if _SECOURS:
+                    log("  ⚠️  L'adresse en trycloudflare a changé. Celle du "
+                        "haut, elle, n'a pas bougé — c'est tout l'intérêt "
+                        "d'en avoir deux. Ton travail est intact.\n")
+                else:
+                    log("  ⚠️  L'adresse a changé : utilise la nouvelle "
+                        "ci-dessus. Ton travail en cours est intact.\n")
             except RuntimeError as exc:
                 log(f"⚠️  Réouverture impossible ({exc}). "
                     "Utilise le lien de secours Colab.")
@@ -735,20 +836,22 @@ def main() -> int:
         log(f"❌ {exc}")
         return 1
 
-    secours = colab_fallback_url(args.port)
+    # `start_all` l'a déjà recueilli, et l'a passé au serveur : le redemander
+    # ici ouvrirait la porte à deux valeurs divergentes.
+    secours = _SECOURS
 
     if url:
         log(banner(url, args.username, password))
         afficher_le_lien(url)
     elif secours:
-        log("\n⚠️  Le tunnel ne s'est pas ouvert — utilise le lien de secours.")
+        log("\n⚠️  Le tunnel ne s'est pas ouvert, mais le lien direct de "
+            "Colab, lui, fonctionne :")
+        log(f"\n{secours}\n")
         log(f"   Identifiant : {args.username} — Mot de passe : {password}\n")
+        afficher_le_lien(secours)
     else:
         log(f"\nServeur démarré sur http://127.0.0.1:{args.port} "
             f"(identifiant {args.username}, mot de passe {password}).")
-
-    if secours:
-        log(f"  Lien de secours Colab : {secours}\n")
 
     def stop(*_args) -> None:
         for process in (tunnel, server):

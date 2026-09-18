@@ -139,19 +139,34 @@ oblique) : ouvrir [colab.research.google.com](https://colab.research.google.com)
 Le carnet :
 
 - récupère le code, installe les dépendances, démarre le serveur ;
-- ouvre un tunnel HTTPS Cloudflare (gratuit, sans compte) et affiche l'adresse,
-  l'identifiant et un mot de passe engendré ;
-- affiche aussi le lien de secours propre à Colab, qui ne dépend d'aucun tunnel.
+- affiche **deux adresses** qui mènent au même atelier par deux chemins sans
+  rien de commun, l'identifiant et un mot de passe engendré.
+
+### Les deux adresses, et pourquoi il y en a deux
+
+| | Ce que c'est | Ce qu'elle vaut |
+|---|---|---|
+| **En haut** | Le lien direct de Colab (`…googleusercontent.com`) | Ne traverse aucun tunnel : **ni 530 ni 1033, jamais**. Ne marche que dans le navigateur où tu es connecté à Google. |
+| **En bas** | Le tunnel Cloudflare (`…trycloudflare.com`) | Marche depuis n'importe quel appareil. C'est elle, et elle seule, qui peut afficher une erreur Cloudflare. |
+
+C'est la seule réponse honnête au « Error 1033 » : on ne peut pas empêcher un
+tunnel gratuit de tomber, on peut faire qu'il ne soit jamais le seul chemin.
 
 Limites à garder en tête :
 
 - l'onglet Colab doit rester ouvert, c'est lui qui fait tourner le serveur ;
-- **une erreur 530 ou 1033 dans Safari vient du tunnel, pas du rendu** :
-  l'encodage sature la machine et la liaison Cloudflare lâche. Le carnet
-  rouvre alors un tunnel et affiche la nouvelle adresse ; la page prévient et
-  reprend d'elle-même dès que le serveur répond. Les vidéos produites sont
-  écrites dans `/content/flambee-data`, hors du dossier cloné, et survivent
-  donc à une relance de la cellule ;
+- **une erreur 530 ou 1033 dans Safari vient du chemin, pas du rendu.** 530 :
+  Cloudflare n'atteint plus le Colab. 1033 : le tunnel n'existe plus du tout —
+  presque toujours une adresse de la veille, ouverte depuis un signet. Trois
+  remèdes, dans cet ordre : prendre l'autre adresse de l'encadré ; toucher le
+  bouton *Passer par l'adresse directe* du bandeau qui s'affiche dans
+  l'application ; revenir sur l'onglet Colab, qui rouvre un tunnel tout seul
+  au bout d'une minute de silence et publie la nouvelle adresse. Les vidéos
+  produites sont écrites dans `/content/flambee-data`, hors du dossier cloné,
+  et survivent donc à une relance de la cellule ;
+- **pour ne plus jamais voir ces erreurs**, il faut sortir du tunnel : un
+  serveur qui a sa propre adresse. La marche à suivre, gratuite et sans
+  terminal, est dans [`docs/HEBERGEMENT.md`](docs/HEBERGEMENT.md) ;
 - Google reprend la machine après quelques heures : **télécharger la vidéo
   avant la fin de la session** ;
 - depuis une IP Google, les plateformes bloquent presque toujours yt-dlp :

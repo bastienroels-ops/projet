@@ -93,6 +93,21 @@ USERNAME = os.environ.get("FLAMBEE_USERNAME", "flambee").strip() or "flambee"
 # global, ce réglage est ignoré : il ouvrirait la porte à tout le monde.
 AUTO_SESSION = os.environ.get("FLAMBEE_AUTO_SESSION", "").strip()
 
+# Une seconde adresse qui mène au même serveur, par un autre chemin. Sur
+# Colab, c'est le lien direct de Google : il ne traverse pas Cloudflare, donc
+# ni erreur 530 ni erreur 1033. Quand le tunnel tombe, l'application propose
+# cette porte-là au lieu de laisser l'utilisateur devant un mur.
+#
+# Seul « https:// » est accepté : la valeur finit dans un href, et une adresse
+# en « javascript: » y ferait exécuter n'importe quoi.
+_porte = os.environ.get("FLAMBEE_PORTE_DIRECTE", "").strip()
+PORTE_DIRECTE = _porte if _porte.startswith("https://") else ""
+if _porte and not PORTE_DIRECTE:
+    import logging
+    logging.getLogger(__name__).warning(
+        "FLAMBEE_PORTE_DIRECTE ignorée : « %s » n'est pas une adresse https.",
+        _porte)
+
 
 # --- Contraintes sources --------------------------------------------------
 MIN_SOURCES = 2

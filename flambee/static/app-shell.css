@@ -764,3 +764,45 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
   box-shadow: 0 0 0 1px rgb(var(--creux-rvb) / .6),
               0 0 10px -2px rgb(var(--laiton-rvb) / .9);
 }
+
+/* --- L'autre porte -------------------------------------------------------
+   Quand le tunnel tombe, la page est déjà chargée : le JavaScript tourne
+   encore, seuls les appels échouent. C'est la seule fenêtre où l'on puisse
+   encore dire quelque chose d'utile — après, il ne reste que le mur anglais
+   de Cloudflare. D'où un bandeau plutôt qu'une ligne d'alerte : il faut
+   qu'il coupe la lecture.
+
+   En bas, et non en haut : le pouce y arrive sans traverser l'écran, et la
+   barre du haut reste lisible. `env(safe-area-inset-bottom)` le fait passer
+   au-dessus de la barre d'accueil de l'iPhone. */
+.porte-secours {
+  position: fixed; z-index: 70;
+  left: 12px; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--ink-3);
+  border: 1px solid rgb(var(--laiton-rvb) / .5);
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / .9);
+  animation: porte-monte .26s cubic-bezier(.16, 1, .3, 1);
+}
+.porte-secours.hidden { display: none; }
+.porte-secours-mot {
+  margin: 0; color: var(--text); font-size: 14.5px; line-height: 1.45;
+}
+.porte-secours .button { width: 100%; text-align: center; }
+
+@keyframes porte-monte {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .porte-secours { animation: none; }
+}
+
+@media (min-width: 620px) {
+  .porte-secours {
+    left: auto; right: 20px; bottom: 20px; max-width: 380px;
+  }
+}

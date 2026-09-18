@@ -27,6 +27,17 @@ const PANNE = "Connexion au Colab interrompue une seconde — Flambée continue 
   + "de son côté. Si ça se répète, l'onglet Colab affiche peut-être une "
   + "nouvelle adresse.";
 
+/* Le tunnel a cessé de répondre, ou il est revenu. `app-shell.js` tient le
+   bandeau ; il n'existe que si une seconde adresse a été fournie au serveur,
+   d'où les deux gardes. */
+function tunnelCoupe() {
+  if (window.porteDeSecours) window.porteDeSecours.montrer();
+}
+
+function tunnelRevenu() {
+  if (window.porteDeSecours) window.porteDeSecours.cacher();
+}
+
 function dormir(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -58,12 +69,16 @@ async function api(path, { method = "GET", body, rejouable = false,
         await dormir(ATTENTES[essai]);
         continue;
       }
+      tunnelCoupe();
       throw new Error(PANNE);
     }
 
     let data = null;
     try { data = await res.json(); } catch (_) { /* réponse vide ou HTML */ }
-    if (res.ok) return data;
+    if (res.ok) {
+      tunnelRevenu();
+      return data;
+    }
 
     // Une réponse de l'application — 400, 402, 404, 409 — est un vrai
     // « non » : la rejouer donnerait le même. On la remonte telle quelle.
@@ -74,6 +89,7 @@ async function api(path, { method = "GET", body, rejouable = false,
       await dormir(ATTENTES[essai]);
       continue;
     }
+    tunnelCoupe();
     throw new Error(PANNE);
   }
 }

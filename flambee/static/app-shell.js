@@ -54,3 +54,51 @@
     });
   });
 })();
+
+/* --- L'autre porte -------------------------------------------------------
+   Sur Colab, le serveur est joignable par deux chemins indépendants : le
+   tunnel Cloudflare, et le lien direct de Google. Le premier peut tomber
+   sans que rien ne s'arrête derrière — le navigateur affiche alors « Error
+   530 » ou « Error 1033 », deux pages anglaises qui ne disent pas quoi faire.
+
+   Tant que l'onglet est ouvert, il reste une issue : la page, elle, est déjà
+   chargée. On montre donc l'autre adresse au premier appel qui échoue, en
+   gardant le chemin de la page en cours pour revenir au même endroit.
+
+   Et on continue de sonder /ping : un tunnel qui revient tout seul fait
+   disparaître le bandeau, sans que l'utilisateur ait eu à toucher à quoi
+   que ce soit. */
+(() => {
+  const bandeau = document.getElementById("porte-secours");
+  const lien = document.getElementById("porte-secours-lien");
+  const adresse = (document.body.dataset.porteDirecte || "").replace(/\/$/, "");
+  if (!bandeau || !lien || !adresse) return;
+
+  // Déjà passé par la porte directe : la proposer serait proposer de rester.
+  if (adresse === window.location.origin) return;
+
+  const PERIODE = 5000;
+  let horloge = null;
+
+  const cacher = () => {
+    bandeau.classList.add("hidden");
+    clearInterval(horloge);
+    horloge = null;
+  };
+
+  const guetter = async () => {
+    try {
+      const res = await fetch("/ping", { cache: "no-store" });
+      if (res.ok) cacher();
+    } catch (_) { /* toujours coupé : on reste là */ }
+  };
+
+  const montrer = () => {
+    if (!bandeau.classList.contains("hidden")) return;
+    lien.href = adresse + window.location.pathname + window.location.search;
+    bandeau.classList.remove("hidden");
+    horloge = setInterval(guetter, PERIODE);
+  };
+
+  window.porteDeSecours = { montrer, cacher };
+})();

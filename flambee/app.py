@@ -475,6 +475,10 @@ def _contexte_app(rubrique: str, request: Request, **extra) -> dict:
         "steps": plans.STEPS,
         "version": __version__,
         "moteur": _etat_moteur(compte),
+        # L'autre chemin vers ce même serveur, s'il en existe un. Le gabarit
+        # le pose sur <body> ; le JavaScript ne le montre que le jour où le
+        # tunnel cesse de répondre.
+        "porte_directe": config.PORTE_DIRECTE,
         **extra,
     }
 
