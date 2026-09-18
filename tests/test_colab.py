@@ -429,3 +429,110 @@ def test_la_session_d_office_exige_le_verrou(tmp_path, monkeypatch):
     auth = (ROOT / "flambee" / "auth.py").read_text(encoding="utf-8")
     assert "config.AUTO_SESSION and config.PASSWORD" in auth, \
         "le verrou global doit conditionner la session d'office"
+
+
+@pytest.fixture()
+def environnement_isole(monkeypatch):
+    """`start_all` écrit dans os.environ. Sans copie, ces valeurs restent
+    posées pour tous les tests suivants : FLAMBEE_SIGNUP=ferme suffit à en
+    faire échouer huit, très loin d'ici."""
+    copie = dict(os.environ)
+    copie.pop("FLAMBEE_PORTE_DIRECTE", None)
+    monkeypatch.setattr(os, "environ", copie)
+    return copie
+
+
+# --- La cellule que le navigateur garde en mémoire -------------------------
+# Colab conserve la cellule affichée dans le navigateur de l'utilisateur. Je
+# peux mettre à jour `launch.py` à distance — la cellule commence par un
+# `git reset --hard` —, mais pas la cellule elle-même : elle peut dater de
+# n'importe quelle version antérieure. Casser l'une de ces trois signatures
+# bloquerait quelqu'un devant une trace d'erreur, sans moyen de s'en sortir
+# autrement qu'en recréant le carnet à la main.
+def test_l_ancienne_cellule_fonctionne_encore(monkeypatch,
+                                             environnement_isole):
+    """Les appels exacts de la cellule d'avant les deux portes."""
+    class Faux:
+        def poll(self): return None
+        def terminate(self): pass
+
+    for nom, valeur in (
+            ("preparer_environnement", lambda: None),
+            ("ensure_ffmpeg", lambda: None),
+            ("ensure_dependencies", lambda: None),
+            ("ensure_transcription", lambda: True),
+            ("mot_de_passe_persistant", lambda fourni="": "kiwi-melon-poire"),
+            ("ouvrir_un_compte", lambda mot: "moi@flambee.local"),
+            ("start_server", lambda *a, **k: Faux()),
+            ("relayer", lambda *a, **k: None),
+            ("wait_for_server", lambda *a, **k: True),
+            ("ensure_cloudflared", lambda chemin: chemin),
+            ("colab_fallback_url", lambda port: "https://direct.example.com/"),
+            ("etat_transcription", lambda: "ok"),
+            ("log", lambda message="": None),
+            ("start_tunnel",
+             lambda binaire, port, **k: (Faux(), "https://t.trycloudflare.com")),
+    ):
+        monkeypatch.setattr(launch, nom, valeur)
+
+    # 1. Quatre valeurs de retour, dans cet ordre.
+    serveur, tunnel, adresse, mot_de_passe = launch.start_all(
+        port=8000, password="", anthropic_key="", transcription=True)
+    assert adresse == "https://t.trycloudflare.com"
+    assert mot_de_passe == "kiwi-melon-poire"
+
+    # 2. Le cadre, appelé avec trois arguments — et qui montre malgré tout
+    #    les deux adresses, dont la cellule ne sait rien.
+    cadre = launch.banner(adresse, "flambee", mot_de_passe)
+    assert "direct.example.com" in cadre and "t.trycloudflare.com" in cadre
+    assert cadre.index("direct.example.com") < cadre.index("t.trycloudflare.com")
+
+    # 3. La surveillance, appelée sans `url`.
+    vues = []
+    restant = [True, True]
+
+    def dormir(_secondes):
+        if not restant:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(launch.time, "sleep", dormir)
+    monkeypatch.setattr(launch, "tunnel_repond",
+                        lambda url, **k: (vues.append(url), restant.pop(0))[1])
+    launch.keep_alive(serveur, tunnel, port=8000, password=mot_de_passe)
+    assert vues == ["https://t.trycloudflare.com"] * 2, (
+        "sans `url`, la surveillance doit retrouver l'adresse toute seule")
+
+
+def test_la_porte_directe_arrive_au_serveur(monkeypatch,
+                                            environnement_isole):
+    """Recueillie avant `start_server`, sinon elle n'entre jamais dans son
+    environnement — et le bandeau de secours ne s'affiche jamais."""
+    class Faux:
+        def poll(self): return None
+        def terminate(self): pass
+
+    vues = {}
+    for nom, valeur in (
+            ("preparer_environnement", lambda: None),
+            ("ensure_ffmpeg", lambda: None),
+            ("ensure_dependencies", lambda: None),
+            ("ensure_transcription", lambda: True),
+            ("mot_de_passe_persistant", lambda fourni="": "kiwi"),
+            ("ouvrir_un_compte", lambda mot: None),
+            ("relayer", lambda *a, **k: None),
+            ("wait_for_server", lambda *a, **k: True),
+            ("ensure_cloudflared", lambda chemin: chemin),
+            ("colab_fallback_url", lambda port: "https://direct.example.com/"),
+            ("log", lambda message="": None),
+            ("start_tunnel",
+             lambda binaire, port, **k: (Faux(), "https://t.trycloudflare.com")),
+    ):
+        monkeypatch.setattr(launch, nom, valeur)
+
+    def start_server(*_a, **_k):
+        vues["porte"] = environnement_isole.get("FLAMBEE_PORTE_DIRECTE", "")
+        return Faux()
+
+    monkeypatch.setattr(launch, "start_server", start_server)
+    launch.start_all(port=8000, tunnel=True)
+    assert vues["porte"] == "https://direct.example.com/"
