@@ -1,0 +1,593 @@
+#!/usr/bin/env bash
+# ===========================================================================
+#  Flambée — installation d'un serveur, en une commande
+#
+#      curl -fsSL <adresse de ce fichier> | bash -s -- <nom-duckdns> <jeton>
+#
+#  Écrit pour les hébergeurs qui n'offrent pas de champ cloud-init — le VPS
+#  d'OVHcloud, notamment, où l'on ne dispose que d'un accès SSH ou d'une
+#  console dans le navigateur. Là où cloud-init existe (Hetzner, Oracle,
+#  Scaleway, OVH Public Cloud), `deploiement/serveur-cloud-init.yaml` appelle
+#  ce même fichier : il n'y a qu'un seul installateur, et il est ici.
+#
+#  Relançable sans dommage : il ne refait que ce qui manque.
+#
+#  Réglages facultatifs, par variables d'environnement :
+#      ANTHROPIC_API_KEY=...   génération de script en un clic
+#      DOMAINE=...             ton propre nom de domaine, au lieu de DuckDNS
+#      CLE_ACCES=...           clé d'invitation exigée pour s'inscrire
+#      BRANCHE=...             une autre branche du dépôt
+# ===========================================================================
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "!!! À lancer en root. Sur un VPS fraîchement livré, c'est le cas."
+  echo "!!! Sinon : sudo bash $0 \"$@\""
+  exit 1
+fi
+
+# --- Les réglages ----------------------------------------------------------
+# Déjà présents (relance, ou fichier posé par cloud-init) : on les garde. Les
+# réécrire effacerait ce que l'utilisateur a pu corriger à la main.
+mkdir -p /etc/flambee
+if [ ! -f /etc/flambee/parametres ]; then
+  if [ "$#" -lt 2 ]; then
+    echo "Usage : bash $0 <nom-duckdns> <jeton-duckdns>"
+    echo
+    echo "  Le nom et le jeton s'obtiennent en deux minutes sur"
+    echo "  https://www.duckdns.org — connecte-toi, tape un nom dans"
+    echo "  « sub domain », touche « add domain », puis recopie le"
+    echo "  « token » affiché en haut de la page."
+    exit 1
+  fi
+  cat > /etc/flambee/parametres <<PARAMETRES
+DUCKDNS_SOUS_DOMAINE="$1"
+DUCKDNS_JETON="$2"
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+DOMAINE="${DOMAINE:-}"
+CLE_ACCES="${CLE_ACCES:-}"
+DEPOT="${DEPOT:-https://github.com/bastienroels-ops/projet.git}"
+BRANCHE="${BRANCHE:-claude/fastapi-viral-video-montage-e9x7i8}"
+SMTP_HOTE="${SMTP_HOTE:-}"
+SMTP_PORT="${SMTP_PORT:-587}"
+SMTP_UTILISATEUR="${SMTP_UTILISATEUR:-}"
+SMTP_MOT_DE_PASSE="${SMTP_MOT_DE_PASSE:-}"
+SMTP_EXPEDITEUR="${SMTP_EXPEDITEUR:-}"
+PARAMETRES
+  chmod 600 /etc/flambee/parametres
+fi
+
+# --- Ce dont l'installation a besoin pour commencer ------------------------
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt-get >/dev/null; then
+  apt-get -qq update || true
+  apt-get -qq install -y git curl iptables-persistent >/dev/null 2>&1 || \
+    apt-get -qq install -y git curl >/dev/null 2>&1 || true
+fi
+
+# --- Les fichiers de service ----------------------------------------------
+mkdir -p $(dirname /usr/local/bin/flambee-temoin)
+cat > /usr/local/bin/flambee-temoin <<'FIN_FLAMBEE_TEMOIN'
+#!/usr/bin/env python3
+"""Une page qui dit où en est l'installation, avant que le site existe.
+
+Sans elle, la machine ne répond rien pendant une dizaine de minutes : le
+navigateur affiche « impossible de se connecter », exactement ce qu'il
+afficherait si l'installation avait échoué. On ne peut pas distinguer les
+deux, et depuis un téléphone il n'y a aucun moyen d'aller voir le journal.
+
+Ce témoin occupe le port 80 pendant la construction, puis s'efface pour le
+laisser à Caddy. Il n'utilise que la bibliothèque standard : Python est déjà
+là sur Ubuntu, et une dépendance de plus serait une panne de plus.
+"""
+
+import html
+import http.server
+import socketserver
+from pathlib import Path
+
+ETAPE = Path("/etc/flambee/etape")
+JOURNAL = Path("/var/log/flambee-installation.log")
+ADRESSE = Path("/etc/flambee/adresse")
+PORT = 80
+
+GABARIT = """<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="6">
+<title>Flambée s'installe</title>
+<style>
+ :root {{ color-scheme: dark; }}
+ body {{ margin:0; padding:28px 20px; background:#07070c; color:#f0eef8;
+        font:400 16px/1.55 system-ui,-apple-system,sans-serif; }}
+ .boite {{ max-width:620px; margin:0 auto; }}
+ h1 {{ font-size:26px; margin:0 0 6px; }}
+ .etape {{ margin:22px 0 8px; padding:16px 18px; border-radius:14px;
+          background:#15141f; border:1px solid rgba(232,232,246,.1); }}
+ .numero {{ color:#a78bfa; font-weight:600; }}
+ .barre {{ height:6px; border-radius:3px; background:rgba(232,232,246,.1);
+          overflow:hidden; margin-top:12px; }}
+ .barre i {{ display:block; height:100%; background:#6c5ce7;
+            width:{part}%; transition:width .4s; }}
+ p.calme {{ color:#aaa6bd; font-size:14.5px; }}
+ pre {{ background:#0d0d16; border:1px solid rgba(232,232,246,.08);
+       border-radius:12px; padding:14px; overflow-x:auto;
+       font:400 12px/1.5 ui-monospace,monospace; color:#aaa6bd; }}
+ a.bouton {{ display:block; margin:20px 0; padding:17px; border-radius:14px;
+            background:linear-gradient(168deg,#6c5ce7,#3b2b8f); color:#f6f4ff;
+            text-align:center; text-decoration:none; font-weight:600; }}
+ .rouge {{ border-color:rgba(255,107,107,.5); }}
+</style></head><body><div class="boite">
+<h1>{titre}</h1>
+<p class="calme">{sous_titre}</p>
+{corps}
+<details><summary class="calme">Voir le détail</summary>
+<pre>{journal}</pre></details>
+</div></body></html>
+"""
+
+ETAPES = ["Pare-feu", "Docker", "Adresse", "Code", "Reglages", "Image", "Pret"]
+
+
+def etat():
+    try:
+        brut = ETAPE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "Docker", "Préparation de la machine"
+    nom, _, mot = brut.partition(" ")
+    return nom, mot or nom
+
+
+def journal(lignes=25):
+    try:
+        return "\n".join(
+            JOURNAL.read_text(encoding="utf-8", errors="replace")
+            .splitlines()[-lignes:])
+    except OSError:
+        return "(le journal n'a pas encore commencé)"
+
+
+def page():
+    nom, mot = etat()
+    rang = ETAPES.index(nom) + 1 if nom in ETAPES else 1
+    part = int(rang / len(ETAPES) * 100)
+    texte = html.escape(journal())
+
+    if nom == "Pret":
+        adresse = ADRESSE.read_text(encoding="utf-8").strip() if \
+            ADRESSE.exists() else ""
+        corps = (f'<a class="bouton" href="https://{html.escape(adresse)}">'
+                 "Ouvrir Flambée</a>"
+                 '<p class="calme">Si la page ne s\'ouvre pas du premier coup, '
+                 "attends une minute : le certificat HTTPS se demande à ce "
+                 "moment-là.</p>")
+        return GABARIT.format(titre="C'est prêt.", part=100,
+                              sous_titre="Flambée tourne.",
+                              corps=corps, journal=texte)
+
+    if nom == "Echec":
+        corps = ('<div class="etape rouge"><b>L\'installation s\'est '
+                 "arrêtée.</b><p class=\"calme\">La raison est dans les "
+                 "dernières lignes ci-dessous. Rien n'est cassé : corrige, "
+                 "puis recrée la machine avec le fichier modifié.</p></div>")
+        return GABARIT.format(titre="Installation interrompue", part=part,
+                              sous_titre=html.escape(mot),
+                              corps=corps, journal=texte)
+
+    corps = (f'<div class="etape"><span class="numero">Étape {rang} sur '
+             f'{len(ETAPES)}</span><br>{html.escape(mot)}'
+             '<div class="barre"><i></i></div></div>'
+             '<p class="calme">Cette page se rafraîchit toute seule, et '
+             "l'installation continue même si tu la fermes. Compter une "
+             "dizaine de minutes en tout : c'est la construction de l'image "
+             "qui est longue.</p>")
+    return GABARIT.format(
+        titre="Flambée s'installe", part=part,
+        sous_titre="Rien à faire de ton côté.",
+        corps=corps, journal=texte)
+
+
+class Poignee(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        corps = page().encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(corps)))
+        self.end_headers()
+        self.wfile.write(corps)
+
+    do_HEAD = do_GET
+
+    def log_message(self, *_args):
+        pass          # le journal de l'installation n'a pas à être pollué
+
+
+class Serveur(socketserver.TCPServer):
+    allow_reuse_address = True
+
+
+if __name__ == "__main__":
+    with Serveur(("0.0.0.0", PORT), Poignee) as httpd:
+        httpd.serve_forever()
+FIN_FLAMBEE_TEMOIN
+chmod 0755 /usr/local/bin/flambee-temoin
+mkdir -p $(dirname /usr/local/bin/flambee-sauvegarde)
+cat > /usr/local/bin/flambee-sauvegarde <<'FIN_FLAMBEE_SAUVEGARDE'
+#!/usr/bin/env bash
+set -euo pipefail
+DEST=/var/backups/flambee
+mkdir -p "$DEST"
+
+# Le nom du volume est demandé au conteneur qui tourne, jamais deviné.
+# Écrit en dur, il suffisait que le dépôt soit cloné ailleurs qu'en
+# /opt/flambee pour que Docker crée un volume vide de ce nom et archive
+# ce vide : une sauvegarde qui réussit tous les soirs et ne contient
+# rien, découverte le jour où l'on en a besoin.
+CONTENEUR=$(docker compose -f /opt/flambee/docker-compose.yml ps -q flambee)
+if [ -z "$CONTENEUR" ]; then
+  echo "!!! Flambée ne tourne pas : rien à sauvegarder." >&2
+  exit 1
+fi
+VOLUME=$(docker inspect -f \
+  '{{range .Mounts}}{{if eq .Destination "/donnees"}}{{.Name}}{{end}}{{end}}' \
+  "$CONTENEUR")
+if [ -z "$VOLUME" ]; then
+  echo "!!! Aucun volume monté sur /donnees." >&2
+  exit 1
+fi
+
+ARCHIVE="$DEST/flambee-$(date +%F).tar.gz"
+docker run --rm -v "$VOLUME":/d:ro -v "$DEST":/sortie alpine \
+  tar czf "/sortie/$(basename "$ARCHIVE")" -C /d .
+
+# On vérifie ce qui compte, pas le poids : une base de comptes neuve se
+# compresse à un millier d'octets, si bien qu'un seuil de taille refuse
+# les bonnes sauvegardes des premiers jours tout en laissant passer une
+# archive volumineuse mais sans la base. C'est donc sa présence qu'on
+# exige.
+if ! tar tzf "$ARCHIVE" | grep -q "travail/flambee.db"; then
+  echo "!!! La base des comptes est absente de l'archive." >&2
+  echo "!!! Archive conservée pour examen : $ARCHIVE" >&2
+  exit 1
+fi
+echo "Sauvegarde : $ARCHIVE ($(stat -c %s "$ARCHIVE") octets, volume $VOLUME)"
+
+# On garde une semaine de copies : au-delà, le disque se remplit.
+ls -1t "$DEST"/flambee-*.tar.gz | tail -n +8 | xargs -r rm --
+FIN_FLAMBEE_SAUVEGARDE
+chmod 0755 /usr/local/bin/flambee-sauvegarde
+mkdir -p $(dirname /usr/local/bin/flambee-mise-a-jour)
+cat > /usr/local/bin/flambee-mise-a-jour <<'FIN_FLAMBEE_MISE_A_JOUR'
+#!/usr/bin/env bash
+# Met Flambée à jour depuis le dépôt, sans terminal.
+#
+# Sans cela, chaque correction demanderait une connexion SSH à la machine —
+# ce qu'on ne fait pas depuis un iPhone. Le serveur va donc chercher les
+# nouvelles versions lui-même, la nuit.
+#
+# Deux précautions qui comptent autant que la mise à jour elle-même :
+#   · on ne reconstruit rien si le dépôt n'a pas bougé (la construction dure
+#     plusieurs minutes et coupe le service : la faire pour rien serait une
+#     panne gratuite) ;
+#   · on ne coupe jamais un rendu en cours. L'application dit combien il y en
+#     a ; s'il y en a, on repart sans rien toucher et on reviendra demain.
+set -euo pipefail
+exec > >(tee -a /var/log/flambee-mise-a-jour.log) 2>&1
+
+source /etc/flambee/parametres
+cd /opt/flambee
+
+echo "=== Mise à jour : $(date -Is) ==="
+
+git fetch --quiet origin "${BRANCHE}" --depth 1
+ici=$(git rev-parse HEAD)
+la_bas=$(git rev-parse FETCH_HEAD)
+
+if [ "$ici" = "$la_bas" ]; then
+  echo "--- Déjà à jour (${ici:0:8})."
+  exit 0
+fi
+
+# L'application répond sur le port 8000, en local. `travaux_en_cours` compte
+# les rendus, imports et téléchargements réellement actifs — un travail mort
+# depuis un quart d'heure n'est plus compté, sinon une seule vidéo ratée
+# bloquerait les mises à jour pour toujours.
+# Lu par un analyseur JSON, pas par `grep` : une espace après le deux-points
+# suffirait à faire échouer une expression régulière, et l'échec serait
+# silencieux — le script conclurait « application muette » et ne mettrait
+# plus jamais à jour, sans que rien ne le dise.
+travaux=$(python3 - <<'PYTHON' || echo ""
+import json, urllib.request
+with urllib.request.urlopen(
+        "http://127.0.0.1:8000/api/health", timeout=10) as reponse:
+    print(int(json.load(reponse)["travaux_en_cours"]))
+PYTHON
+)
+
+if [ -z "$travaux" ]; then
+  echo "!!! L'application ne répond pas : on ne touche à rien."
+  echo "!!! (Si elle est arrêtée, relance : docker compose up -d)"
+  exit 1
+fi
+
+if [ "$travaux" -gt 0 ]; then
+  echo "--- ${travaux} travail(aux) en cours : mise à jour reportée à demain."
+  exit 0
+fi
+
+echo "--- ${ici:0:8} → ${la_bas:0:8}"
+git reset --hard --quiet FETCH_HEAD
+
+# `--build` reconstruit l'image ; `up -d` ne remplace que les conteneurs dont
+# l'image a changé. Caddy, lui, ne redémarre pas : le certificat reste.
+docker compose up -d --build
+
+# Une image par version, et Docker les garde toutes : le disque de l'offre
+# gratuite se remplit en quelques semaines sans ce nettoyage.
+docker image prune -f >/dev/null 2>&1 || true
+
+# On vérifie que la nouvelle version répond avant de se déclarer content. Un
+# démarrage raté doit se lire dans le journal, pas se découvrir le lendemain
+# devant une page blanche.
+for essai in $(seq 1 30); do
+  if curl -fsS --noproxy 127.0.0.1 --max-time 5 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
+    echo "=== À jour et en ligne (${la_bas:0:8})."
+    exit 0
+  fi
+  sleep 4
+done
+
+echo "!!! La nouvelle version ne répond pas après deux minutes."
+echo "!!! Journal : docker compose -f /opt/flambee/docker-compose.yml logs flambee"
+exit 1
+FIN_FLAMBEE_MISE_A_JOUR
+chmod 0755 /usr/local/bin/flambee-mise-a-jour
+mkdir -p $(dirname /etc/systemd/system/flambee-temoin.service)
+cat > /etc/systemd/system/flambee-temoin.service <<'FIN_FLAMBEE_TEMOIN_SERVICE'
+[Unit]
+Description=Page d'attente pendant l'installation de Flambee
+
+[Service]
+ExecStart=/usr/local/bin/flambee-temoin
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+FIN_FLAMBEE_TEMOIN_SERVICE
+
+systemctl daemon-reload
+
+# Sauvegarde chaque nuit à 3 h 20, corrections à 4 h 10 — après la sauvegarde,
+# et jamais pendant un rendu.
+(crontab -l 2>/dev/null | grep -v flambee-sauvegarde || true; \
+ echo "20 3 * * * /usr/local/bin/flambee-sauvegarde") | crontab -
+(crontab -l 2>/dev/null | grep -v flambee-mise-a-jour || true; \
+ echo "10 4 * * * /usr/local/bin/flambee-mise-a-jour") | crontab -
+
+# --- L'installation proprement dite ---------------------------------------
+exec > >(tee -a /var/log/flambee-installation.log) 2>&1
+echo "=== Installation de Flambée : $(date -Is) ==="
+
+source /etc/flambee/parametres
+
+# Où en est-on. Le témoin lit ce fichier et l'affiche sur le port 80 :
+# c'est le seul moyen de suivre l'installation depuis un téléphone.
+etape() { echo "$*" > /etc/flambee/etape; }
+
+# Un arrêt, quelle qu'en soit la cause, doit laisser une page qui le
+# dit. Sans ce filet, une installation morte ressemble à une
+# installation lente, et on attend devant un écran qui n'avancera plus.
+fin() {
+  local code=$1
+  if [ "$code" -ne 0 ] \
+     && ! grep -q "^Echec" /etc/flambee/etape 2>/dev/null; then
+    etape "Echec Interrompue — la raison est dans le détail ci-dessous."
+  fi
+}
+trap 'fin $?' EXIT
+
+# --- 0. La bonne distribution ---------------------------------------
+# Oracle propose sa propre distribution par défaut à la création d'une
+# instance. Ce script attend Ubuntu : « iptables-persistent » n'existe
+# pas ailleurs, et l'installation échouerait plus loin sur une erreur
+# sans rapport apparent avec la cause.
+if ! command -v apt-get >/dev/null; then
+  systeme=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME")
+  echo "!!! Cette installation attend Ubuntu 22.04 ou 24.04."
+  echo "!!! Cette machine tourne sous : ${systeme:-système inconnu}"
+  echo "!!! Recrée la machine en choisissant une image Ubuntu :"
+  echo "!!!   Hetzner → Image → Ubuntu 24.04"
+  echo "!!!   Oracle  → Image and shape → Canonical Ubuntu"
+  etape "Echec Cette machine n'est pas sous Ubuntu : recrée-la avec l'image Canonical Ubuntu."
+  exit 1
+fi
+
+# --- 1. Ouverture des ports 80 et 443 -------------------------------
+# Les images Oracle arrivent avec un pare-feu local qui rejette tout
+# sauf SSH. C'est la cause n°1 d'un site « injoignable » alors que le
+# conteneur tourne : la règle REJECT finale doit être contournée, donc
+# on insère les autorisations avant elle.
+#
+# Chez Hetzner, rien ne bloque par défaut : ces règles ne font alors
+# qu'ajouter deux autorisations à une table déjà ouverte. Inutile, mais
+# inoffensif — et c'est ce qui permet au même fichier de servir chez les
+# deux sans qu'on ait à choisir.
+ouvrir_port() {
+  local port="$1"
+  iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null && return 0
+  local rang
+  rang=$(iptables -L INPUT --line-numbers -n \
+         | awk '/REJECT/ {print $1; exit}')
+  if [ -n "$rang" ]; then
+    iptables -I INPUT "$rang" -p tcp --dport "$port" -j ACCEPT
+  else
+    iptables -A INPUT -p tcp --dport "$port" -j ACCEPT
+  fi
+}
+etape "Pare-feu Ouverture des ports"
+ouvrir_port 80
+ouvrir_port 443
+if command -v netfilter-persistent >/dev/null; then
+  netfilter-persistent save || true
+else
+  mkdir -p /etc/iptables && iptables-save > /etc/iptables/rules.v4
+fi
+
+# Le port 80 est ouvert : la page d'attente peut répondre. Elle le
+# gardera jusqu'à ce que l'image soit construite, puis le rendra à Caddy.
+systemctl enable --now flambee-temoin.service || true
+
+# --- 2. Docker ------------------------------------------------------
+etape "Docker Installation de Docker"
+if ! command -v docker >/dev/null; then
+  echo "--- Installation de Docker"
+  # Le script officiel d'abord : il installe une version récente et le
+  # greffon « compose ». Mais il ne connaît une version d'Ubuntu qu'une fois
+  # celle-ci ajoutée à son dépôt, ce qui peut tarder de quelques mois sur une
+  # distribution toute neuve. On se rabat alors sur les paquets d'Ubuntu, qui
+  # existent toujours — c'est le même Docker, une version en arrière.
+  if ! curl -fsSL https://get.docker.com | sh; then
+    echo "--- Le script officiel a échoué ; paquets Ubuntu à la place."
+    apt-get -qq update || true
+    apt-get -qq install -y docker.io docker-compose-v2
+  fi
+fi
+systemctl enable --now docker
+
+# Un Docker installé mais sans « compose » ferait échouer la construction
+# beaucoup plus loin, sur un message qui ne dit pas la cause.
+if ! docker compose version >/dev/null 2>&1; then
+  echo "--- Ajout du greffon compose"
+  apt-get -qq update || true
+  apt-get -qq install -y docker-compose-v2 || apt-get -qq install -y docker-compose-plugin
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  etape "Echec Docker s'est installé, mais sans son greffon « compose »."
+  echo "!!! « docker compose » est introuvable après installation."
+  exit 1
+fi
+
+# --- 3. Le domaine --------------------------------------------------
+etape "Adresse Mise en place de l'adresse du site"
+adresse_publique() {
+  local ip
+  ip=$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || true)
+  if [ -z "$ip" ]; then
+    ip=$(curl -fsS --max-time 10 -H "Authorization: Bearer Oracle" \
+         http://169.254.169.254/opc/v2/vnics/ 2>/dev/null \
+         | grep -o '"publicIp"[^,]*' | head -1 | cut -d'"' -f4 || true)
+  fi
+  echo "$ip"
+}
+
+if [ -n "${DUCKDNS_SOUS_DOMAINE}" ] && [ -n "${DUCKDNS_JETON}" ]; then
+  # DuckDNS figure sur la Public Suffix List : chaque sous-domaine a son
+  # propre quota de certificats Let's Encrypt. C'est ce qui le rend
+  # fiable, là où sslip.io partage un quota unique entre tous.
+  DOMAINE="${DUCKDNS_SOUS_DOMAINE}.duckdns.org"
+  cat > /usr/local/bin/flambee-duckdns <<DUCK
+#!/usr/bin/env bash
+curl -fsS "https://www.duckdns.org/update?domains=${DUCKDNS_SOUS_DOMAINE}&token=${DUCKDNS_JETON}&ip="
+DUCK
+  chmod 700 /usr/local/bin/flambee-duckdns
+  reponse=$(/usr/local/bin/flambee-duckdns || true)
+  if [ "$reponse" != "OK" ]; then
+    echo "!!! DuckDNS a répondu « ${reponse:-rien} » au lieu de « OK »."
+    echo "!!! Vérifie le nom et le jeton dans /etc/flambee/parametres,"
+    echo "!!! puis relance : systemctl restart flambee-installation"
+    etape "Echec DuckDNS a refusé le nom ou le jeton."
+    exit 1
+  fi
+  # L'adresse est retenue toutes les cinq minutes : une IP qui change
+  # ne coupe pas le site.
+  # Sur une machine neuve, « crontab -l » ne renvoie rien et « grep -v »
+  # sort alors en erreur : sans le repli, set -e couperait l'installation
+  # ici même, sans un mot.
+  (crontab -l 2>/dev/null | grep -v flambee-duckdns || true; \
+   echo "*/5 * * * * /usr/local/bin/flambee-duckdns >/dev/null 2>&1") \
+   | crontab -
+  echo "--- DuckDNS à jour"
+elif [ -z "${DOMAINE}" ]; then
+  IP=$(adresse_publique)
+  if [ -z "$IP" ]; then
+    echo "!!! Adresse IP publique introuvable. Renseigne DOMAINE à la main."
+    etape "Echec Adresse IP publique introuvable."
+    exit 1
+  fi
+  DOMAINE="${IP//./-}.sslip.io"
+  echo "--- Repli sur sslip.io : quota de certificats partagé, le HTTPS"
+  echo "--- peut échouer. Passe à DuckDNS si c'est le cas."
+fi
+echo "--- Domaine retenu : ${DOMAINE}"
+
+# --- 4. Le code -----------------------------------------------------
+etape "Code Récupération de Flambée"
+if [ ! -d /opt/flambee/.git ]; then
+  echo "--- Récupération du dépôt"
+  git clone --branch "${BRANCHE}" --depth 1 "${DEPOT}" /opt/flambee
+else
+  git -C /opt/flambee fetch origin "${BRANCHE}" --depth 1
+  git -C /opt/flambee reset --hard FETCH_HEAD
+fi
+cd /opt/flambee
+
+# --- 5. Les réglages ------------------------------------------------
+etape "Reglages Préparation des réglages"
+# La clé de signature est engendrée ici, une fois : elle ne transite
+# jamais par un formulaire, et elle survit aux redémarrages.
+if [ ! -f /opt/flambee/.env ]; then
+  CLE=$(head -c 48 /dev/urandom | base64 | tr -d '=+/' | cut -c1-64)
+  cat > /opt/flambee/.env <<ENV
+DOMAINE=${DOMAINE}
+FLAMBEE_BASE_URL=https://${DOMAINE}
+FLAMBEE_SECRET_KEY=${CLE}
+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+FLAMBEE_SIGNUP=ouvert
+FLAMBEE_INVITE_CODE=${CLE_ACCES}
+FLAMBEE_PLAN_PROPRIETAIRE=studio
+FLAMBEE_INSTALL_MOTEUR=1
+FLAMBEE_NICE=5
+FLAMBEE_WHISPER_MODEL=base
+FLAMBEE_MAX_UPLOAD_MB=600
+# Courriel de réinitialisation de mot de passe. Laissé vide, le lien
+# est écrit dans le journal (docker compose logs flambee) et la page
+# le dit à l'utilisateur : personne ne reste bloqué sans explication.
+FLAMBEE_SMTP_HOTE=${SMTP_HOTE}
+FLAMBEE_SMTP_PORT=${SMTP_PORT}
+FLAMBEE_SMTP_UTILISATEUR=${SMTP_UTILISATEUR}
+FLAMBEE_SMTP_MOT_DE_PASSE=${SMTP_MOT_DE_PASSE}
+FLAMBEE_SMTP_EXPEDITEUR=${SMTP_EXPEDITEUR}
+ENV
+  chmod 600 /opt/flambee/.env
+else
+  # Au redémarrage, l'adresse publique peut avoir changé. Les liens de
+  # réinitialisation la portent : ils doivent suivre.
+  sed -i "s|^DOMAINE=.*|DOMAINE=${DOMAINE}|" /opt/flambee/.env
+  sed -i "s|^FLAMBEE_BASE_URL=.*|FLAMBEE_BASE_URL=https://${DOMAINE}|" \
+    /opt/flambee/.env
+  grep -q "^FLAMBEE_BASE_URL=" /opt/flambee/.env \
+    || echo "FLAMBEE_BASE_URL=https://${DOMAINE}" >> /opt/flambee/.env
+fi
+
+# --- 6. Démarrage ---------------------------------------------------
+# La construction est séparée du démarrage, et c'est ce qui permet au
+# témoin d'exister : elle ne réclame aucun port, elle peut donc tourner
+# pendant que la page d'attente occupe encore le 80. C'est le poste le
+# plus long — celui qu'on veut justement pouvoir suivre.
+etape "Image Construction de l'image (plusieurs minutes)"
+echo "--- Construction de l'image (plusieurs minutes)"
+docker compose build
+
+# Le témoin rend le port 80 à Caddy, qui en a besoin pour obtenir le
+# certificat. Ordre inverse — Caddy d'abord — et le certificat échoue.
+echo "${DOMAINE}" > /etc/flambee/adresse
+etape "Pret"
+systemctl stop flambee-temoin.service || true
+systemctl disable flambee-temoin.service || true
+
+echo "--- Démarrage"
+docker compose up -d
+
+echo "=== Flambée écoute sur https://${DOMAINE} ==="

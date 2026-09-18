@@ -149,9 +149,31 @@ write_files:
       etape "Docker Installation de Docker"
       if ! command -v docker >/dev/null; then
         echo "--- Installation de Docker"
-        curl -fsSL https://get.docker.com | sh
+        # Le script officiel d'abord : il installe une version récente et le
+        # greffon « compose ». Mais il ne connaît une version d'Ubuntu qu'une fois
+        # celle-ci ajoutée à son dépôt, ce qui peut tarder de quelques mois sur une
+        # distribution toute neuve. On se rabat alors sur les paquets d'Ubuntu, qui
+        # existent toujours — c'est le même Docker, une version en arrière.
+        if ! curl -fsSL https://get.docker.com | sh; then
+          echo "--- Le script officiel a échoué ; paquets Ubuntu à la place."
+          apt-get -qq update || true
+          apt-get -qq install -y docker.io docker-compose-v2
+        fi
       fi
       systemctl enable --now docker
+
+      # Un Docker installé mais sans « compose » ferait échouer la construction
+      # beaucoup plus loin, sur un message qui ne dit pas la cause.
+      if ! docker compose version >/dev/null 2>&1; then
+        echo "--- Ajout du greffon compose"
+        apt-get -qq update || true
+        apt-get -qq install -y docker-compose-v2 || apt-get -qq install -y docker-compose-plugin
+      fi
+      if ! docker compose version >/dev/null 2>&1; then
+        etape "Echec Docker s'est installé, mais sans son greffon « compose »."
+        echo "!!! « docker compose » est introuvable après installation."
+        exit 1
+      fi
 
       # --- 3. Le domaine --------------------------------------------------
       etape "Adresse Mise en place de l'adresse du site"

@@ -231,3 +231,59 @@ def _poser(espace, compte, etat, age):
         {"id": f"p{compte}", "owner": compte,
          "job": {"state": etat, "updated_at": time.time() - age}}),
         encoding="utf-8")
+
+
+# --- L'installateur en une commande ----------------------------------------
+# Le VPS d'OVHcloud n'offre pas de champ cloud-init — c'est une demande de
+# fonctionnalité ouverte chez eux, pas une option. Il ne reste qu'un accès
+# SSH ou une console dans le navigateur, donc une commande à coller. Les deux
+# chemins d'installation doivent rester le même programme.
+INSTALLER = RACINE / "deploiement" / "installer.sh"
+
+
+def test_l_installateur_en_une_commande_existe_et_est_du_bash_valide():
+    assert INSTALLER.exists(), "deploiement/installer.sh a disparu"
+    r = subprocess.run(["bash", "-n", str(INSTALLER)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+
+def test_il_refuse_de_s_installer_sans_les_deux_valeurs():
+    """Sans nom ni jeton DuckDNS, il se rabattrait silencieusement sur
+    sslip.io, dont le HTTPS échoue certains jours."""
+    texte = INSTALLER.read_text(encoding="utf-8")
+    assert 'if [ "$#" -lt 2 ]' in texte
+    assert "duckdns.org" in texte
+
+
+def test_il_exige_les_droits_d_administration_en_l_expliquant(plan):
+    texte = INSTALLER.read_text(encoding="utf-8")
+    assert '[ "$(id -u)" -ne 0 ]' in texte
+    assert "sudo" in texte, "il doit dire comment s'y prendre, pas seulement refuser"
+
+
+@pytest.mark.parametrize("service", [
+    "/usr/local/bin/flambee-temoin",
+    "/usr/local/bin/flambee-sauvegarde",
+    "/usr/local/bin/flambee-mise-a-jour",
+])
+def test_les_deux_chemins_posent_exactement_les_memes_scripts(plan, service):
+    """`installer.sh` a été fabriqué à partir du cloud-init. Corriger un bogue
+    dans l'un sans l'autre laisserait la moitié des installations avec la
+    version fautive, et rien ne le dirait."""
+    embarque = _fichier(plan, service).rstrip("\n")
+    assert embarque in INSTALLER.read_text(encoding="utf-8"), (
+        f"{service} a divergé entre le cloud-init et installer.sh")
+
+
+def test_docker_a_un_repli_sur_les_paquets_de_la_distribution(plan):
+    """Le script officiel de Docker ne connaît une version d'Ubuntu qu'une
+    fois celle-ci ajoutée à son dépôt. Sur une distribution toute neuve —
+    Ubuntu 26.04 sur un VPS livré aujourd'hui — il peut échouer, et
+    l'installation s'arrêterait là."""
+    for texte in (INSTALLER.read_text(encoding="utf-8"),
+                  _fichier(plan, "flambee-installer")):
+        assert "docker.io" in texte, "aucun repli si get.docker.com échoue"
+        assert "docker compose version" in texte, (
+            "un Docker sans greffon compose ferait échouer la construction "
+            "beaucoup plus loin, sur un message qui ne dit pas la cause")
