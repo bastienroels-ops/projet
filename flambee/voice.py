@@ -117,6 +117,58 @@ async def list_voices(language: str = "fr") -> list[dict[str, str]]:
     return voices or config.FRENCH_VOICES
 
 
+# Colab passe par un tunnel, et edge-tts par un service distant : une coupure
+# d'une seconde tuait un rendu pour lequel on avait déjà attendu. Deux
+# reprises coûtent au pire trois secondes, contre un rendu perdu.
+TENTATIVES = 3
+ATTENTE_ENTRE_TENTATIVES = (1.0, 2.0)
+
+
+async def _essayer_la_synthese(texte: str, out_path: Path, *, voice: str,
+                               rate: str, pitch: str) -> tuple[list[Word], bool]:
+    """Appelle edge-tts, et recommence si le réseau a lâché.
+
+    Le fichier est rouvert en écriture à chaque tentative : une coupure au
+    milieu laisse un mp3 tronqué, qu'il ne faut surtout pas garder.
+    """
+    import edge_tts
+
+    dernier: Exception | None = None
+    for tentative in range(TENTATIVES):
+        words: list[Word] = []
+        audio_written = False
+        communicate = edge_tts.Communicate(texte, voice, rate=rate, pitch=pitch)
+        try:
+            with out_path.open("wb") as handle:
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        handle.write(chunk["data"])
+                        audio_written = True
+                    elif chunk["type"] == "WordBoundary":
+                        debut = chunk["offset"] / _TICKS_PER_SECOND
+                        fin = debut + chunk["duration"] / _TICKS_PER_SECOND
+                        words.append(Word(text=chunk["text"], start=debut, end=fin))
+        except Exception as exc:
+            dernier = exc
+            if tentative + 1 < TENTATIVES:
+                attente = ATTENTE_ENTRE_TENTATIVES[tentative]
+                log.info("Synthèse interrompue (%s) : nouvelle tentative dans "
+                         "%.0f s.", exc, attente)
+                await asyncio.sleep(attente)
+                continue
+            raise VoiceError(f"Synthèse vocale impossible : {exc}") from exc
+
+        # Un flux qui se termine sans un octet d'audio arrive aussi : le
+        # service répond, mais ne dit rien. Cela vaut une nouvelle tentative.
+        if not audio_written and tentative + 1 < TENTATIVES:
+            log.info("edge-tts n'a renvoyé aucun audio : nouvelle tentative.")
+            await asyncio.sleep(ATTENTE_ENTRE_TENTATIVES[tentative])
+            continue
+        return words, audio_written
+
+    raise VoiceError(f"Synthèse vocale impossible : {dernier}")
+
+
 async def synthesize_async(
     text: str,
     out_path: Path,
@@ -133,22 +185,8 @@ async def synthesize_async(
         raise VoiceError("Le script est vide.")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    communicate = edge_tts.Communicate(cleaned, voice, rate=rate, pitch=pitch)
-
-    words: list[Word] = []
-    audio_written = False
-    try:
-        with out_path.open("wb") as handle:
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    handle.write(chunk["data"])
-                    audio_written = True
-                elif chunk["type"] == "WordBoundary":
-                    start = chunk["offset"] / _TICKS_PER_SECOND
-                    end = start + chunk["duration"] / _TICKS_PER_SECOND
-                    words.append(Word(text=chunk["text"], start=start, end=end))
-    except Exception as exc:
-        raise VoiceError(f"Synthèse vocale impossible : {exc}") from exc
+    words, audio_written = await _essayer_la_synthese(
+        cleaned, out_path, voice=voice, rate=rate, pitch=pitch)
 
     if not audio_written:
         raise VoiceError("edge-tts n'a renvoyé aucun audio (voix invalide ?).")

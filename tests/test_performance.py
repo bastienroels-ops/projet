@@ -165,3 +165,115 @@ def _fausse_synthese(projet):
                                 words=mots, voice=kw.get("voice", "x"),
                                 lead_in=0.2)
     return synthetiser
+
+
+# --- La reprise après une coupure réseau -----------------------------------
+def test_une_coupure_reseau_est_reessayee(monkeypatch, tmp_path):
+    """Colab passe par un tunnel et edge-tts par un service distant. Une
+    coupure d'une seconde tuait un rendu pour lequel on avait déjà attendu."""
+    import asyncio
+
+    appels = []
+
+    class FauxFlux:
+        def __init__(self, texte, voix, **kw):
+            appels.append(1)
+
+        async def stream(self):
+            if len(appels) < 3:
+                raise ConnectionResetError("le tunnel a lâché")
+            yield {"type": "audio", "data": b"\0" * 512}
+            yield {"type": "WordBoundary", "offset": 0,
+                   "duration": 4_000_000, "text": "Bonjour"}
+
+    monkeypatch.setattr(voice, "ATTENTE_ENTRE_TENTATIVES", (0.0, 0.0))
+    _poser_edge_tts(monkeypatch, FauxFlux)
+
+    mots, ecrit = asyncio.run(voice._essayer_la_synthese(
+        "Bonjour", tmp_path / "v.mp3", voice="fr-FR-DeniseNeural",
+        rate="+0%", pitch="+0Hz"))
+    assert len(appels) == 3, "la synthèse aurait dû être réessayée"
+    assert ecrit and [m.text for m in mots] == ["Bonjour"]
+
+
+def test_un_flux_muet_vaut_une_nouvelle_tentative(monkeypatch, tmp_path):
+    """Le service répond parfois sans un octet d'audio. Ce n'est pas une
+    erreur au sens du protocole, mais c'est un rendu sans voix."""
+    import asyncio
+
+    appels = []
+
+    class FauxFlux:
+        def __init__(self, texte, voix, **kw):
+            appels.append(1)
+
+        async def stream(self):
+            if len(appels) < 2:
+                return
+            yield {"type": "audio", "data": b"\0" * 512}
+
+    monkeypatch.setattr(voice, "ATTENTE_ENTRE_TENTATIVES", (0.0, 0.0))
+    _poser_edge_tts(monkeypatch, FauxFlux)
+
+    _, ecrit = asyncio.run(voice._essayer_la_synthese(
+        "Bonjour", tmp_path / "v.mp3", voice="x", rate="+0%", pitch="+0Hz"))
+    assert len(appels) == 2 and ecrit
+
+
+def test_apres_trois_echecs_on_renonce_en_le_disant(monkeypatch, tmp_path):
+    import asyncio
+
+    import pytest
+
+    class FauxFlux:
+        def __init__(self, texte, voix, **kw):
+            pass
+
+        async def stream(self):
+            raise ConnectionResetError("coupé")
+            yield  # pragma: no cover
+
+    monkeypatch.setattr(voice, "ATTENTE_ENTRE_TENTATIVES", (0.0, 0.0))
+    _poser_edge_tts(monkeypatch, FauxFlux)
+
+    with pytest.raises(voice.VoiceError):
+        asyncio.run(voice._essayer_la_synthese(
+            "Bonjour", tmp_path / "v.mp3", voice="x", rate="+0%", pitch="+0Hz"))
+
+
+def test_le_fichier_tronque_ne_survit_pas_a_la_reprise(monkeypatch, tmp_path):
+    """Une coupure au milieu laisse un mp3 incomplet : la tentative suivante
+    doit le remplacer, pas écrire à la suite."""
+    import asyncio
+
+    appels = []
+
+    class FauxFlux:
+        def __init__(self, texte, voix, **kw):
+            appels.append(1)
+
+        async def stream(self):
+            yield {"type": "audio", "data": b"X" * 100}
+            if len(appels) < 2:
+                raise ConnectionResetError("coupé au milieu")
+            yield {"type": "audio", "data": b"Y" * 100}
+
+    monkeypatch.setattr(voice, "ATTENTE_ENTRE_TENTATIVES", (0.0, 0.0))
+    _poser_edge_tts(monkeypatch, FauxFlux)
+
+    chemin = tmp_path / "v.mp3"
+    asyncio.run(voice._essayer_la_synthese(
+        "Bonjour", chemin, voice="x", rate="+0%", pitch="+0Hz"))
+    assert chemin.read_bytes() == b"X" * 100 + b"Y" * 100, \
+        "le fichier contient les restes de la tentative interrompue"
+
+
+def _poser_edge_tts(monkeypatch, classe):
+    """edge-tts est importé à l'intérieur de la fonction : on pose un faux
+    module dans `sys.modules` avant l'appel."""
+    import sys
+    import types
+
+    faux = types.ModuleType("edge_tts")
+    faux.Communicate = classe
+    monkeypatch.setitem(sys.modules, "edge_tts", faux)

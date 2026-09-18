@@ -319,6 +319,7 @@ function applyProject(project) {
   if (project.topic) $("#topic").value = project.topic;
   if (project.instructions) $("#instructions").value = project.instructions;
   if (project.script && !$("#script").value.trim()) $("#script").value = project.script;
+  rendreLeBrouillon(project);
   updateScriptMeta(project);
   showStep(state.step);
   localStorage.setItem("flambee.project", project.id);
@@ -869,6 +870,73 @@ function choisirFond(valeur) {
 }
 
 /* ====================================================================== */
+/* Le brouillon du script                                                  */
+/*                                                                         */
+/* Le script n'existe côté serveur qu'une fois validé. Entre-temps il ne    */
+/* vit que dans une zone de texte — et le tunnel Colab tombe, l'onglet se   */
+/* fait recycler par iOS, la page se recharge. On garde donc une copie      */
+/* dans le navigateur, écrite au fil de la frappe.                         */
+/*                                                                         */
+/* Elle ne sert qu'à combler un vide : si le serveur a déjà un script, il   */
+/* fait foi. Restaurer par-dessus écraserait une modification voulue, et    */
+/* c'est exactement ce qu'on ne pardonne pas à un outil.                    */
+/* ====================================================================== */
+
+const BROUILLON = "flambee.brouillon";
+let _minuterieBrouillon = null;
+
+function ecrireLeBrouillon() {
+  if (!state.project) return;
+  clearTimeout(_minuterieBrouillon);
+  _minuterieBrouillon = setTimeout(() => {
+    try {
+      localStorage.setItem(BROUILLON, JSON.stringify({
+        projet: state.project.id,
+        script: $("#script").value,
+        sujet: $("#topic").value,
+        consignes: $("#instructions").value,
+        le: Date.now(),
+      }));
+    } catch (_) { /* mode privé, quota plein : on s'en passe */ }
+  }, 600);
+}
+
+function lireLeBrouillon() {
+  try {
+    const brut = localStorage.getItem(BROUILLON);
+    return brut ? JSON.parse(brut) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function oublierLeBrouillon() {
+  clearTimeout(_minuterieBrouillon);
+  try { localStorage.removeItem(BROUILLON); } catch (_) { /* rien à faire */ }
+}
+
+/* Appelé quand un projet arrive du serveur. On ne remplit que du vide. */
+function rendreLeBrouillon(project) {
+  const garde = lireLeBrouillon();
+  if (!garde || garde.projet !== project.id) return;
+  if (project.script && project.script.trim()) {
+    oublierLeBrouillon();          // le serveur a mieux : on ne garde rien
+    return;
+  }
+  if (!garde.script || !garde.script.trim()) return;
+  if ($("#script").value.trim()) return;
+
+  $("#script").value = garde.script;
+  if (garde.sujet && !$("#topic").value) $("#topic").value = garde.sujet;
+  if (garde.consignes && !$("#instructions").value) {
+    $("#instructions").value = garde.consignes;
+  }
+  updateScriptMeta(project);
+  alertBox("Ton script a été retrouvé — il n'avait pas été validé avant que "
+    + "la page se recharge.", true);
+}
+
+/* ====================================================================== */
 /* La chasse aux liens                                                     */
 /*                                                                         */
 /* TikTok et YouTube refusent d'être affichés dans une autre page — mesuré :*/
@@ -1236,12 +1304,19 @@ function bind() {
     $("#prompt-box").classList.add("hidden");
   });
 
-  $("#script").addEventListener("input", () => updateScriptMeta(state.project));
+  $("#script").addEventListener("input", () => {
+    updateScriptMeta(state.project);
+    ecrireLeBrouillon();
+  });
+  ["#topic", "#instructions"].forEach((sel) =>
+    $(sel).addEventListener("input", ecrireLeBrouillon));
 
   $("#btn-script-next").addEventListener("click", async () => {
     try {
       applyProject(await api(`/api/projects/${state.project.id}/script`,
         { method: "POST", body: scriptPayload() }));
+      // Le serveur a le script : le brouillon n'a plus rien à sauver.
+      oublierLeBrouillon();
       showStep(5);
     } catch (err) { alertBox(err.message); }
   });
