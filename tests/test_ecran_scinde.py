@@ -130,3 +130,117 @@ def test_un_chemin_qui_sort_de_la_bibliotheque_est_refuse():
 def test_le_fond_du_projet_demande_un_projet():
     """L'identifiant réservé ne désigne rien sans le projet qui le porte."""
     assert pipeline.fond_path(pipeline.FOND_DU_PROJET) is None
+
+
+# --- La deuxième vidéo par un lien -----------------------------------------
+def _projet(client):
+    return client.post("/api/projects").json()["id"]
+
+
+def _attendre(client, projet, essais=60):
+    """La tâche tourne dans un thread : on sonde comme le fait le navigateur."""
+    import time
+    for _ in range(essais):
+        job = client.get(f"/api/projects/{projet}").json()["job"]
+        if job["state"] != "running":
+            return job
+        time.sleep(0.05)
+    raise AssertionError("la tâche ne s'est jamais terminée")
+
+
+def test_un_lien_devient_la_video_du_bas(compte, monkeypatch, tmp_path):
+    """Le lien suit le même chemin que les sources, mais le résultat ne
+    rejoint pas le montage : il devient la bande d'à côté."""
+    from flambee import downloader
+    from flambee import pipeline as tuyau
+
+    def faux_telechargement(url, dossier, index, cancel=None):
+        dossier.mkdir(parents=True, exist_ok=True)
+        fichier = dossier / f"source_{index:02d}.mp4"
+        fichier.write_bytes(b"\0" * 2048)
+        s = downloader.Source(index=index, url=url, path=str(fichier),
+                              title="Une boucle de jeu")
+        s.duration = 30.0
+        return s
+
+    monkeypatch.setattr(tuyau.downloader, "download_one", faux_telechargement)
+    projet = _projet(compte)
+    reponse = compte.post(f"/api/projects/{projet}/fond/lien",
+                          json={"url": "https://www.tiktok.com/@x/video/1"})
+    assert reponse.status_code == 200
+    job = _attendre(compte, projet)
+    assert job["state"] == "done", job
+
+    reglages = compte.get(f"/api/projects/{projet}").json()["settings"]
+    assert reglages["split_clip"] == tuyau.FOND_DU_PROJET, \
+        "la vidéo téléchargée doit être choisie d'office"
+
+
+def test_le_lien_ne_touche_pas_aux_sources_du_montage(compte, monkeypatch):
+    """Récupérer la vidéo du bas ne doit pas effacer les vidéos déjà
+    téléchargées, ni l'accroche choisie."""
+    from flambee import downloader
+    from flambee import pipeline as tuyau
+    from flambee.project import store
+
+    def faux_telechargement(url, dossier, index, cancel=None):
+        dossier.mkdir(parents=True, exist_ok=True)
+        fichier = dossier / f"source_{index:02d}.mp4"
+        fichier.write_bytes(b"\0" * 2048)
+        return downloader.Source(index=index, url=url, path=str(fichier))
+
+    monkeypatch.setattr(tuyau.downloader, "download_one", faux_telechargement)
+    projet = _projet(compte)
+
+    # `store.get` filtre par propriétaire : le compte de test n'est pas le 0.
+    proprietaire = compte.get(f"/api/projects/{projet}").json()["owner"]
+    p = store.get(projet, proprietaire)
+    temoin = downloader.Source(index=0, url="deja", path="/tmp/deja.mp4",
+                               title="déjà là")
+    p.sources = [temoin]
+    p.hook_index = 0
+    p.save()
+
+    compte.post(f"/api/projects/{projet}/fond/lien",
+                json={"url": "https://www.tiktok.com/@x/video/1"})
+    _attendre(compte, projet)
+
+    apres = compte.get(f"/api/projects/{projet}").json()
+    assert [s["title"] for s in apres["sources"]] == ["déjà là"]
+    assert apres["hook_index"] == 0
+
+
+def test_un_texte_sans_lien_est_refuse(compte):
+    projet = _projet(compte)
+    reponse = compte.post(f"/api/projects/{projet}/fond/lien",
+                          json={"url": "une boucle de Minecraft stp"})
+    assert reponse.status_code == 400
+
+
+def test_deux_liens_pour_une_seule_bande_sont_refuses(compte):
+    """La vidéo du bas n'est pas montée : elle occupe la bande de bout en
+    bout. Deux liens n'auraient pas de sens, et en ignorer un en silence
+    serait pire."""
+    projet = _projet(compte)
+    reponse = compte.post(f"/api/projects/{projet}/fond/lien", json={
+        "url": "https://www.tiktok.com/@x/video/1 https://youtu.be/abcdefghijk"})
+    assert reponse.status_code == 400
+    assert "seul lien" in reponse.json()["detail"]
+
+
+def test_un_telechargement_qui_echoue_le_dit(compte, monkeypatch):
+    from flambee import downloader
+    from flambee import pipeline as tuyau
+
+    def refus(url, dossier, index, cancel=None):
+        s = downloader.Source(index=index, url=url)
+        s.error = "Cette vidéo est privée."
+        return s
+
+    monkeypatch.setattr(tuyau.downloader, "download_one", refus)
+    projet = _projet(compte)
+    compte.post(f"/api/projects/{projet}/fond/lien",
+                json={"url": "https://www.tiktok.com/@x/video/1"})
+    job = _attendre(compte, projet)
+    assert job["state"] == "error"
+    assert "privée" in job["error"]

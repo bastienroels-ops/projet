@@ -382,6 +382,13 @@ function startPolling() {
         if (wasRunning && project.job.name === "render" && project.job.state === "done") {
           showStep(5);
         }
+        // La deuxième vidéo vient d'arriver : elle doit apparaître dans la
+        // liste des fonds, et s'y trouver déjà choisie.
+        if (wasRunning && project.job.name === "fond"
+            && project.job.state === "done") {
+          $("#fond-lien").value = "";
+          loadFonds().catch((e) => console.error(e));
+        }
       }
     } catch (err) {
       echecs += 1;
@@ -983,6 +990,19 @@ function bind() {
   $("#split_bottom").addEventListener("change", () => {
     $("#note-scinde").hidden = !state.splitClip || $("#split_bottom").value !== "1";
     resumerReglages();
+  });
+
+  $("#btn-fond-lien").addEventListener("click", async (e) => {
+    const lien = $("#fond-lien").value.trim();
+    if (!lien || !state.project) return;
+    try {
+      alertBox("");
+      e.target.disabled = true;
+      applyProject(await api(`/api/projects/${state.project.id}/fond/lien`,
+        { method: "POST", body: { url: lien } }));
+      startPolling();
+    } catch (err) { alertBox(err.message); }
+    finally { e.target.disabled = false; }
   });
 
   $("#fond-fichier").addEventListener("change", async (e) => {

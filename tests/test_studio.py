@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+RACINE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(RACINE))
 
 from flambee import account, app as app_module, media, plans, users  # noqa: E402
 from flambee import voicestudio  # noqa: E402
@@ -60,6 +61,29 @@ def test_les_icones_des_cartes_viennent_du_jeu_du_serveur(compte):
     for nom in ("lecture", "pause", "cadenas"):
         assert f'data-icone="{nom}"' in texte, nom
     assert "<svg" in texte.split('data-icone="lecture"')[1][:200]
+
+
+def test_l_attribut_hidden_l_emporte_sur_la_feuille_de_style():
+    """Sans cette règle, `hidden` ne masque rien dès que l'élément porte une
+    classe qui pose un `display`.
+
+    L'attribut vient de la feuille par défaut du navigateur : la moindre règle
+    d'auteur la bat. Le panneau de l'écran scindé portait `class="grid"` et
+    `hidden` en même temps — il restait à l'écran, l'attribut correctement posé
+    par le script et sans le moindre effet. Le piège guette tout bloc masqué
+    par attribut : `.checks`, `.choix`, `.grid`.
+    """
+    import re
+
+    feuille = (RACINE / "flambee" / "static" / "style.css").read_text(
+        encoding="utf-8")
+    # On cherche la règle, pas la chaîne : le commentaire qui l'explique cite
+    # « [hidden] » lui aussi, et un test qui tombe dessus ne prouve rien.
+    regle = re.search(r"^\[hidden\]\s*\{([^}]*)\}", feuille, re.MULTILINE)
+    assert regle, "la règle [hidden] a disparu de la feuille de style"
+    assert "!important" in regle.group(1), (
+        "sans !important, `.grid` — même spécificité, plus bas dans le "
+        "fichier — reprend la main et l'attribut ne masque plus rien")
 
 
 def test_la_rubrique_active_est_signalee(compte):

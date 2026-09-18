@@ -50,6 +50,10 @@ class SourcesIn(BaseModel):
     urls: str = Field(default="", description="Liens collés, un par ligne")
 
 
+class FondIn(BaseModel):
+    url: str = Field(default="", description="Lien de la vidéo du bas")
+
+
 class HookIn(BaseModel):
     hook_index: int
 
@@ -955,6 +959,30 @@ async def fond_poster(request: Request, fond: str, projet: str = ""):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return FileResponse(chemin, media_type="image/jpeg",
                         headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.post("/api/projects/{project_id}/fond/lien")
+async def fond_depuis_un_lien(request: Request, project_id: str, body: FondIn):
+    """Colle un lien pour la vidéo du bas : l'autre moitié de l'écran scindé.
+
+    Un seul lien, contrairement aux sources : cette vidéo-là n'est pas
+    montée, elle occupe une bande de bout en bout.
+    """
+    project = _get(project_id, request)
+    _require_idle(project)
+
+    liens = downloader.normalize_urls(body.url)
+    if not liens:
+        raise HTTPException(status_code=400,
+                            detail="Aucun lien reconnu dans ce texte.")
+    if len(liens) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Un seul lien pour la vidéo du bas ({len(liens)} détectés).")
+
+    _start_job(project, "fond", "Téléchargement de la deuxième vidéo…")
+    _spawn(pipeline.run_fond_lien, project, liens[0])
+    return _project_payload(project)
 
 
 @app.post("/api/projects/{project_id}/fond")

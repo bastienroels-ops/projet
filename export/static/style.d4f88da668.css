@@ -649,6 +649,16 @@ code {
 
 .hidden { display: none !important; }
 
+/* L'attribut `hidden` du navigateur vient de sa feuille par défaut, et la
+   moindre règle d'auteur qui pose un `display` le bat. `!important` n'est pas
+   une facilité ici : `[hidden]` et `.grid` ont la même spécificité, c'est donc
+   l'ordre dans le fichier qui tranchait, et `.grid` venait plus bas. Le
+   panneau de l'écran scindé portait les deux : il restait à l'écran,
+   l'attribut correctement posé par le script et sans le moindre effet. Le
+   piège guette tout bloc masqué par attribut qui porte aussi une classe
+   posant un `display` — `.checks`, `.choix`, `.grid`. */
+[hidden] { display: none !important; }
+
 /* ------------------------------------------------------------ Téléphone --- */
 @media (max-width: 680px) {
   .topbar { padding: 16px 18px; flex-wrap: wrap; gap: 12px; }

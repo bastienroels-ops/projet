@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import shutil
 import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -511,6 +512,52 @@ def duree_musique(path: Path) -> float:
 # aux fonds de la bibliothèque partagée.
 FOND_DU_PROJET = "@projet"
 FOND_DU_PROJET_FICHIER = "fond.mp4"
+
+
+def run_fond_lien(project: Project, url: str) -> None:
+    """Télécharge la vidéo du bas depuis un lien, pour ce projet.
+
+    Même chemin que les sources — yt-dlp, mêmes limites, mêmes refus de
+    plateforme — mais le résultat ne rejoint pas le montage : il devient la
+    bande d'à côté. D'où une tâche à part, qui ne touche ni aux sources, ni à
+    l'accroche choisie, ni au plan de montage déjà calculé.
+    """
+    token = cancel_token(project.id)
+    project.ensure_dirs()
+    project.set_job("fond", "running", progress=0.05,
+                    message="Téléchargement de la deuxième vidéo…")
+
+    travail = project.dir / ".fond"
+    try:
+        shutil.rmtree(travail, ignore_errors=True)
+        travail.mkdir(parents=True, exist_ok=True)
+        source = downloader.download_one(url, travail, 0, cancel=token)
+        _raise_if_cancelled(token)
+
+        if source.error or not source.path:
+            raise MediaError(source.error or "Téléchargement impossible.")
+
+        destination = project.dir / FOND_DU_PROJET_FICHIER
+        destination.unlink(missing_ok=True)
+        # `replace` plutôt que `rename` : la destination peut exister si l'on
+        # remplace un fond déjà déposé, et `rename` échoue alors sous Windows.
+        Path(source.path).replace(destination)
+
+        project.settings = replace(project.settings,
+                                   split_clip=FOND_DU_PROJET)
+        project.set_job("fond", "done", progress=1.0,
+                        message=f"Deuxième vidéo prête : {source.title or url}")
+    except Cancelled:
+        project.set_job("fond", "idle", progress=0.0, message="Annulé.")
+    except (MediaError, downloader.DownloadError, OSError) as exc:
+        log.warning("Fond depuis un lien impossible : %s", exc)
+        project.set_job("fond", "error", message="Deuxième vidéo :",
+                        error=str(exc))
+    finally:
+        # Rien d'autre ici : `set_job` sauvegarde déjà, et une écriture après
+        # l'annonce de l'état final court après un projet dont l'appelant se
+        # croit déjà libéré.
+        shutil.rmtree(travail, ignore_errors=True)
 
 
 def fond_path(nom: str | None, projet: Project | None = None) -> Path | None:

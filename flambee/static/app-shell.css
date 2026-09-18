@@ -679,3 +679,13 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
 .contenu .button.petit, .contenu button.petit {
   padding: 10px 20px; font-size: 13.5px;
 }
+
+/* Un champ et son bouton sur une ligne : coller un lien et le valider est un
+   seul geste, il ne doit pas en demander deux écrans. */
+.ligne-lien { display: flex; gap: 10px; align-items: stretch; }
+.ligne-lien input { flex: 1; min-width: 0; }
+.ligne-lien button { flex: none; white-space: nowrap; }
+@media (max-width: 480px) {
+  .ligne-lien { flex-direction: column; }
+  .ligne-lien button { width: 100%; }
+}
