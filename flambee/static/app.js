@@ -15,16 +15,67 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 /* ---------------------------------------------------------------- API --- */
-async function api(path, { method = "GET", body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  let data = null;
-  try { data = await res.json(); } catch (_) { /* réponse vide */ }
-  if (!res.ok) throw new Error((data && data.detail) || `Erreur ${res.status}`);
-  return data;
+/* Les codes que Cloudflare renvoie quand il n'arrive pas à joindre l'origine
+   — c'est-à-dire le Colab. 530 est le plus courant : le tunnel a lâché une
+   seconde. Aucun de ces codes ne vient de Flambée, qui n'en sait rien et
+   tourne toujours de son côté. */
+const PANNES_DE_TUNNEL = new Set([502, 503, 504, 520, 521, 522, 523, 524,
+                                  525, 526, 527, 530]);
+const ATTENTES = [600, 1500, 3000];   // millisecondes, entre deux tentatives
+
+const PANNE = "Connexion au Colab interrompue une seconde — Flambée continue "
+  + "de son côté. Si ça se répète, l'onglet Colab affiche peut-être une "
+  + "nouvelle adresse.";
+
+function dormir(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/* Un appel à l'API, avec reprise quand c'est le chemin qui casse et non
+   l'application qui répond non.
+
+   `rejouable` : autorise la reprise d'un POST. Par défaut elle est refusée —
+   rejouer « faire une variante » en créerait deux. Les routes qui ne font
+   qu'écrire un réglage, elles, peuvent être rappelées sans dommage. */
+async function api(path, { method = "GET", body, rejouable = false,
+                           reprises = null } = {}) {
+  if (reprises === null) {
+    reprises = (method === "GET" || rejouable) ? ATTENTES.length : 0;
+  }
+
+  for (let essai = 0; ; essai += 1) {
+    let res;
+    try {
+      res = await fetch(path, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (reseau) {
+      // `fetch` a échoué avant toute réponse : le tunnel, le Wi-Fi, l'écran
+      // qui s'éteint. Rien n'a atteint l'application.
+      if (essai < reprises) {
+        await dormir(ATTENTES[essai]);
+        continue;
+      }
+      throw new Error(PANNE);
+    }
+
+    let data = null;
+    try { data = await res.json(); } catch (_) { /* réponse vide ou HTML */ }
+    if (res.ok) return data;
+
+    // Une réponse de l'application — 400, 402, 404, 409 — est un vrai
+    // « non » : la rejouer donnerait le même. On la remonte telle quelle.
+    if (!PANNES_DE_TUNNEL.has(res.status)) {
+      throw new Error((data && data.detail) || `Erreur ${res.status}`);
+    }
+    if (essai < reprises) {
+      await dormir(ATTENTES[essai]);
+      continue;
+    }
+    throw new Error(PANNE);
+  }
 }
 
 function alertBox(message, ok = false) {
@@ -411,7 +462,11 @@ function startPolling() {
   state.poll = setInterval(async () => {
     if (!state.project) return;
     try {
-      const project = await api(`/api/projects/${state.project.id}`);
+      // Pas de reprise interne ici : ce sondage en est déjà une, et
+      // attendre cinq secondes de plus à chaque tour ferait dériver son
+      // rythme de deux secondes.
+      const project = await api(`/api/projects/${state.project.id}`,
+                                { reprises: 0 });
       const wasRunning = state.project.job.state === "running";
       if (echecs) { echecs = 0; alertBox(""); }
       applyProject(project);
@@ -437,15 +492,23 @@ function startPolling() {
     } catch (err) {
       echecs += 1;
       console.error(err);
+      /* Trois échecs d'affilée, soit six secondes : au-delà ce n'est plus un
+         hoquet du tunnel. En dessous, on ne dit rien — le montrer pour une
+         seconde d'interruption inquiéterait sans raison, puisque le rendu,
+         lui, continue sur le Colab. */
       if (echecs === 3) {
-        alertBox("Connexion au serveur perdue — le rendu continue de son côté. "
-          + "Nouvelle tentative en cours…\nSi ça dure, retourne sur l'onglet "
-          + "Colab : une nouvelle adresse y est peut-être affichée.");
+        alertBox("Connexion au Colab interrompue — le rendu continue de son "
+          + "côté, et la page se reconnectera toute seule.");
       }
-      if (echecs > 60) {          // ~2 min sans réponse : on cesse d'insister
+      if (echecs === 30) {        // une minute : on cesse de minimiser
+        alertBox("Le Colab ne répond plus depuis une minute. Il s'est peut-être "
+          + "mis en veille : ouvre son onglet pour le réveiller. Ton projet "
+          + "est enregistré, rien n'est perdu.");
+      }
+      if (echecs > 150) {         // cinq minutes : on cesse d'insister
         stopPolling();
-        alertBox("Serveur injoignable. Reviens sur l'onglet Colab pour "
-          + "récupérer la nouvelle adresse, puis recharge cette page.");
+        alertBox("Le Colab ne répond plus. Relance sa cellule, puis recharge "
+          + "cette page avec la nouvelle adresse. Ton projet t'y attend.");
       }
     }
   }, 2000);
@@ -1222,7 +1285,7 @@ function bind() {
   $("#btn-hook-next").addEventListener("click", async () => {
     try {
       applyProject(await api(`/api/projects/${state.project.id}/hook`,
-        { method: "POST", body: { hook_index: state.selectedHook } }));
+        { method: "POST", body: { hook_index: state.selectedHook }, rejouable: true }));
       showStep(3);
     } catch (err) { alertBox(err.message); }
   });
@@ -1353,7 +1416,7 @@ function bind() {
   $("#btn-style-next").addEventListener("click", async () => {
     try {
       applyProject(await api(`/api/projects/${state.project.id}/settings`,
-        { method: "POST", body: settingsPayload() }));
+        { method: "POST", body: settingsPayload(), rejouable: true }));
       showStep(4);
     } catch (err) { alertBox(err.message); }
   });
@@ -1403,7 +1466,7 @@ function bind() {
   $("#btn-script-next").addEventListener("click", async () => {
     try {
       applyProject(await api(`/api/projects/${state.project.id}/script`,
-        { method: "POST", body: scriptPayload() }));
+        { method: "POST", body: scriptPayload(), rejouable: true }));
       // Le serveur a le script : le brouillon n'a plus rien à sauver.
       oublierLeBrouillon();
       showStep(5);

@@ -36,6 +36,10 @@ PUBLIC = (
     "/deconnexion", "/api/demo", "/api/demo/poster", "/api/health",
     "/api/essayage",
     "/robots.txt", "/sitemap.xml", "/mot-de-passe-oublie", "/reinitialiser",
+    # Le carnet Colab interroge cette adresse de l'extérieur, par le tunnel,
+    # pour savoir si le tunnel tient encore. Elle ne révèle rien et ne peut
+    # donc pas demander de compte.
+    "/ping",
 )
 PREFIXES_PUBLICS = ("/static/", "/api/presets/")
 

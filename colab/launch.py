@@ -596,6 +596,42 @@ def start_all(
         return server, None, None, password
 
 
+# Combien de sondages ratés d'affilée avant de conclure que le tunnel est
+# mort. Trois, à vingt secondes d'intervalle : une minute. En dessous on
+# rouvrirait pour un hoquet, et rouvrir change l'adresse — ce qui dérange
+# bien plus qu'une seconde d'interruption.
+SONDAGES_AVANT_REOUVERTURE = 3
+PERIODE_SONDAGE = 20.0
+
+
+def tunnel_repond(url: str, timeout: float = 8.0) -> bool:
+    """Le tunnel achemine-t-il encore ? Sondé de l'extérieur, par Cloudflare.
+
+    C'est le seul moyen de distinguer les deux pannes. `cloudflared` peut
+    tourner sans faute pendant que sa liaison avec l'edge est rompue : le
+    navigateur voit une erreur 530, et surveiller le processus ne dit rien.
+
+    Tout code de réponse vaut « vivant » sauf ceux que Cloudflare émet quand
+    il n'atteint pas l'origine : eux seuls signent un tunnel mort.
+    """
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request as Requete, urlopen
+
+    requete = Requete(url.rstrip("/") + "/ping", method="GET")
+    try:
+        with urlopen(requete, timeout=timeout) as reponse:
+            return reponse.status < 500
+    except HTTPError as exc:
+        # 401, 403, 404 : le serveur a répondu, donc le tunnel achemine.
+        return exc.code not in CODES_DE_TUNNEL_MORT
+    except (URLError, OSError, ValueError):
+        return False
+
+
+CODES_DE_TUNNEL_MORT = frozenset(
+    {502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530})
+
+
 def keep_alive(
     server: subprocess.Popen,
     tunnel: subprocess.Popen | None,
@@ -603,33 +639,64 @@ def keep_alive(
     port: int = 8000,
     username: str = "flambee",
     password: str = "",
+    url: str = "",
 ) -> None:
     """Maintient la cellule active et remet le tunnel debout s'il tombe.
 
     Un encodage long sature la machine : le tunnel peut perdre sa liaison avec
     Cloudflare (erreurs 530/1033 dans le navigateur). Le rendu, lui, continue
     côté serveur — il suffit de rouvrir un tunnel et de reprendre.
+
+    Deux pannes distinctes, et la seconde était invisible : le processus qui
+    s'arrête, et le processus qui tourne pendant que sa liaison est rompue.
+    Seule la première était surveillée. On sonde donc l'adresse publique.
     """
     binary = ROOT / "colab" / "cloudflared"
+    muets = 0
     try:
         while True:
-            time.sleep(20)
+            time.sleep(PERIODE_SONDAGE)
             if server.poll() is not None:
                 log("❌ Le serveur s'est arrêté. Relance la cellule.")
                 return
-            if tunnel is not None and tunnel.poll() is not None:
-                log("⚠️  Tunnel interrompu (l'encodage a saturé la machine). "
-                    "Réouverture…")
+            if tunnel is None:
+                continue
+
+            mort = tunnel.poll() is not None
+            if not mort and url:
+                if tunnel_repond(url):
+                    if muets:
+                        log("✅ Le tunnel a repris tout seul — l'adresse n'a "
+                            "pas changé.")
+                    muets = 0
+                    continue
+                muets += 1
+                log(f"⚠️  Le tunnel ne répond plus ({muets}/"
+                    f"{SONDAGES_AVANT_REOUVERTURE}). Le rendu, lui, continue.")
+                mort = muets >= SONDAGES_AVANT_REOUVERTURE
+            if not mort:
+                continue
+
+            log("⚠️  Tunnel interrompu. Réouverture…")
+            if tunnel.poll() is None:
+                # Il tourne encore mais n'achemine plus : le laisser vivant
+                # laisserait deux tunnels concurrents sur le même port.
+                tunnel.terminate()
                 try:
-                    tunnel, url = start_tunnel(binary, port)
-                    log(banner(url, username, password))
-                    afficher_le_lien(url)
-                    log("  ⚠️  L'adresse a changé : utilise la nouvelle "
-                        "ci-dessus. Ton travail en cours est intact.\n")
-                except RuntimeError as exc:
-                    log(f"⚠️  Réouverture impossible ({exc}). "
-                        "Utilise le lien de secours Colab.")
-                    tunnel = None
+                    tunnel.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    tunnel.kill()
+            try:
+                tunnel, url = start_tunnel(binary, port)
+                muets = 0
+                log(banner(url, username, password))
+                afficher_le_lien(url)
+                log("  ⚠️  L'adresse a changé : utilise la nouvelle "
+                    "ci-dessus. Ton travail en cours est intact.\n")
+            except RuntimeError as exc:
+                log(f"⚠️  Réouverture impossible ({exc}). "
+                    "Utilise le lien de secours Colab.")
+                tunnel, url = None, ""
     except KeyboardInterrupt:
         for process in (tunnel, server):
             if process is not None and process.poll() is None:
@@ -693,7 +760,7 @@ def main() -> int:
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
     keep_alive(server, tunnel, port=args.port, username=args.username,
-               password=password)
+               password=password, url=url or "")
     return 0
 
 

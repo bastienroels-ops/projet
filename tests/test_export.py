@@ -171,7 +171,12 @@ def test_toutes_les_pages_publiques_sont_exportees():
                 # Le site publié est libre et gratuit : il n'a pas de page de
                 # tarifs, alors que l'application, elle, garde ses formules
                 # pour le jour où un atelier tournerait quelque part.
-                "/tarifs"}
+                "/tarifs",
+                # « /ping » n'est pas une page : c'est le point de contrôle que
+                # le carnet Colab sonde de l'extérieur, par le tunnel, pour
+                # savoir si celui-ci tient encore. L'exporter n'aurait aucun
+                # sens — le site publié n'a pas de tunnel à surveiller.
+                "/ping"}
     attendues = {a for a in auth.PUBLIC if a not in ignorees}
     assert attendues == set(exporter_site.PAGES), (
         "l'export et les routes publiques ont divergé")

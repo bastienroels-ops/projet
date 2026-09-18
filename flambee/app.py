@@ -823,6 +823,23 @@ async def studio_voix_supprimer(request: Request):
 
 
 # --- Environnement --------------------------------------------------------
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def ping():
+    """Le plus petit signe de vie possible.
+
+    Le carnet Colab l'interroge par le tunnel, de l'extérieur : c'est le seul
+    moyen de distinguer un tunnel tombé d'un serveur tombé. Un `cloudflared`
+    peut tourner pendant que sa liaison avec Cloudflare est rompue — le
+    navigateur voit alors une erreur 530, et surveiller le processus ne dit
+    rien. Cette route ne touche ni au disque ni à la base : la sonder toutes
+    les vingt secondes ne coûte rien. Mesuré : deux octets, 1,7 milliseconde.
+
+    HEAD est accepté au même titre que GET : c'est ce que demandent les outils
+    de surveillance, et un 405 leur ferait conclure à une panne.
+    """
+    return PlainTextResponse("ok", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/health")
 async def health():
     missing = media.ensure_tools()
