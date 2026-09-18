@@ -86,6 +86,43 @@ body.site { padding: 0; }
 .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
 .hero-note { margin: 20px 0 0; font-size: 13px; color: var(--text-faint); }
 
+/* Ce que Flambée fait, en cinq points qu'on lit sans réfléchir — avant même
+   l'appel à l'action, pas après : on ne demande pas un compte à qui ne sait
+   pas encore ce qu'il achète. Le même langage visuel que les jetons flottants
+   du téléphone (fond translucide, pastille discrète), mais posé dans le fil
+   du texte plutôt qu'en survol de l'image. */
+.hero-capacites {
+  list-style: none; margin: 26px 0 32px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 9px;
+}
+.hero-capacites li {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px 8px 11px; border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  font-size: 12.5px; font-weight: 500; color: var(--text-soft);
+  white-space: nowrap;
+}
+.hero-capacites .icone { color: var(--flamme-claire); flex: none; }
+
+/* La flèche des boutons pleins : une chevron déjà dessinée, tournée vers la
+   droite plutôt que redessinée — même trait que le reste du jeu d'icônes. Un
+   filet qui glisse d'un cran au survol dit « ça avance » mieux qu'un bouton
+   immobile. */
+.bouton-fleche {
+  display: inline-flex; margin-left: 2px;
+  transform: rotate(-90deg);
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.button.primary:hover .bouton-fleche { transform: rotate(-90deg) translateY(3px); }
+
+@media (max-width: 900px) {
+  .hero-capacites { justify-content: center; }
+}
+@media (max-width: 680px) {
+  .hero-capacites li { font-size: 12px; padding: 7px 12px 7px 10px; }
+}
+
 /* Le téléphone : un cadre sobre, la vidéo respire dedans. */
 .hero-visuel { display: flex; justify-content: center; }
 .scene { position: relative; }
@@ -623,6 +660,31 @@ input[type=email]:focus, input[type=password]:focus {
 }
 .avis.reussite b { color: var(--ok); }
 @media (max-width: 680px) { .carte-formulaire { padding: 22px; } }
+
+/* --------------------------------------------------------- CTA mobile --- */
+/* Sur un petit écran, le premier écran défile hors de vue en quelques
+   secondes et le geste le plus important de la page — créer sa vidéo —
+   disparaît avec lui. La barre le retient au bord de l'écran, mais seulement
+   une fois le premier écran quitté : la faire apparaître d'emblée referait
+   doublon avec les boutons déjà visibles, et masquerait le bas de l'écran
+   pendant la lecture. `env(safe-area-inset-bottom)` la tient au-dessus de la
+   ligne d'accueil d'un iPhone sans encoche à deviner. */
+.cta-mobile {
+  display: none;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(0deg, rgba(7, 7, 12, .96) 60%, rgba(7, 7, 12, .78));
+  border-top: 1px solid var(--hairline-2);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  translate: 0 100%;
+  transition: translate .35s cubic-bezier(.16, 1, .3, 1);
+}
+.cta-mobile.visible { translate: 0 0; }
+.cta-mobile .button { display: flex; width: 100%; }
+
+@media (max-width: 680px) {
+  .cta-mobile { display: block; }
+}
 
 /* ------------------------------------------------ Révélation au défilement --- */
 .a-reveler {

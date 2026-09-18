@@ -462,6 +462,50 @@ if (entete) {
 })();
 
 
+/* 9. La barre CTA mobile.
+      Visible dès qu'on a quitté le premier écran, effacée à nouveau dès
+      qu'un autre appel à l'action arrive en vue (l'appel final, ou le pied
+      de page) : deux boutons « Créer ma vidéo » à l'écran en même temps
+      n'aident personne, ils se contredisent sur ce qu'il faut toucher. */
+(() => {
+  const barre = document.getElementById("cta-mobile");
+  const hero = document.querySelector(".hero");
+  if (!barre || !hero || !("IntersectionObserver" in window)) return;
+
+  const redondant = document.querySelector(".appel, .site-footer");
+
+  // `aria-hidden` suit la classe : hors écran, ce lien n'a rien à faire dans
+  // l'ordre de tabulation. Posé en dur dans le gabarit au départ — c'est ici
+  // qu'il se lève, une fois la barre réellement visible.
+  const afficher = (montrer) => {
+    barre.classList.toggle("visible", montrer);
+    if (montrer) barre.removeAttribute("aria-hidden");
+    else barre.setAttribute("aria-hidden", "true");
+  };
+
+  const heroVisible = new IntersectionObserver(
+    (entrees) => {
+      const encore = entrees[0].isIntersecting;
+      afficher(!encore && !document.body.dataset.ctaMasquee);
+    },
+    { rootMargin: "-10% 0px 0px 0px" },
+  );
+  heroVisible.observe(hero);
+
+  if (redondant) {
+    const finVisible = new IntersectionObserver(
+      (entrees) => {
+        const proche = entrees[0].isIntersecting;
+        document.body.dataset.ctaMasquee = proche ? "1" : "";
+        if (proche) afficher(false);
+      },
+      { rootMargin: "0px 0px -30% 0px" },
+    );
+    finVisible.observe(redondant);
+  }
+})();
+
+
 /* ---------------------------------------------- Le test de l'accroche ------
    Trois manches de deux boutons. Un clic verrouille la manche, ouvre les deux
    verdicts et compte le point. Tout le contenu est déjà dans la page : sans
