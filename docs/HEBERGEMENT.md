@@ -161,13 +161,25 @@ se colle dans le formulaire de création du serveur, et la machine fait le reste
 — Docker, construction de l'image, pare-feu, certificat HTTPS, sauvegarde
 nocturne.
 
+### Quel hébergeur
+
+Le même fichier `deploiement/oracle-cloud-init.yaml` s'utilise tel quel chez
+n'importe quel hébergeur qui propose un champ *cloud-init* ou *script de
+démarrage*. Le choix ne change rien au contenu de ce chapitre, seulement le
+formulaire où l'on colle le fichier.
+
+| | Prix | Ce qu'on y gagne | Ce qu'on y perd |
+|---|---|---|---|
+| **Oracle Cloud, offre « Always Free »** | 0 € | 4 cœurs ARM et 24 Go, plus que la plupart des offres payantes | L'inscription demande une carte bancaire (non débitée) et les instances ARM gratuites sont souvent en rupture. Le compte peut être suspendu sans préavis. |
+| **Hetzner CAX11** (ou Scaleway, OVH) | ~4 €/mois | S'ouvre en cinq minutes, ne tombe pas, et la machine existe vraiment | Quatre euros par mois |
+
+Si Flambée devient ton outil de travail, les quatre euros achètent surtout de
+ne plus jamais y penser. L'offre gratuite d'Oracle reste le bon essai pour
+voir si la chose te convient avant de payer quoi que ce soit.
+
 ### La marche à suivre
 
-Ce chapitre décrit l'installation sur l'offre gratuite d'Oracle. Le même
-fichier `deploiement/oracle-cloud-init.yaml` s'utilise tel quel chez n'importe
-quel hébergeur qui propose un champ *cloud-init* ou *script de démarrage* —
-Hetzner, Scaleway, OVH — avec ton propre nom de domaine dans le champ
-`DOMAINE`. C'est la voie à prendre dès que des clients paient : voir
+C'est la voie à prendre dès que des clients paient : voir
 [`VENDRE.md`](VENDRE.md).
 
 1. **Une adresse gratuite.** Sur [duckdns.org](https://www.duckdns.org),
@@ -178,13 +190,60 @@ Hetzner, Scaleway, OVH — avec ton propre nom de domaine dans le champ
 3. **Le fichier.** Ouvre `deploiement/oracle-cloud-init.yaml`, renseigne les
    deux champs DuckDNS en haut, puis colle tout le contenu dans
    *Show advanced options* → *Paste cloud-init script*.
-4. **Attendre.** Compter une dizaine de minutes : la construction de l'image
-   est le poste le plus long. Le site répond ensuite sur
-   `https://<ton-nom>.duckdns.org`.
+4. **Attendre, en regardant.** Ouvre `http://<ton-nom>.duckdns.org` — en
+   `http`, sans le `s` — une minute après la création. Une page affiche
+   l'étape en cours et se rafraîchit toute seule :
+
+   > **Flambée s'installe**
+   > Étape 6 sur 7 — Construction de l'image (plusieurs minutes)
+
+   Elle existe pour une raison précise : sans elle, la machine ne répond rien
+   pendant dix minutes, ce qui est exactement ce qu'elle ferait si
+   l'installation avait échoué. On ne pouvait pas distinguer les deux, et il
+   n'y a pas de terminal sur un iPhone pour aller voir le journal. Si quelque
+   chose s'arrête, cette même page le dit en français et montre les dernières
+   lignes du journal.
+
+   Quand elle affiche **Ouvrir Flambée**, le site répond sur
+   `https://<ton-nom>.duckdns.org`. Compter une dizaine de minutes en tout.
 
 Le premier compte créé est le tien, et il reçoit d'office la formule Studio :
 crédits illimités, toutes les rubriques. Ferme les inscriptions juste après
 (`FLAMBEE_SIGNUP=ferme` dans `/opt/flambee/.env`).
+
+### Les corrections arrivent toutes seules
+
+À 4 h 10 chaque nuit, le serveur va voir si la branche a bougé. Si oui, il
+reconstruit et redémarre ; sinon il ne touche à rien. Deux garde-fous, parce
+qu'une mise à jour automatique qui casse quelque chose est pire que pas de
+mise à jour du tout :
+
+- **jamais pendant un rendu.** Le script demande à l'application combien de
+  travaux tournent (`/api/health`, champ `travaux_en_cours`) et repart sans
+  rien faire s'il y en a. Un travail figé depuis plus d'un quart d'heure n'est
+  plus compté : sinon une seule vidéo ratée bloquerait les mises à jour pour
+  toujours ;
+- **jamais pour rien.** Si le dépôt n'a pas bougé, rien n'est reconstruit —
+  la construction coupe le service plusieurs minutes.
+
+Le journal se lit dans `/var/log/flambee-mise-a-jour.log`. Pour ne plus rien
+recevoir, commenter la ligne dans `crontab -e`, ou pointer `BRANCHE` sur une
+version figée.
+
+### Ce qui change par rapport à Colab
+
+| | Colab | Serveur permanent |
+|---|---|---|
+| Adresse | Nouvelle à chaque lancement | La même, pour toujours |
+| Erreurs 530 / 1033 | Possibles, c'est un tunnel | **Impossibles : il n'y a plus de tunnel** |
+| Durée de vie | Quelques heures, puis la machine est reprise | Permanente |
+| Les vidéos produites | Disparaissent avec la machine | Restent, et sont sauvegardées chaque nuit |
+| Un rendu quand l'onglet est fermé | S'arrête | Continue |
+| Démarrage | Lancer une cellule, attendre deux minutes | Rien à faire, c'est allumé |
+| Téléchargement TikTok/YouTube | Bloqué depuis une IP Google | Un peu moins bloqué depuis un autre hébergeur, mais les plateformes filtrent aussi les centres de données : ne compte pas dessus, l'import de fichiers reste la voie sûre |
+
+Le carnet Colab n'est pas supprimé pour autant : il reste le dépannage du
+jour où le serveur a un problème.
 
 ### Brancher la vitrine sur l'atelier
 
@@ -231,10 +290,31 @@ Reste à faire de ton côté : ouvrir aussi les ports 80 et 443 dans la *Securit
 List* du réseau virtuel, côté console Oracle — le pare-feu de la machine ne
 suffit pas, celui du réseau compte aussi.
 
-Ce fichier a été relu et ses chemins testés un par un (adresse DuckDNS valide,
-jeton refusé, domaine propre, repli), mais **il n'a pas été exécuté sur une
-vraie instance Oracle** : je n'y ai pas accès. En cas d'échec, le journal se
-lit dans `/var/log/flambee-installation.log`.
+### Ce qui a été vérifié, et ce qui ne peut pas l'être
+
+Ce qui l'a été, et qui tourne à chaque exécution de la suite de tests
+(`tests/test_deploiement.py`) :
+
+- le fichier est un cloud-init valide, et chacun des quatre scripts qu'il
+  embarque passe l'analyse syntaxique de son interpréteur ;
+- aucun réglage `FLAMBEE_*` écrit par le déploiement n'est ignoré par le code
+  — une faute de frappe y serait invisible autrement ;
+- les étapes annoncées à la page d'attente sont celles qu'elle connaît, et
+  dans un ordre où la progression ne recule jamais ;
+- la page d'attente rend bien le port 80 **avant** que Caddy le réclame, et
+  seulement **après** la construction de l'image ;
+- la mise à jour nocturne ne reconstruit ni pendant un rendu, ni sans raison.
+
+Le script de mise à jour a été exécuté pour de vrai, contre un dépôt git réel
+et une fausse application : neuf cas, du « rien de neuf » au « la nouvelle
+version ne redémarre pas ». La page d'attente aussi, dans un navigateur, à
+390 px de large.
+
+Ce qui ne l'a pas été : **le fichier n'a jamais tourné sur une vraie
+instance**, je n'y ai pas accès. Les chemins d'erreur sont écrits et relus
+(adresse DuckDNS valide, jeton refusé, domaine propre, repli), pas exécutés
+sur une machine Oracle. En cas d'échec, la page d'attente affiche la raison,
+et le journal complet se lit dans `/var/log/flambee-installation.log`.
 
 ### Si le serveur gratuit n'est pas disponible
 

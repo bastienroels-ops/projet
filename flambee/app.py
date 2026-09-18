@@ -866,6 +866,11 @@ async def health():
         "anthropic_key": scriptgen.api_key_available(),
         "output_dir": str(config.OUTPUT_DIR),
         "music_count": len(pipeline.list_music()),
+        # Lu par le script de mise à jour du serveur, qui redémarre le
+        # conteneur : il reporte au lendemain plutôt que de couper un rendu
+        # en cours. C'est un nombre, sans identifiant ni titre — la sonde
+        # doit rester ouverte à tous, comme la surveillance qui l'interroge.
+        "travaux_en_cours": store.travaux_en_cours(),
     }
 
 

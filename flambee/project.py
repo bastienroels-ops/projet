@@ -322,6 +322,31 @@ class ProjectStore:
         projects.sort(key=lambda p: p.created_at, reverse=True)
         return projects[:limit]
 
+    def travaux_en_cours(self, fraicheur: float = 900.0) -> int:
+        """Combien de rendus, imports ou téléchargements tournent en ce moment.
+
+        Lu sur le disque plutôt qu'en mémoire : ce qui interroge cette valeur
+        est le script de mise à jour du serveur, qui redémarre le conteneur.
+        Un compte en mémoire ne survivrait pas au redémarrage précédent, et
+        laisserait croire que la machine est libre pendant qu'elle encode.
+
+        `fraicheur` écarte les travaux morts. Un rendu tué par un manque de
+        mémoire reste inscrit « running » à jamais : sans cette borne, une
+        seule vidéo ratée empêcherait toute mise à jour pour toujours.
+        """
+        limite = time.time() - fraicheur
+        total = 0
+        for chemin in config.WORK_DIR.glob("**/projets/*/project.json"):
+            try:
+                brut = json.loads(chemin.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            travail = brut.get("job") or {}
+            if (travail.get("state") == "running"
+                    and float(travail.get("updated_at") or 0) > limite):
+                total += 1
+        return total
+
     def purge(self, owner: int, jours: int | None) -> list[str]:
         """Efface les projets d'un compte plus vieux que `jours`.
 
