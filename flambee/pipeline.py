@@ -408,41 +408,105 @@ def _voice_signature(project: Project) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceTrack:
-    """Retourne la voix off, depuis le cache du projet si elle est à jour."""
+# Un verrou par projet autour de la synthèse. Sans lui, un rendu lancé
+# pendant la préparation de la voix la referait en parallèle : deux appels
+# réseau, deux écritures dans le même fichier, et le minutage de celui qui
+# finit second.
+_verrous_voix: dict[str, threading.Lock] = {}
+_garde_voix = threading.Lock()
+
+
+def _verrou_voix(project_id: str) -> threading.Lock:
+    with _garde_voix:
+        return _verrous_voix.setdefault(project_id, threading.Lock())
+
+
+def prechauffer_la_voix(project: Project) -> None:
+    """Fabrique la voix dès que le script est validé, sans rien annoncer.
+
+    Mesuré : la synthèse et son calage pèsent plus du quart de l'attente d'un
+    aperçu. Or le script est connu une étape avant le rendu, et l'utilisateur
+    passe ce temps-là à lire son récapitulatif. Autant l'occuper.
+
+    Cette tâche ne touche pas à l'état du projet : elle écrit la voix dans le
+    cache et s'arrête là. Si elle échoue — réseau coupé, voix retirée —, le
+    rendu la refera et signalera l'erreur lui-même, à un moment où
+    l'utilisateur attend une réponse.
+    """
+    try:
+        if project.settings.voice == voicestudio.VOICE_ID:
+            return                           # rien à synthétiser
+        if not project.script.strip():
+            return
+        _voice_track(project, silencieux=True)
+        project.save()
+        log.info("Voix préparée d'avance pour le projet %s.", project.id)
+    except Exception as exc:                 # jamais rien casser en arrière-plan
+        log.info("Préparation de la voix impossible (%s) : le rendu s'en "
+                 "chargera.", exc)
+
+
+def _voice_track(project: Project, *, cached_only: bool = False,
+                 silencieux: bool = False) -> voice.VoiceTrack:
+    """Retourne la voix off, depuis le cache du projet si elle est à jour.
+
+    `silencieux` : ne rien écrire dans l'état de la tâche. C'est ce que fait
+    la préparation d'avance, qui tourne pendant que l'utilisateur regarde une
+    page où aucune barre de progression n'a de sens.
+    """
     # Voix importée : le fichier existe déjà, son minutage vient de la
     # transcription. Rien à synthétiser, et le script n'entre pas en jeu.
+    def annoncer(progress: float, message: str) -> None:
+        if not silencieux:
+            project.set_job("render", "running", progress=progress,
+                            message=message)
+
     if project.settings.voice == voicestudio.VOICE_ID:
         piste = voicestudio.piste(project.owner)
-        project.set_job("render", "running", progress=0.10,
-                        message="Voix importée : montage calé sur ton enregistrement.")
+        annoncer(0.10, "Voix importée : montage calé sur ton enregistrement.")
         return piste
 
     signature = _voice_signature(project)
     path = project.dir / "voice.mp3"
 
-    if (
-        project.voice_signature == signature
-        and project.voice_words
-        and path.exists()
-        and project.voice_duration > 0
-    ):
+    def depuis_le_cache() -> voice.VoiceTrack | None:
+        if (project.voice_signature == signature and project.voice_words
+                and path.exists() and project.voice_duration > 0):
+            return voice.VoiceTrack(
+                path=str(path),
+                duration=project.voice_duration,
+                words=[voice.Word(**word) for word in project.voice_words],
+                voice=project.settings.voice,
+                lead_in=project.voice_lead_in,
+            )
+        return None
+
+    piste = depuis_le_cache()
+    if piste is not None:
         log.info("Voix off réutilisée (script inchangé).")
-        project.set_job("render", "running", progress=0.10,
-                        message="Voix off réutilisée (script inchangé).")
-        return voice.VoiceTrack(
-            path=str(path),
-            duration=project.voice_duration,
-            words=[voice.Word(**word) for word in project.voice_words],
-            voice=project.settings.voice,
-            lead_in=project.voice_lead_in,
-        )
+        annoncer(0.10, "Voix off réutilisée (script inchangé).")
+        return piste
 
     if cached_only:
         raise MediaError("Aucune voix off en cache.")
 
-    project.set_job("render", "running", progress=0.06,
-                    message="Génération de la voix off…")
+    # Le verrou fait attendre un rendu lancé pendant la préparation d'avance
+    # — le temps qu'elle finisse, pas le temps d'une seconde synthèse. D'où
+    # la relecture du cache une fois le verrou obtenu : entre-temps, le
+    # travail a peut-être été fait.
+    with _verrou_voix(project.id):
+        piste = depuis_le_cache()
+        if piste is not None:
+            log.info("Voix off préparée d'avance : rien à refaire.")
+            annoncer(0.10, "Voix off prête.")
+            return piste
+        return _synthetiser(project, path, signature, annoncer)
+
+
+def _synthetiser(project: Project, path: Path, signature: str,
+                 annoncer) -> voice.VoiceTrack:
+    """La synthèse elle-même. Appelée sous verrou, jamais deux fois de front."""
+    annoncer(0.06, "Génération de la voix off…")
     track = voice.synthesize(
         project.script, path,
         voice=project.settings.voice,
@@ -453,15 +517,19 @@ def _voice_track(project: Project, *, cached_only: bool = False) -> voice.VoiceT
     # aucune pause, là où l'audio en a trois secondes sur dix. On le relève
     # donc sur le son lui-même. Sans condition : ça ne coûte qu'une passe
     # ffmpeg, et c'est mesuré dix fois plus juste.
-    project.set_job("render", "running", progress=0.08,
-                    message="Calage des sous-titres sur la voix…")
+    annoncer(0.08, "Calage des sous-titres sur la voix…")
     cales = calage.caler(track.words, path)
     if cales is not track.words:
         # Les mots calés sont déjà dans le temps de l'audio : le décalage du
         # silence initial n'a plus lieu d'être, il ferait double emploi.
         track = replace(track, words=cales, lead_in=0.0)
 
+    # Tout ce qui décide de la relecture du cache s'écrit ici, y compris la
+    # durée : elle n'était posée que par `run_render`, si bien qu'une voix
+    # préparée d'avance échouait au contrôle et se refaisait entièrement.
     project.voice_signature = signature
+    project.voice_path = str(path)
+    project.voice_duration = track.duration
     project.voice_words = [word.to_dict() for word in track.words]
     project.voice_lead_in = track.lead_in
     return track

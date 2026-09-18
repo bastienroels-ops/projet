@@ -1409,6 +1409,14 @@ async def save_script(request: Request, project_id: str, body: ScriptIn):
         project.instructions = body.instructions
     project.step = max(project.step, 5)
     project.save()
+
+    # La voix se fabrique dès maintenant, en fond. Mesuré : elle pèse plus du
+    # quart de l'attente d'un aperçu, et l'utilisateur passe les secondes qui
+    # suivent à lire son récapitulatif. Rien n'est annoncé — la tâche ne
+    # touche pas à l'état du projet — et un échec est sans conséquence : le
+    # rendu la referait, en le disant.
+    if project.job.state != "running":
+        _spawn(pipeline.prechauffer_la_voix, project)
     return _project_payload(project)
 
 

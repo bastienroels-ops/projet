@@ -283,8 +283,19 @@ _ENCODER_CANDIDATES: tuple[Encoder, ...] = (
     Encoder("h264_qsv", True,
             ("-preset", "medium", "-global_quality", "22", "-b:v", "8M"),
             ("-preset", "veryfast", "-global_quality", "28", "-b:v", "4M")),
+    # `veryfast -crf 18` plutôt que `fast -crf 20` : mesuré sur six secondes
+    # en 1080x1920, filtres et sous-titres compris, 2,16 s contre 3,40 s — un
+    # tiers de moins — pour un SSIM de 0,99646 contre 0,99637, soit un poil
+    # mieux. Le fichier grossit de 8 % (5,4 Mo contre 5,0).
+    #
+    # `superfast -crf 23` descendait à 1,76 s, mais avec 24 % de poids en
+    # plus : sur un tunnel mobile, le téléchargement reprend le temps gagné.
+    # L'aperçu garde `veryfast -crf 24`, déjà au meilleur point : les presets
+    # plus rapides lui font gagner un dixième de seconde et triplent son
+    # poids, alors qu'il est justement là pour être vu tout de suite.
     Encoder("libx264", False,
-            ("-preset", "fast", "-crf", "20", "-profile:v", "high", "-level", "4.1"),
+            ("-preset", "veryfast", "-crf", "18", "-profile:v", "high",
+             "-level", "4.1"),
             ("-preset", "veryfast", "-crf", "24")),
 )
 
