@@ -442,6 +442,32 @@ def environnement_isole(monkeypatch):
     return copie
 
 
+def test_le_carnet_ne_conseille_pas_de_mettre_l_adresse_en_signet():
+    """C'est le conseil qui coûtait le plus cher.
+
+    Le carnet disait « Partager → Sur l'écran d'accueil » juste après avoir
+    affiché l'adresse de Flambée. Suivi à la lettre, il posait sur l'écran
+    d'accueil une adresse qui meurt avec la session : le lendemain, l'icône
+    menait à « serveur introuvable », et rien n'expliquait pourquoi. La seule
+    adresse qui survit à une session, c'est celle du carnet.
+    """
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    texte = "\n".join("".join(c["source"]) for c in notebook["cells"]
+                      if c["cell_type"] == "markdown")
+    # Le Markdown coupe ses lignes où il veut : « **ce\n   carnet** » est le
+    # même conseil que « ce carnet ». On aplatit avant de chercher.
+    plat = " ".join(texte.replace("*", "").split()).lower()
+
+    ecran = plat.index("écran d'accueil")
+    voisinage = plat[max(0, ecran - 400):ecran + 200]
+    assert "ce carnet" in voisinage, (
+        "le carnet doit dire de mettre le CARNET sur l'écran d'accueil, "
+        "pas l'adresse de Flambée")
+    assert "serveur introuvable" in plat, (
+        "les deux façons dont Safari annonce une adresse morte doivent être "
+        "nommées : « Error 1033 » et « serveur introuvable »")
+
+
 # --- La cellule que le navigateur garde en mémoire -------------------------
 # Colab conserve la cellule affichée dans le navigateur de l'utilisateur. Je
 # peux mettre à jour `launch.py` à distance — la cellule commence par un

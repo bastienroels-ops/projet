@@ -719,6 +719,31 @@ def tunnel_repond(url: str, timeout: float = 8.0) -> bool:
         return False
 
 
+def serveur_local_repond(port: int, timeout: float = 4.0) -> bool:
+    """La machine répond-elle encore, tunnel mis à part ?
+
+    Question décisive avant de conclure que le tunnel est mort. Pendant un
+    encodage, une machine Colab peut être saturée au point que sa propre
+    boucle locale mette plus de huit secondes à répondre. Vu de l'extérieur,
+    c'est indiscernable d'un tunnel rompu — et on rouvrait alors un tunnel
+    parfaitement sain, ce qui change l'adresse publique pour rien.
+
+    Changer l'adresse coûte cher : l'onglet ouvert sur le téléphone meurt, et
+    le signet aussi. On ne le fait donc que si la machine, elle, va bien.
+    """
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request as Requete, urlopen
+
+    requete = Requete(f"http://127.0.0.1:{port}/ping", method="GET")
+    try:
+        with urlopen(requete, timeout=timeout) as reponse:
+            return reponse.status < 500
+    except HTTPError:
+        return True             # il a répondu quelque chose : il est vivant
+    except (URLError, OSError, ValueError):
+        return False
+
+
 CODES_DE_TUNNEL_MORT = frozenset(
     {502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527, 530})
 
@@ -764,6 +789,15 @@ def keep_alive(
                         log("✅ Le tunnel a repris tout seul — l'adresse n'a "
                             "pas changé.")
                     muets = 0
+                    continue
+                # Avant d'accuser le tunnel : la machine répond-elle ?
+                # Saturée par un encodage, elle ne répond ni dehors ni
+                # dedans — et rouvrir le tunnel n'y changerait rien, sinon
+                # faire perdre son adresse à l'utilisateur.
+                if not serveur_local_repond(port):
+                    log("⚠️  La machine est saturée : elle ne répond pas "
+                        "non plus en local. On attend plutôt que de rouvrir "
+                        "un tunnel sain — l'adresse ne change pas.")
                     continue
                 muets += 1
                 log(f"⚠️  Le tunnel ne répond plus ({muets}/"

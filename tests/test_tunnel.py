@@ -176,6 +176,9 @@ def _surveiller(monkeypatch, reponses, tours):
 
     monkeypatch.setattr(launch.time, "sleep", _dormeur(restant, tours))
     monkeypatch.setattr(launch, "tunnel_repond", lambda url, **k: restant.pop(0))
+    # Machine saine : c'est bien le tunnel qui est en cause, et non la
+    # saturation de l'encodage.
+    monkeypatch.setattr(launch, "serveur_local_repond", lambda port, **k: True)
     monkeypatch.setattr(launch, "log", lambda *a: None)
     monkeypatch.setattr(launch, "afficher_le_lien", lambda url: None)
     monkeypatch.setattr(launch, "banner", lambda *a: "")
@@ -348,6 +351,55 @@ def test_une_seule_adresse_ne_donne_qu_un_bouton(monkeypatch):
 
 
 # --- La cellule que Colab garde en mémoire ---------------------------------
+def test_une_machine_saturee_ne_fait_pas_changer_l_adresse(monkeypatch):
+    """Pendant un encodage, Colab peut être si chargée que sa propre boucle
+    locale met plus de huit secondes à répondre. Vu de l'extérieur, c'est
+    indiscernable d'un tunnel rompu — et on rouvrait alors un tunnel sain,
+    ce qui tuait l'onglet ouvert sur le téléphone pour rien."""
+    serveur, tunnel = _Faux(), _Faux()
+    ouvertures = []
+    restant = [False, False, False, False, False]
+
+    monkeypatch.setattr(launch.time, "sleep", _dormeur(restant, 5))
+    monkeypatch.setattr(launch, "tunnel_repond", lambda url, **k: restant.pop(0))
+    monkeypatch.setattr(launch, "serveur_local_repond", lambda port, **k: False)
+    monkeypatch.setattr(launch, "log", lambda *a: None)
+    monkeypatch.setattr(launch, "start_tunnel",
+                        lambda b, p, **k: (ouvertures.append(p), (_Faux(), "x"))[1])
+
+    launch.keep_alive(serveur, tunnel, port=8000,
+                      url="https://ancienne.trycloudflare.com")
+    assert ouvertures == [], (
+        "cinq sondages muets sur une machine saturée : rouvrir le tunnel "
+        "n'y changerait rien et coûterait l'adresse")
+
+
+def test_une_machine_saine_fait_bien_rouvrir_le_tunnel(monkeypatch):
+    """Le pendant du précédent : si la machine répond en local et que seul le
+    dehors est muet, c'est bien le tunnel, et il faut le rouvrir."""
+    _, ouvertures = _surveiller(monkeypatch, [False, False, False], 3)
+    assert ouvertures == [8000]
+
+
+def test_la_sonde_locale_ne_passe_pas_par_le_tunnel(monkeypatch):
+    """Elle doit viser la boucle locale : passer par l'adresse publique
+    reposerait la question qu'on cherche justement à trancher."""
+    vues = []
+
+    class _Reponse:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def ouvrir(requete, timeout=None):
+        vues.append(requete.full_url)
+        return _Reponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", ouvrir)
+    launch.serveur_local_repond(8000)
+    assert vues == ["http://127.0.0.1:8000/ping"]
+
+
 def test_la_surveillance_retrouve_l_adresse_toute_seule(monkeypatch):
     """La cellule gardée en mémoire par le navigateur appelle `keep_alive`
     sans lui passer `url`. Sans repli, la surveillance du tunnel ne
@@ -363,6 +415,7 @@ def test_la_surveillance_retrouve_l_adresse_toute_seule(monkeypatch):
     monkeypatch.setattr(launch.time, "sleep", _dormeur(restant, 2))
     monkeypatch.setattr(launch, "tunnel_repond", sonder)
     monkeypatch.setattr(launch, "log", lambda *a: None)
+    monkeypatch.setattr(launch, "serveur_local_repond", lambda port, **k: True)
     monkeypatch.setattr(launch, "_ADRESSE", "https://memoire.trycloudflare.com")
 
     launch.keep_alive(serveur, tunnel, port=8000)      # sans url, comme la cellule
