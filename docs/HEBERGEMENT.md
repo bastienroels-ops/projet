@@ -384,6 +384,65 @@ faut ouvrir les ports dans la *Security List* du réseau virtuel, comme dit
 plus haut. Les instances ARM gratuites sont souvent en rupture dans les
 régions populaires : essayer une autre région est le premier réflexe.
 
+### Chez OVH, ou tout hébergeur sans champ cloud-init
+
+Le VPS d'OVHcloud n'offre aucun champ *cloud-init* à la création (demande
+ouverte chez eux, jamais livrée) : il ne reste qu'un accès SSH ou la console
+dans le navigateur. `deploiement/installer.sh` fait exactement ce que fait le
+cloud-init ci-dessus, mais en une commande à coller plutôt qu'un fichier à
+remplir :
+
+```bash
+curl -fsSL <adresse-brute-du-fichier> | bash -s -- <nom-duckdns> <jeton>
+```
+
+Avec DuckDNS, c'est tout : les deux arguments suffisent, exactement comme
+dans le formulaire cloud-init.
+
+**Pour un nom de domaine à toi (`flambee.online`, par exemple) plutôt que
+DuckDNS**, il faut passer les deux arguments vides et fournir `DOMAINE` —
+mais **pas avec un simple préfixe devant `curl`**. Ceci ne marche pas :
+
+```bash
+# NE MARCHE PAS : DOMAINE n'atteint que curl, jamais le bash du pipe.
+DOMAINE=flambee.online curl -fsSL <adresse> | bash -s -- "" ""
+```
+
+En shell, `VAR=valeur commande` ne s'applique qu'à cette commande précise ;
+dans un pipe, chaque côté a son propre environnement. `curl` reçoit bien
+`DOMAINE`, mais le `bash` qui exécute réellement l'installateur ne le voit
+jamais — il retombe silencieusement sur le repli `sslip.io`, écrit cette
+adresse dans `/etc/flambee/parametres`, et **n'y touche plus jamais** aux
+lancements suivants (le fichier n'est écrit qu'une fois). Le site répondrait
+alors sur une adresse en `.sslip.io`, jamais sur `flambee.online`, et corriger
+demanderait de supprimer `/etc/flambee/parametres` à la main pour forcer une
+nouvelle écriture.
+
+Deux façons de faire, vérifiées :
+
+```bash
+# 1. Télécharger, inspecter, puis exécuter — le préfixe porte alors sur
+#    bash lui-même, plus sur curl. Plus sûr aussi : jamais de script
+#    inconnu exécuté en root sans l'avoir lu.
+curl -fsSL <adresse-brute-du-fichier> -o installer.sh
+DOMAINE=flambee.online bash installer.sh "" ""
+
+# 2. Ou exporter avant le pipe — un `export` rejoint l'environnement de
+#    tous les processus lancés ensuite par ce shell, des deux côtés du pipe.
+export DOMAINE=flambee.online
+curl -fsSL <adresse-brute-du-fichier> | bash -s -- "" ""
+```
+
+Ajouter au passage `ANTHROPIC_API_KEY=...` et/ou `CLE_ACCES=...` (code
+d'invitation) devant la même commande les préremplit dans `.env`, comme
+`DOMAINE`.
+
+Là où cloud-init existe (Hetzner, Oracle, Scaleway, OVH Public Cloud),
+`serveur-cloud-init.yaml` appelle ce même fichier : les deux méthodes posent
+le même témoin de progression, la même sauvegarde nocturne et la même mise à
+jour automatique, et un test du dépôt vérifie que les scripts qu'elles
+embarquent restent identiques au caractère près.
+
 ## Ce qui a été vérifié
 
 L'image a été construite et exécutée, et le parcours complet a tourné dedans :
