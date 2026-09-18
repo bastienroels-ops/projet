@@ -927,20 +927,26 @@ function choisirFond(valeur) {
 const BROUILLON = "flambee.brouillon";
 let _minuterieBrouillon = null;
 
-function ecrireLeBrouillon() {
+function ecrireLeBrouillon({ tout_de_suite = false } = {}) {
   if (!state.project) return;
   clearTimeout(_minuterieBrouillon);
-  _minuterieBrouillon = setTimeout(() => {
+  const ecrire = () => {
     try {
       localStorage.setItem(BROUILLON, JSON.stringify({
         projet: state.project.id,
+        liens: $("#urls").value,
         script: $("#script").value,
         sujet: $("#topic").value,
         consignes: $("#instructions").value,
         le: Date.now(),
       }));
     } catch (_) { /* mode privé, quota plein : on s'en passe */ }
-  }, 600);
+  };
+  if (tout_de_suite) {
+    ecrire();                  // on s'apprête à quitter la page
+    return;
+  }
+  _minuterieBrouillon = setTimeout(ecrire, 600);
 }
 
 function lireLeBrouillon() {
@@ -957,16 +963,27 @@ function oublierLeBrouillon() {
   try { localStorage.removeItem(BROUILLON); } catch (_) { /* rien à faire */ }
 }
 
-/* Appelé quand un projet arrive du serveur. On ne remplit que du vide. */
+/* Appelé quand un projet arrive du serveur. On ne remplit que du vide.
+
+   Deux sauvetages indépendants : les liens de l'étape 1 et le script de
+   l'étape 4. Les mêler ferait qu'un script déjà validé côté serveur — donc
+   plus rien à sauver de ce côté — emporterait aussi les liens en attente. */
 function rendreLeBrouillon(project) {
   const garde = lireLeBrouillon();
   if (!garde || garde.projet !== project.id) return;
-  if (project.script && project.script.trim()) {
-    oublierLeBrouillon();          // le serveur a mieux : on ne garde rien
+
+  // Les liens collés mais pas encore téléchargés se perdaient dès qu'on
+  // quittait la page — et ouvrir TikTok, c'est justement la quitter.
+  if (garde.liens && garde.liens.trim() && !$("#urls").value.trim()) {
+    $("#urls").value = garde.liens;
+    compterLesLiens();
+  }
+
+  const serveurAUnScript = Boolean(project.script && project.script.trim());
+  if (serveurAUnScript || !garde.script || !garde.script.trim()
+      || $("#script").value.trim()) {
     return;
   }
-  if (!garde.script || !garde.script.trim()) return;
-  if ($("#script").value.trim()) return;
 
   $("#script").value = garde.script;
   if (garde.sujet && !$("#topic").value) $("#topic").value = garde.sujet;
@@ -1055,6 +1072,7 @@ async function collerUnLien(bouton) {
     + neufs.join("\n");
   alertBox("");
   compterLesLiens();
+  ecrireLeBrouillon();
   signaler(bouton, neufs.length > 1 ? `${neufs.length} liens ajoutés` : "Ajouté");
 }
 
@@ -1103,6 +1121,32 @@ function bind() {
   $("#btn-new").addEventListener("click", newProject);
 
   // --- La chasse aux liens ---
+  /* `target="_blank"` ouvrait une vue web par-dessus l'application, et le
+     site de TikTok n'y démarre jamais : écran blanc, deux points qui tournent
+     à l'infini. Constaté sur un iPhone.
+
+     La cause est en amont : sur iOS, une nouvelle vue web court-circuite le
+     lien universel qui aurait passé la main à l'application installée. Une
+     navigation ordinaire, elle, le laisse s'exercer — et c'est bien
+     l'application qu'on veut, pas le site.
+
+     Quitter la page ne coûte plus rien : le projet vit sur le serveur, et les
+     liens comme le script sont gardés dans le navigateur. */
+  const auDoigt = window.matchMedia("(pointer: coarse)").matches;
+  $$(".chasse-bouton[href]").forEach((lien) => {
+    if (!auDoigt) {
+      // À la souris, un onglet à côté est ce qu'on veut : il n'y a pas
+      // d'application à qui passer la main, et la page reste sous les yeux.
+      lien.target = "_blank";
+      return;
+    }
+    lien.addEventListener("click", (e) => {
+      e.preventDefault();
+      ecrireLeBrouillon({ tout_de_suite: true });
+      window.location.href = lien.href;
+    });
+  });
+
   const coller = $("#btn-coller");
   if (coller) {
     coller.hidden = !collageDisponible();
@@ -1122,7 +1166,10 @@ function bind() {
       + "reviens le coller dans la zone ci-dessous. (Le bouton Coller demande "
       + "une adresse en https ; ici la page est servie en clair.)";
   }
-  $("#urls").addEventListener("input", compterLesLiens);
+  $("#urls").addEventListener("input", () => {
+    compterLesLiens();
+    ecrireLeBrouillon();
+  });
   compterLesLiens();
 
   $$(".step").forEach((b) => b.addEventListener("click", () => {

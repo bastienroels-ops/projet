@@ -63,19 +63,27 @@ def test_les_icones_des_cartes_viennent_du_jeu_du_serveur(compte):
     assert "<svg" in texte.split('data-icone="lecture"')[1][:200]
 
 
-def test_les_liens_vers_les_plateformes_ouvrent_un_onglet_isole(compte):
-    """TikTok et YouTube refusent d'être affichés dans la page — mesuré, ils
-    envoient `x-frame-options: SAMEORIGIN`. On ouvre donc un onglet à côté.
+def test_les_liens_vers_les_plateformes_n_ouvrent_pas_de_vue_a_part(compte):
+    """`target="_blank"` n'est plus dans le gabarit, et c'est un correctif.
 
-    `rel="noopener"` n'est pas décoratif : sans lui, la page ouverte garde une
-    référence sur celle-ci et peut la remplacer pendant qu'on regarde
-    ailleurs. C'est une page qu'on ne contrôle pas, et un projet en cours.
+    Sur un iPhone, il ouvrait une vue web par-dessus l'application où le site
+    de TikTok ne démarrait jamais — écran blanc, deux points qui tournent.
+    Constaté. La cause est en amont : sur iOS, une nouvelle vue web
+    court-circuite le lien universel qui aurait passé la main à l'application
+    installée, et c'est bien l'application qu'on veut.
+
+    Le script repose l'attribut quand le pointeur est fin — à la souris, un
+    onglet à côté est ce qu'on veut, il n'y a pas d'application à qui passer
+    la main. `rel="noopener"` reste dans le gabarit pour ce cas-là : sans lui,
+    la page ouverte garde une référence sur celle-ci et peut la remplacer
+    pendant qu'on regarde ailleurs.
     """
     texte = compte.get("/studio").text
     for identifiant in ("lien-tiktok", "lien-shorts"):
         debut = texte.index(f'id="{identifiant}"')
-        balise = texte[max(0, debut - 200):debut + 200]
-        assert 'target="_blank"' in balise, identifiant
+        balise = texte[debut:texte.index(">", debut)]
+        assert 'target="_blank"' not in balise, (
+            f"{identifiant} : l'attribut empêche iOS d'ouvrir l'application")
         assert "noopener" in balise, identifiant
 
 
