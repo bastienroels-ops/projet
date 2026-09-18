@@ -11,8 +11,20 @@
       pose la voix et les sous-titres, mixe le son. Tu récupères un fichier
       prêt à publier.
     </p>
+
+    <ul class="hero-capacites">
+      <li>{{ icone("lien", taille=16) }}<span>2 à 5 sources, liens ou fichiers</span></li>
+      <li>{{ icone("eclair", taille=16) }}<span>Accroche repérée automatiquement</span></li>
+      <li>{{ icone("micro", taille=16) }}<span>Voix IA et sous-titres au mot</span></li>
+      <li>{{ icone("note", taille=16) }}<span>Musique mixée toute seule</span></li>
+      <li>{{ icone("film", taille=16) }}<span>1080 × 1920, prêt à publier</span></li>
+    </ul>
+
     <div class="hero-actions">
-      <a href="/inscription" class="button primary grand">Créer ma première vidéo</a>
+      <a href="/inscription" class="button primary grand">
+        Créer ma vidéo
+        {{ icone("chevron", taille=16, classe="bouton-fleche") }}
+      </a>
       <a href="/tarifs" class="button ghost grand">Voir les tarifs</a>
     </div>
     <p class="hero-note">Essai gratuit — aucune carte bancaire demandée.</p>
@@ -245,7 +257,24 @@
 <section class="appel">
   <h2>Ta prochaine vidéo est à <em>cinq minutes</em>.</h2>
   <p>Crée ton compte, colle deux liens, regarde ce qu'il en sort.</p>
-  <a href="/inscription" class="button primary grand">Créer mon compte</a>
+  <a href="/inscription" class="button primary grand">
+    Créer ma vidéo
+    {{ icone("chevron", taille=16, classe="bouton-fleche") }}
+  </a>
   <p class="appel-note">Gratuit jusqu'à trois vidéos par mois. Sans carte bancaire.</p>
 </section>
+
+{% if not connecte %}
+{# Barre d'action collante, réservée au téléphone : sur un petit écran, les
+   boutons du premier écran défilent hors de vue en quelques secondes, et le
+   visiteur perd le geste le plus important de la page. Elle ne concerne que
+   l'accueil — ailleurs, elle referait doublon avec le formulaire déjà sous
+   les yeux. #}
+<div class="cta-mobile" id="cta-mobile" aria-hidden="true">
+  <a href="/inscription" class="button primary">
+    Créer ma vidéo
+    {{ icone("chevron", taille=15, classe="bouton-fleche") }}
+  </a>
+</div>
+{% endif %}
 {% endblock %}
