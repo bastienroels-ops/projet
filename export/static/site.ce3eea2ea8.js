@@ -1,12 +1,32 @@
-/* Flambée — le site public. Trois comportements, rien de plus. */
+/* Flambée — le site public. */
 
-/* 1. Le menu sur téléphone. */
+/* 1. Le menu sur téléphone.
+      Il s'ouvre au bouton, se ferme à Échap, au clic ailleurs, à la sélection
+      d'un lien et dès que la fenêtre repasse en grand : un menu qui reste
+      ouvert derrière une page qu'on a quittée est un menu cassé. */
 const bouton = document.getElementById("menu-bouton");
 const nav = document.getElementById("site-nav");
 if (bouton && nav) {
-  bouton.addEventListener("click", () => {
-    const ouvert = nav.classList.toggle("ouvert");
+  const regler = (ouvert) => {
+    nav.classList.toggle("ouvert", ouvert);
     bouton.setAttribute("aria-expanded", String(ouvert));
+    bouton.setAttribute("aria-label", ouvert ? "Fermer le menu" : "Menu");
+  };
+  bouton.addEventListener("click", () => regler(!nav.classList.contains("ouvert")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && nav.classList.contains("ouvert")) {
+      regler(false);
+      bouton.focus();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (nav.classList.contains("ouvert") && !nav.contains(e.target) && !bouton.contains(e.target)) {
+      regler(false);
+    }
+  });
+  nav.addEventListener("click", (e) => { if (e.target.closest("a")) regler(false); });
+  window.matchMedia("(min-width: 861px)").addEventListener("change", (e) => {
+    if (e.matches) regler(false);
   });
 }
 
@@ -18,7 +38,9 @@ if (paresseuses.length) {
     if (video.dataset.charge) return;
     video.dataset.charge = "1";
     video.src = video.dataset.src;
-    video.play().catch(() => {});
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.play().catch(() => {});
+    }
   };
   if ("IntersectionObserver" in window) {
     const observateur = new IntersectionObserver((entrees) => {
@@ -62,7 +84,7 @@ const menage = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const aReveler = document.querySelectorAll(
   ".section > .eyebrow, .section > h1, .section > h2, .section-accroche," +
   " .atout, .etapes li, .style-carte, .tarif, .faq details, .appel > *," +
-  " .hero-texte > *, .telephone, .bande p");
+  " .hero-texte > *, .lp-fenetre, [data-rev]");
 
 if (aReveler.length && !menage && "IntersectionObserver" in window) {
   aReveler.forEach((element, index) => {
@@ -312,157 +334,7 @@ if (entete) {
 })();
 
 
-/* 8. La séquence.
-      Cinq actes dans un seul décor : les sources arrivent, la meilleure
-      accroche est retenue, le style se pose, le script s'écrit, le fichier
-      sort. Le défilement sert d'horloge.
-
-      Chaque carte est décrite par une position à chaque acte ; le script
-      interpole entre les deux positions qui encadrent l'instant courant. Cette
-      forme se relit et s'étend — ajouter un acte, c'est ajouter une ligne —
-      là où une suite de conditions imbriquées deviendrait illisible au
-      troisième. */
-(() => {
-  const section = document.getElementById("sequence");
-  if (!section) return;
-
-  const plateau = section.querySelector(".sequence-plateau");
-  const sources = [...section.querySelectorAll(".source")];
-  const montage = section.querySelector(".montage");
-  const etapes = [...section.querySelectorAll(".sequence-liste li")];
-  if (!plateau || !montage || sources.length !== 3) return;
-
-  // Bornes des cinq actes, en fraction de la course totale.
-  const ACTES = [0, 0.20, 0.40, 0.60, 0.80, 1];
-
-  /* Une position par acte, pour chacune des trois sources.
-     x, y en pixels ; z en profondeur ; ry, rz en degrés ; e = échelle ;
-     o = opacité. */
-  const POSES = [
-    [ // Source 1 — la moins bien notée : elle s'efface après le choix.
-      { x: -236, y: -42, z: -190, ry:  26, rz: -7, e: 1,    o: 1 },
-      { x: -210, y:   0, z:  -40, ry:  10, rz:  0, e: .92,  o: 1 },
-      { x: -250, y:  20, z: -220, ry:  22, rz: -4, e: .78,  o: .28 },
-      { x: -270, y:  40, z: -320, ry:  26, rz: -6, e: .68,  o: 0 },
-      { x: -270, y:  40, z: -320, ry:  26, rz: -6, e: .68,  o: 0 },
-    ],
-    [ // Source 2 — la mieux notée : elle devient le montage.
-      { x:    0, y:  36, z:   40, ry:   0, rz:  2, e: 1,    o: 1 },
-      { x:    0, y:   0, z:   60, ry:   0, rz:  0, e: 1,    o: 1 },
-      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 1 },
-      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 0 },
-      { x:    0, y:   0, z:  120, ry:   0, rz:  0, e: 1.16, o: 0 },
-    ],
-    [ // Source 3
-      { x:  238, y: -28, z: -220, ry: -27, rz:  8, e: 1,    o: 1 },
-      { x:  210, y:   0, z:  -40, ry: -10, rz:  0, e: .92,  o: 1 },
-      { x:  250, y:  20, z: -240, ry: -22, rz:  5, e: .78,  o: .28 },
-      { x:  270, y:  40, z: -330, ry: -26, rz:  7, e: .68,  o: 0 },
-      { x:  270, y:  40, z: -330, ry: -26, rz:  7, e: .68,  o: 0 },
-    ],
-  ];
-
-  // Le montage n'apparaît qu'au quatrième acte, à la place de la source 2.
-  const MONTAGE = [
-    { z: 0,   e: .70, o: 0 },
-    { z: 0,   e: .70, o: 0 },
-    { z: 20,  e: .82, o: 0 },
-    { z: 120, e: 1,   o: 1 },
-    { z: 130, e: 1.04, o: 1 },
-  ];
-
-  const doux = (t) => t * t * (3 - 2 * t);
-  const entre = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
-  const melange = (a, b, t) => a + (b - a) * t;
-
-  /* L'écart latéral suit la largeur disponible : à 360 px, un éventail calibré
-     pour un écran de bureau envoie les cartes hors du cadre, et la scène
-     commence sur du vide. */
-  function ampleur() {
-    return Math.min(1, Math.max(0.40, plateau.clientWidth / 620));
-  }
-
-  /* Où en est-on ? Retourne l'acte courant et l'avancée dans cet acte. */
-  function situer(avance) {
-    for (let i = 0; i < ACTES.length - 1; i++) {
-      if (avance < ACTES[i + 1] || i === ACTES.length - 2) {
-        return { acte: i, part: doux(entre(avance, ACTES[i], ACTES[i + 1])) };
-      }
-    }
-    return { acte: 0, part: 0 };
-  }
-
-  let acteAffiche = -1;
-
-  function poser(avance) {
-    const { acte, part } = situer(avance);
-    const large = ampleur();
-
-    sources.forEach((source, i) => {
-      const de = POSES[i][acte];
-      const vers = POSES[i][Math.min(acte + 1, POSES[i].length - 1)];
-      const x = melange(de.x, vers.x, part) * large;
-      const y = melange(de.y, vers.y, part);
-      const z = melange(de.z, vers.z, part);
-      const ry = melange(de.ry, vers.ry, part);
-      const rz = melange(de.rz, vers.rz, part);
-      const e = melange(de.e, vers.e, part);
-      source.style.transform =
-        `translate(-50%, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, `
-        + `${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg) `
-        + `rotateZ(${rz.toFixed(2)}deg) scale(${e.toFixed(3)})`;
-      source.style.opacity = melange(de.o, vers.o, part).toFixed(3);
-    });
-
-    const de = MONTAGE[acte];
-    const vers = MONTAGE[Math.min(acte + 1, MONTAGE.length - 1)];
-    montage.style.transform =
-      `translate(-50%, -50%) translate3d(0, 0, `
-      + `${melange(de.z, vers.z, part).toFixed(1)}px) `
-      + `scale(${melange(de.e, vers.e, part).toFixed(3)})`;
-    montage.style.opacity = melange(de.o, vers.o, part).toFixed(3);
-
-    if (acte !== acteAffiche) {
-      acteAffiche = acte;
-      /* Une classe sur la section pilote tout ce qui n'a pas à être interpolé
-         image par image : notes, verdict, lignes de script, sous-titre. Le CSS
-         s'en charge, avec ses propres transitions. */
-      section.className = section.className.replace(/\bacte-\d\b/g, "").trim()
-        + ` acte-${acte}`;
-      etapes.forEach((li, i) => li.classList.toggle("actif", i === acte));
-    }
-  }
-
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    poser(1);
-    etapes.forEach((li) => li.classList.add("actif"));
-    return;
-  }
-
-  let enAttente = false;
-  function suivre() {
-    const cadre = section.getBoundingClientRect();
-    const course = Math.max(1, cadre.height - window.innerHeight);
-    poser(Math.min(1, Math.max(0, -cadre.top / course)));
-    enAttente = false;
-  }
-
-  /* Le calcul est reporté à la prochaine image : un écouteur qui écrit des
-     styles à chaque événement de défilement fait travailler le navigateur
-     deux fois pour la même image. */
-  function planifier() {
-    if (enAttente) return;
-    enAttente = true;
-    requestAnimationFrame(suivre);
-  }
-
-  poser(0);
-  window.addEventListener("scroll", planifier, { passive: true });
-  window.addEventListener("resize", planifier, { passive: true });
-})();
-
-
-/* 9. La barre CTA mobile.
+/* 8. La barre CTA mobile.
       Visible dès qu'on a quitté le premier écran, effacée à nouveau dès
       qu'un autre appel à l'action arrive en vue (l'appel final, ou le pied
       de page) : deux boutons « Créer ma vidéo » à l'écran en même temps
@@ -503,6 +375,50 @@ if (entete) {
     );
     finVisible.observe(redondant);
   }
+})();
+
+
+/* 9. Les lecteurs de la landing.
+      Deux vidéos tournent en boucle sur la page : chacune a un bouton pause
+      (une animation qu'on ne peut pas arrêter n'est pas accessible), et si le
+      système demande de réduire les animations, elles démarrent à l'arrêt. */
+(() => {
+  const sobre = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll("[data-lecteur]").forEach((bouton) => {
+    const video = document.getElementById(bouton.dataset.lecteur);
+    if (!video) return;
+    const afficher = () => {
+      const enPause = video.paused;
+      bouton.setAttribute("aria-pressed", String(enPause));
+      bouton.setAttribute("aria-label",
+        enPause ? "Lancer la vidéo" : "Mettre la vidéo en pause");
+    };
+    bouton.addEventListener("click", () => {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    });
+    video.addEventListener("play", afficher);
+    video.addEventListener("pause", afficher);
+    if (sobre) {
+      video.removeAttribute("autoplay");
+      video.pause();
+    }
+    afficher();
+  });
+})();
+
+
+/* 10. La lueur des cartes de fonctionnalités : elle suit le pointeur.
+       Seulement sur un pointeur fin — au doigt, il n'y a pas de survol. */
+(() => {
+  if (!window.matchMedia("(pointer: fine)").matches) return;
+  document.querySelectorAll(".lp-carte").forEach((carte) => {
+    carte.addEventListener("pointermove", (e) => {
+      const cadre = carte.getBoundingClientRect();
+      carte.style.setProperty("--mx", `${e.clientX - cadre.left}px`);
+      carte.style.setProperty("--my", `${e.clientY - cadre.top}px`);
+    });
+  });
 })();
 
 

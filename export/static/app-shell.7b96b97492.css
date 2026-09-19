@@ -806,3 +806,163 @@ button.danger:hover { background: rgba(255, 107, 107, .1); color: #ffd0d0; }
     left: auto; right: 20px; bottom: 20px; max-width: 380px;
   }
 }
+
+/* ==========================================================================
+   Avis — bandeau d'information/erreur/réussite.
+   Base portée de site.css : les pages de l'atelier ne chargent pas cette
+   feuille-là, et plusieurs (Script Viral…) posent déjà `.avis.erreur` sans
+   qu'aucune règle ne le mette en forme ici. Trend Finder en a besoin, donc
+   la base rejoint la coquille plutôt que de dupliquer une troisième fois.
+   ========================================================================== */
+.avis {
+  padding: 16px 20px; margin: 0 0 20px;
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .3); border-radius: var(--radius-sm);
+  background: rgb(var(--flamme-claire-rvb) / .06);
+  color: rgb(var(--os-rvb) / .9); font-size: 14px; line-height: 1.6;
+}
+.avis b { color: var(--eclat); display: block; margin-bottom: 5px; }
+.avis.erreur {
+  border-color: rgba(var(--alert-rvb), .3); background: rgba(var(--alert-rvb), .07);
+  color: #ffb4b4;
+}
+
+/* ==========================================================================
+   Trend Finder
+   ========================================================================== */
+.onglets {
+  display: flex; gap: 4px; margin: 0 0 24px; overflow-x: auto;
+  border-bottom: 1px solid var(--hairline); padding-bottom: 0;
+}
+.onglet {
+  flex: none; padding: 10px 16px; border: none; background: none;
+  color: var(--text-faint); font: 600 13.5px var(--sans); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color .2s, border-color .2s;
+}
+.onglet:hover { color: var(--text-soft); }
+.onglet.actif { color: var(--text); border-color: var(--flamme-claire); }
+.onglet .compte {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-2); font-size: 11px; color: var(--text-faint);
+}
+
+.tf-panneau { display: none; }
+.tf-panneau.actif { display: block; }
+
+.tf-filtres {
+  display: grid; gap: 14px; grid-template-columns: 1fr;
+  padding: 22px; margin-bottom: 20px;
+}
+.tf-filtres label { display: block; }
+.tf-filtres label span {
+  display: block; font-size: 12px; font-weight: 600; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 7px;
+}
+.tf-filtres textarea, .tf-filtres input, .tf-filtres select {
+  width: 100%; padding: 10px 13px; border-radius: 10px;
+  border: 1px solid var(--hairline-2); background: var(--surface);
+  color: var(--text); font: 400 14px var(--sans);
+}
+.tf-filtres textarea { min-height: 84px; resize: vertical; font-family: var(--sans); }
+.tf-filtres textarea:focus, .tf-filtres input:focus, .tf-filtres select:focus {
+  outline: none; border-color: var(--flamme-claire);
+}
+.tf-ligne-champs {
+  display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.tf-hashtags-liste {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+}
+.tf-hashtags-liste:empty { display: none; }
+
+.tf-resultats-entete {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 4px 0 16px;
+}
+.tf-resultats-compte { color: var(--text-faint); font-size: 13px; }
+.tf-tri select { width: auto; }
+
+.tf-grille {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.tf-carte {
+  display: flex; flex-direction: column; overflow: hidden; padding: 0;
+}
+.tf-vignette {
+  position: relative; aspect-ratio: 9 / 12; background: var(--ink-3);
+  overflow: hidden;
+}
+.tf-vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tf-vignette-vide {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  color: var(--text-faint);
+}
+.tf-badge-pepite {
+  position: absolute; top: 10px; left: 10px; display: flex; align-items: center;
+  gap: 5px; padding: 4px 9px; border-radius: 999px;
+  background: rgb(var(--creux-rvb) / .78); backdrop-filter: blur(6px);
+  color: var(--laiton); font-size: 11.5px; font-weight: 700;
+}
+.tf-badge-pepite .icone { width: 13px; height: 13px; }
+
+.tf-corps { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.tf-titre {
+  font-size: 14.5px; font-weight: 600; color: var(--text); margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; line-height: 1.4;
+}
+.tf-createur { color: var(--text-faint); font-size: 12.5px; margin: 0; }
+
+.tf-stats { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 2px 0; }
+.tf-stat {
+  display: flex; align-items: center; gap: 5px; color: var(--text-soft); font-size: 12.5px;
+}
+.tf-stat .icone { width: 14px; height: 14px; opacity: .75; flex: none; }
+.tf-stat.inconnue { color: var(--text-faint); font-style: italic; }
+
+.tf-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tf-tag {
+  padding: 3px 9px; border-radius: 999px; background: var(--surface-2);
+  color: var(--text-soft); font-size: 11.5px; text-decoration: none; border: none; cursor: pointer;
+}
+.tf-tag:hover { color: var(--eclat); }
+
+.tf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+.tf-actions .button { padding: 8px 13px; font-size: 12.5px; }
+
+.tf-panneau-analyse {
+  margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 10px; font-size: 13px;
+}
+.tf-champ-analyse b { display: block; color: var(--text-faint); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+.tf-champ-analyse p, .tf-champ-analyse span { color: var(--text-soft); margin: 0; white-space: pre-line; }
+.tf-limites { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.tf-limites li { color: var(--text-faint); font-size: 11.5px; }
+.tf-limites li::before { content: "— "; }
+
+.tf-vide {
+  text-align: center; padding: 50px 24px; color: var(--text-faint);
+}
+.tf-vide .icone { opacity: .5; margin-bottom: 10px; }
+.tf-vide p { max-width: 46ch; margin: 6px auto 0; }
+
+.tf-liste-simple { display: flex; flex-direction: column; gap: 10px; }
+.tf-item-simple {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px;
+}
+.tf-item-simple-corps { min-width: 0; }
+.tf-item-simple-titre { font-size: 13.5px; font-weight: 600; color: var(--text); margin: 0 0 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-item-simple-meta { color: var(--text-faint); font-size: 12px; margin: 0; }
+.tf-item-simple .button { flex: none; }
+
+.tf-chargement { display: flex; align-items: center; gap: 10px; color: var(--text-faint); padding: 20px 0; }
+
+@media (min-width: 720px) {
+  .tf-filtres { grid-template-columns: repeat(2, 1fr); }
+  .tf-filtres .tf-pleine-largeur { grid-column: 1 / -1; }
+}

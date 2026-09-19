@@ -53,6 +53,13 @@
      dix fois mieux que la même ligne en gris. */
   --laiton-rvb:        185 140  74;
 
+  /* La braise : l'orange de la marque. Il n'accompagne l'indigo que par
+     touches — un halo, un filet, la fin d'un dégradé — pour que la page reste
+     indigo et que l'orange y soit ce qui brûle. Même écriture en triplets que
+     l'accent, pour la même raison : on le pose à toutes les opacités. */
+  --braise-rvb:        255 138  61;
+  --braise-claire-rvb: 255 186 124;
+
   /* L'os : le blanc du texte et des voiles. Très légèrement bleuté, pour ne
      pas jaunir sur l'encre froide. */
   --os-rvb:            232 232 246;
@@ -71,6 +78,8 @@
   --flamme-claire: rgb(var(--flamme-claire-rvb));
   --flamme-nuit:   rgb(var(--flamme-nuit-rvb));
   --laiton:        rgb(var(--laiton-rvb));
+  --braise:        rgb(var(--braise-rvb));
+  --braise-claire: rgb(var(--braise-claire-rvb));
   --eclat:         rgb(var(--flamme-claire-rvb));
 
   /* Les fonds. Une encre de nuit : bleutée, presque noire. Assez froide pour

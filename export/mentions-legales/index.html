@@ -12,7 +12,7 @@
   
   <link rel="apple-touch-icon" href="/static/icone-180.82555d068c.png">
   <link rel="manifest" href="/static/manifest.8c9dfeac97.webmanifest">
-  <meta name="description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta name="description" content="Flambée transforme une ou plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
   <title>Mentions légales — Flambée</title>
 
   <!-- Aperçu lors d'un partage : sans ces balises, le lien s'affiche nu. -->
@@ -20,12 +20,12 @@
   <meta property="og:site_name" content="Flambée">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:title" content="Mentions légales — Flambée">
-  <meta property="og:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta property="og:description" content="Flambée transforme une ou plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
   <meta property="og:image" content="http://testserver/api/demo/poster">
   <meta property="og:url" content="http://testserver/mentions-legales">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Mentions légales — Flambée">
-  <meta name="twitter:description" content="Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
+  <meta name="twitter:description" content="Flambée transforme une ou plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.">
   <meta name="twitter:image" content="http://testserver/api/demo/poster">
   <link rel="canonical" href="http://testserver/mentions-legales">
   
@@ -33,8 +33,8 @@
         href="/static/fonts/InstrumentSerif-Regular.woff2">
   <link rel="preload" as="font" type="font/woff2" crossorigin
         href="/static/fonts/Inter-Regular.woff2">
-  <link rel="stylesheet" href="/static/style.d4f88da668.css">
-  <link rel="stylesheet" href="/static/site.f7b9cbd43c.css">
+  <link rel="stylesheet" href="/static/style.6249d0213b.css">
+  <link rel="stylesheet" href="/static/site.2b8a36ea20.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%236c5ce7' d='M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z'/></svg>">
 </head>
 
@@ -73,24 +73,32 @@
 <div class="vignette" aria-hidden="true"></div>
 <div class="progression" id="progression" aria-hidden="true"></div>
 
+<a class="lien-evitement" href="#contenu">Aller au contenu</a>
+
+
 <header class="site-header">
-  <a class="brand" href="/"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</a>
-  <nav class="site-nav" id="site-nav">
+  <a class="brand" href="/" aria-label="Flambée — accueil"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</a>
+  <nav class="site-nav" id="site-nav" aria-label="Navigation principale">
     <a href="/fonctionnalites" >Fonctionnalités</a>
     
     <a href="/faq" >Questions</a>
     
     
     
-    <a href="/#essayage" class="button primary petit">Voir la démonstration</a>
+    <span class="nav-cta-bureau"><a href="/#essayage" class="button primary petit">Voir la démonstration</a></span>
     
     
   </nav>
-  <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
+  
+  
+  
+  <button class="menu-bouton" id="menu-bouton" type="button" aria-label="Menu"
+          aria-expanded="false" aria-controls="site-nav">
     <span></span><span></span>
   </button>
 </header>
 
+<main id="contenu" class="site-main">
 
 <section class="section section-premiere etroit">
   <p class="eyebrow">Informations légales</p>
@@ -120,6 +128,7 @@
   </div>
 </section>
 
+</main>
 
 <footer class="site-footer">
   <div class="footer-grille">
@@ -127,26 +136,28 @@
       <div class="brand"><svg class="icone flamme" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21.6c3.7 0 6.7-2.8 6.7-6.4 0-4.8-4.2-6.7-4.2-11.2 0 0-3.1 1.7-3.1 5.5 0 1.7-1 2.4-1.9 1.7-.7-.6-.9-1.9-.9-1.9S5.3 11.2 5.3 15.2c0 3.6 3 6.4 6.7 6.4Z" fill="currentColor" stroke="none"/></svg> Flambée</div>
       <p>L'atelier qui transforme des vidéos éparses en un format vertical
          qui tient en haleine.</p>
+      
+      <a href="/#essayage" class="button primary petit footer-cta">Voir la démonstration</a>
+      
     </div>
-    <div>
+    <nav aria-label="Produit">
       <h4>Produit</h4>
       <a href="/fonctionnalites">Fonctionnalités</a>
       
       
-    </div>
-    <div>
+    </nav>
+    <nav aria-label="Compte et aide">
       <h4>Aide</h4>
       <a href="/faq">Questions fréquentes</a>
       
       
-      
-    </div>
-    <div>
+    </nav>
+    <nav aria-label="Cadre légal">
       <h4>Cadre légal</h4>
       <a href="/mentions-legales">Mentions légales</a>
       <a href="/conditions">Conditions d'utilisation</a>
       <a href="/confidentialite">Confidentialité</a>
-    </div>
+    </nav>
   </div>
   <div class="footer-bas">
     <span>© 2026 Flambée</span>
@@ -155,7 +166,7 @@
 </footer>
 
 <script src="/static/braises.e83e757d64.js" defer></script>
-<script src="/static/site.f4cc45a414.js"></script>
+<script src="/static/site.ce3eea2ea8.js"></script>
 
 <script src="/static/apercu.3600962768.js" defer></script>
 <script src="/static/porte.2eb9d0bddf.js" defer></script>

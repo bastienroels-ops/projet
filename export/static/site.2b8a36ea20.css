@@ -1,0 +1,1668 @@
+/* ==========================================================================
+   Flambée — le site public
+   Prolonge les tokens de style.css : même identité, échelle plus ample.
+   ========================================================================== */
+
+body.site { padding: 0; }
+/* `main` est habillé pour l'atelier dans style.css (colonne de 940 px). Le site
+   public gère la largeur section par section : le corps lui-même est libre. */
+body.site main.site-main { max-width: none; margin: 0; padding: 0; }
+
+/* --------------------------------------------------------------- En-tête --- */
+/* Un lien d'évitement : le premier arrêt du clavier, invisible tant qu'on ne
+   l'atteint pas. Sans lui, on tabule à travers tout le menu à chaque page. */
+.lien-evitement {
+  position: absolute; left: 16px; top: -64px; z-index: 100;
+  padding: 11px 18px; border-radius: 999px;
+  background: var(--ink-3); color: var(--text);
+  border: 1px solid var(--hairline-2);
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  transition: top .2s;
+}
+.lien-evitement:focus { top: 12px; }
+
+.site-header {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 28px;
+  padding: 14px max(24px, calc((100% - 1240px) / 2));
+  border-bottom: 1px solid transparent;
+  background: rgba(7, 7, 12, .5);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  transition: background .3s, border-color .3s, box-shadow .3s;
+}
+/* Dès qu'on quitte le haut de page, l'en-tête se densifie et prend un filet. */
+.site-header.pose {
+  background: rgba(7, 7, 12, .84);
+  border-bottom-color: var(--hairline-2);
+  box-shadow: 0 14px 40px -26px rgba(0, 0, 0, .9);
+}
+.site-header .brand {
+  font-family: var(--serif); font-size: 26px; color: var(--text);
+  text-decoration: none; display: flex; align-items: center; gap: 9px;
+}
+
+.site-nav { display: flex; align-items: center; gap: 4px; flex: 1; }
+/* Les liens simples prennent la forme d'une pastille ; les boutons gardent la
+   leur. Sans `:not(.button)`, le survol d'un lien remplaçait le dégradé du
+   bouton principal par un gris. */
+.site-nav a:not(.button) {
+  padding: 9px 14px; border-radius: 999px;
+  color: var(--text-soft); text-decoration: none;
+  font-size: 14.5px; font-weight: 500;
+  transition: color .2s, background .2s;
+}
+.site-nav a:not(.button):hover { color: var(--text); background: var(--surface-2); }
+.site-nav a.courant { color: var(--text); background: var(--surface-2); }
+.site-nav a.button { text-decoration: none; }
+/* `.site-nav a` est plus spécifique que `.primary` : sans cette règle, le
+   bouton hérite du gris de la navigation et devient illisible sur l'indigo. */
+.site-nav a.button.primary { color: var(--sur-flamme); }
+.site-nav .nav-droite { margin-left: auto; }
+.site-nav .nav-cta-bureau { display: inline-flex; margin-left: 8px; }
+.button.petit { padding: 10px 20px; font-size: 13.5px; }
+.button.grand { padding: 16px 32px; font-size: 15.5px; }
+
+/* L'appel de la barre : réservé au téléphone, où le menu le cacherait. */
+.entete-cta { display: none; }
+
+.menu-bouton {
+  display: none; background: none; border: 1px solid var(--hairline);
+  width: 44px; height: 44px; padding: 0; border-radius: 12px;
+  flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  cursor: pointer;
+}
+.menu-bouton span {
+  display: block; width: 20px; height: 2px; border-radius: 2px;
+  background: var(--text); transition: transform .3s, opacity .2s;
+}
+.menu-bouton[aria-expanded="true"] span:first-child { transform: translateY(3.5px) rotate(45deg); }
+.menu-bouton[aria-expanded="true"] span:last-child { transform: translateY(-3.5px) rotate(-45deg); }
+
+@media (max-width: 860px) {
+  .site-header { gap: 10px; padding: 10px 16px; }
+  .site-header .brand { font-size: 23px; margin-right: auto; }
+  .entete-cta { display: inline-flex; }
+  .nav-cta-bureau { display: none !important; }
+  .menu-bouton { display: flex; }
+  /* Le panneau est opaque, pas voilé : un fond translucide sous un en-tête qui
+     filtre déjà son arrière-plan laissait le titre de la page transparaître
+     entre les entrées du menu. Fermé, il est `visibility: hidden` — retiré de
+     l'ordre de tabulation, pas seulement de la vue. */
+  .site-nav {
+    position: absolute; top: 100%; left: 0; right: 0;
+    flex-direction: column; align-items: stretch; gap: 2px;
+    padding: 10px 16px 22px;
+    background: var(--ink-2);
+    border-bottom: 1px solid var(--hairline-2);
+    box-shadow: 0 30px 60px -26px rgba(0, 0, 0, .95);
+    visibility: hidden; opacity: 0; transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity .25s, transform .25s cubic-bezier(.16, 1, .3, 1), visibility 0s .25s;
+  }
+  .site-nav.ouvert {
+    visibility: visible; opacity: 1; transform: none; pointer-events: auto;
+    transition: opacity .25s, transform .25s cubic-bezier(.16, 1, .3, 1), visibility 0s;
+  }
+  .site-nav a:not(.button) { padding: 15px 14px; font-size: 16.5px; border-radius: 14px; }
+  .site-nav .nav-droite { margin-left: 0; margin-top: 8px; border-top: 1px solid var(--hairline); border-radius: 0; }
+}
+@media (max-width: 380px) {
+  .entete-cta-suite { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-nav, .site-nav.ouvert { transition: none; }
+}
+
+
+
+
+.section {
+  position: relative; z-index: 1;
+  max-width: 1120px; margin: 0 auto; padding: 92px 36px;
+}
+.section-premiere { padding-top: 72px; }
+/* Un appui sous le titre des pages intérieures. L'accueil a le voile de son
+   premier écran ; ailleurs, le titre se posait directement sur le champ de
+   braises, qui est au plus vif en haut de page. Comme le voile de l'accueil,
+   celui-ci va d'un bord de la fenêtre à l'autre pour n'avoir aucune arête. */
+.section-premiere::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: -72px auto auto; left: 50%; width: 100vw; height: 460px;
+  translate: -50% 0;
+  background: radial-gradient(72% 100% at 30% 28%,
+              rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .78) 38%,
+              rgba(7, 7, 12, .34) 66%, transparent 86%);
+}
+@media (max-width: 760px) {
+  /* En une colonne, le titre prend toute la largeur : le voile doit la
+     couvrir aussi, sinon sa dernière ligne retombe sur les volutes. */
+  .section-premiere::before {
+    height: 400px;
+    background: radial-gradient(96% 100% at 50% 26%,
+                rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .80) 44%,
+                rgba(7, 7, 12, .34) 72%, transparent 92%);
+  }
+}
+.section.etroit { max-width: 700px; }
+.section h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(38px, 5.4vw, 62px); line-height: 1.06;
+  letter-spacing: -.02em; margin: 0 0 20px;
+}
+.section h1 em, .section h2 em, .appel h2 em { font-style: italic; color: var(--eclat); }
+.section h2 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(31px, 4.2vw, 46px); line-height: 1.1;
+  letter-spacing: -.02em; margin: 0 0 18px;
+}
+.section-accroche {
+  font-size: 17px; color: var(--text-soft); max-width: 62ch;
+  margin: 0 0 44px; line-height: 1.65;
+}
+
+/* ------------------------------------------------- Le test de l'accroche --- */
+/* Trois manches, deux boutons chacune. Tant qu'on n'a pas répondu, la note et
+   la raison restent repliées : sans cela le test se lit à l'avance et il n'y a
+   plus rien à jouer. Le repli se fait par `grid-template-rows: 0fr → 1fr`,
+   qui s'anime, là où `height: auto` ne s'anime pas. */
+.duel-manches {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; gap: 26px;
+}
+.duel-manche { counter-increment: manche; }
+.duel-sujet {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 12px; font-size: 14px; color: var(--text-soft);
+}
+.duel-sujet span {
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--hairline-2); background: var(--surface);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.duel-paire { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.duel-choix {
+  /* Un bouton centre son contenu verticalement : dans une paire dont une
+     carte est plus haute que l'autre, les deux phrases ne s'alignent plus.
+     En colonne, elles repartent du haut. */
+  position: relative; display: flex; flex-direction: column;
+  align-items: stretch; justify-content: flex-start;
+  width: 100%; text-align: left;
+  padding: 22px 22px 20px; border-radius: 18px;
+  border: 1px solid var(--hairline); background: var(--surface);
+  color: var(--text); font: inherit; cursor: pointer;
+  transition: border-color .25s, background .25s, transform .25s;
+}
+.duel-choix:hover { border-color: var(--hairline-2); background: var(--surface-2); }
+.duel-choix:active { transform: scale(.994); }
+.duel-texte {
+  display: block; font-family: var(--serif); font-size: 20px;
+  line-height: 1.35; letter-spacing: -.01em;
+}
+.duel-texte::before { content: "\00ab\00a0"; color: var(--text-faint); }
+.duel-texte::after { content: "\00a0\00bb"; color: var(--text-faint); }
+
+/* Le badge ne dit son verdict qu'une fois la manche jouée. */
+.duel-badge {
+  position: absolute; top: -10px; right: 18px;
+  padding: 4px 11px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase;
+  background: var(--surface-2); color: var(--text-faint);
+  border: 1px solid var(--hairline-2);
+  opacity: 0; transform: translateY(4px);
+  transition: opacity .3s .15s, transform .3s .15s;
+}
+.duel-manche.jouee .duel-badge { opacity: 1; transform: none; }
+.duel-manche.jouee .gagnante .duel-badge {
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  border-color: transparent; color: var(--sur-flamme);
+}
+.duel-manche.jouee .gagnante {
+  border-color: rgb(var(--flamme-claire-rvb) / .45);
+  background: linear-gradient(165deg, rgb(var(--flamme-rvb) / .10), var(--surface));
+}
+/* Ce qu'on a choisi reste visible, même quand c'était la mauvaise. */
+.duel-manche.jouee .choisi::after {
+  content: "Ton choix"; position: absolute; left: 22px; bottom: -9px;
+  padding: 3px 10px; border-radius: 999px;
+  background: #0f1014; border: 1px solid var(--hairline-2);
+  font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+/* Le repli : `max-height` s'anime, `height: auto` non. La valeur haute est
+   volontairement généreuse — elle borne l'animation, pas le contenu. */
+.duel-verdict {
+  display: grid; grid-template-columns: 1fr auto;
+  column-gap: 12px; align-items: center;
+  max-height: 0; opacity: 0; overflow: hidden;
+  transition: max-height .45s cubic-bezier(.16, 1, .3, 1),
+              opacity .3s, margin-top .45s cubic-bezier(.16, 1, .3, 1);
+}
+.duel-manche.jouee .duel-verdict {
+  max-height: 240px; opacity: 1; margin-top: 16px;
+}
+.duel-jauge {
+  height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .12);
+  position: relative;
+}
+.duel-jauge i {
+  position: absolute; inset: 0 auto 0 0; border-radius: 2px;
+  width: calc(var(--part) * 100%);
+  background: linear-gradient(90deg, var(--flamme-claire), var(--flamme));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .7s .1s cubic-bezier(.16, 1, .3, 1);
+}
+.duel-manche.jouee .duel-jauge i { transform: scaleX(1); }
+.duel-verdict b {
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--flamme-claire);
+}
+.duel-verdict em {
+  grid-column: 1 / -1; margin-top: 10px;
+  font-style: normal; font-size: 14px; line-height: 1.55;
+  color: var(--text-soft);
+}
+
+.duel-bilan {
+  margin: 30px 0 0; min-height: 26px;
+  font-size: 16px; color: var(--text-soft);
+}
+.duel-bilan b { color: var(--eclat); font-weight: 600; }
+.duel-bilan a { color: var(--flamme-claire); }
+.duel-final { margin: 18px 0 0; }
+.duel-final[hidden] { display: none; }
+
+@media (max-width: 760px) {
+  .duel-paire { grid-template-columns: 1fr; gap: 12px; }
+  .duel-texte { font-size: 18px; }
+  .duel-choix { padding: 20px 18px 18px; }
+  .duel-manche.jouee .choisi::after { left: 18px; }
+}
+
+/* Sans mouvement : les replis s'ouvrent sec, rien ne glisse. */
+@media (prefers-reduced-motion: reduce) {
+  .duel-choix, .duel-verdict, .duel-jauge i, .duel-badge { transition: none; }
+}
+
+/* L'avis de la vitrine : posé par l'export quand aucun atelier ne répond.
+   Il doit se lire avant les prix, pas après. */
+.tarifs-avis {
+  max-width: 62ch; margin: 0 0 30px; padding: 14px 18px;
+  border: 1px solid var(--hairline-2); border-radius: 14px;
+  background: var(--surface);
+  font-size: 14.5px; line-height: 1.6; color: var(--text-soft);
+}
+
+/* Le canevas d'aperçu, posé exactement sur la vidéo de fond. Le fond vient du
+   moteur, le texte est peint par le navigateur : c'est la seule façon de
+   rendre une phrase à la demande sans serveur. */
+.essayage-scene { position: relative; }
+.essayage-toile {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; border-radius: inherit;
+}
+
+/* ===================================================================
+   La matière
+   ===================================================================
+   Le fond était un aplat : entre deux sections, de vastes plages de noir
+   parfaitement mort, où l'œil n'a rien à faire. On y pose maintenant une
+   lumière — des lueurs très basses, ancrées au haut de chaque section, qui
+   donnent au défilement une respiration au lieu d'un vide.
+
+   Les valeurs restent très basses — cinq centièmes d'opacité pour la lueur,
+   trois pour le filet. C'est voulu : une atmosphère qu'on remarque n'est plus
+   une atmosphère, c'est un motif. */
+.section, .chiffres, .appel, .duel { position: relative; }
+.section::before, .appel::before, .duel::before {
+  content: ""; position: absolute; inset: -10% 0 auto; height: 60%;
+  pointer-events: none; z-index: -1;
+  background: radial-gradient(70% 100% at 50% 0%,
+              rgb(var(--flamme-rvb) / .050), transparent 72%);
+}
+/* Un filet de laiton entre les sections, très bas en intensité : il marque la
+   coupe sans la souligner, comme un trait de crayon sur un carton. */
+.section + .section::after,
+.chiffres + .section::after {
+  content: ""; position: absolute; inset: 0 auto auto 50%; translate: -50% 0;
+  width: min(520px, 62%); height: 1px;
+  background: linear-gradient(90deg, transparent,
+              rgb(var(--laiton-rvb) / .34), transparent);
+}
+
+/* Les surfaces prennent la lumière du haut : une arête claire d'un pixel
+   suffit à leur donner une épaisseur qu'une bordure uniforme ne donne pas.
+   Seules les surfaces qui en sont vraiment une : posée sur un bloc
+   transparent, l'arête dessinerait un trait clair sans rien dessous. */
+.duel-choix, .tarif {
+  box-shadow: var(--lueur);
+}
+
+
+/* --------------------------------------------------------------- Étapes --- */
+.etapes {
+  list-style: none; padding: 0; margin: 46px 0 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 30px;
+}
+.etapes li { position: relative; padding-top: 26px; border-top: 1px solid var(--hairline); }
+.etape-numero {
+  font-family: var(--serif); font-size: 15px; color: var(--flamme);
+  letter-spacing: .1em;
+}
+.etapes h3 { font-size: 17px; font-weight: 600; margin: 12px 0 8px; }
+.etapes p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.6; }
+
+/* --------------------------------------------------------------- Atouts --- */
+.atouts-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
+  gap: 22px; margin-top: 46px;
+}
+/* Fond opaque, pas translucide : derrière ces cartes tourne un champ de
+   braises, et un voile le laissait monter à travers le texte — très visible
+   sur /fonctionnalites, où elles occupent la page entière. */
+.atout {
+  padding: 30px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--lueur);
+  transition: transform .3s cubic-bezier(.16,1,.3,1), border-color .3s,
+              box-shadow .3s;
+}
+.atout:hover {
+  transform: translateY(-4px);
+  border-color: rgb(var(--laiton-rvb) / .38);
+  box-shadow: var(--lueur-forte), 0 22px 50px -28px rgba(0, 0, 0, .9);
+}
+/* L'icône d'un atout : posée dans un jeton discret plutôt que nue, pour lui
+   donner un point d'appui et aligner toutes les cartes sur la même hauteur. */
+.atout-icone {
+  display: grid; place-items: center;
+  width: 42px; height: 42px; margin-bottom: 18px;
+  border-radius: 12px; color: var(--flamme-claire);
+  background: rgb(var(--flamme-rvb) / .10);
+  border: 1px solid rgb(var(--flamme-rvb) / .18);
+}
+.atout h3 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
+.atout p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
+
+/* ------------------------------------------------------- Styles vidéo ----- */
+.styles-grille {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(292px, 1fr));
+  gap: 22px; margin-top: 40px;
+}
+.style-carte {
+  margin: 0; padding: 14px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: rgba(0, 0, 0, .3);
+}
+.style-carte video {
+  width: 100%; aspect-ratio: 108 / 34; display: block;
+  border-radius: 11px; background: #12131a;
+}
+.style-carte figcaption {
+  padding: 14px 4px 2px; font-size: 13.5px; color: var(--text-soft);
+  line-height: 1.55;
+}
+.style-carte figcaption b {
+  display: block; font-family: var(--serif); font-weight: 400;
+  font-size: 21px; color: var(--text); margin-bottom: 5px;
+}
+
+/* ------------------------------------------------------------------ FAQ --- */
+.faq { margin-top: 36px; border-top: 1px solid var(--hairline); }
+.faq details { border-bottom: 1px solid var(--hairline); }
+.faq summary {
+  padding: 24px 40px 24px 0; cursor: pointer; position: relative;
+  font-size: 17px; font-weight: 500; list-style: none;
+  transition: color .2s;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+"; position: absolute; right: 6px; top: 50%;
+  transform: translateY(-50%); font-size: 22px; color: var(--flamme);
+  transition: transform .25s;
+}
+.faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.faq summary:hover { color: var(--flamme-claire); }
+.faq details p {
+  margin: 0; padding: 0 40px 26px 0;
+  font-size: 15px; color: var(--text-soft); line-height: 1.7;
+}
+
+/* ----------------------------------------------------------- Formulaire --- */
+.formulaire { margin-top: 34px; display: flex; flex-direction: column; gap: 4px; }
+.formulaire .button, .formulaire button { margin-top: 20px; align-self: flex-start; }
+.mention { font-size: 12.5px; color: var(--text-faint); margin: 16px 0 0; line-height: 1.6; }
+.mention a, .texte-legal a, .carte p a {
+  color: var(--flamme-claire); text-decoration: none;
+  border-bottom: 1px solid rgb(var(--flamme-claire-rvb) / .3);
+}
+.mention a:hover, .texte-legal a:hover { border-bottom-color: var(--flamme-claire); }
+
+.avis {
+  padding: 20px 24px; margin: 28px 0;
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .3); border-radius: var(--radius-sm);
+  background: rgb(var(--flamme-claire-rvb) / .06);
+  color: rgb(var(--os-rvb) / .9); font-size: 14.5px; line-height: 1.65;
+}
+.avis b { color: var(--eclat); display: block; margin-bottom: 5px; }
+.avis.erreur {
+  border-color: rgba(255, 107, 107, .3); background: rgba(255, 107, 107, .07);
+  color: #ffb4b4;
+}
+
+.texte-legal { margin-top: 34px; }
+.texte-legal h2 {
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--flamme);
+  margin: 44px 0 14px;
+}
+.texte-legal p { font-size: 15px; color: var(--text-soft); line-height: 1.75; margin: 0 0 14px; }
+
+/* ----------------------------------------------------------- Appel final --- */
+.appel {
+  position: relative; z-index: 1;
+  max-width: 780px; margin: 0 auto; padding: 100px 36px 110px;
+  text-align: center;
+}
+.appel h2 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(33px, 5vw, 52px); line-height: 1.08;
+  letter-spacing: -.02em; margin: 0 0 16px;
+}
+.appel p { color: var(--text-soft); font-size: 17px; margin: 0 0 32px; }
+
+
+
+/* ------------------------------------------------- Formulaires de compte --- */
+/* Opaque, comme les autres cartes : un formulaire dont on voit les flammes
+   monter derrière les champs n'inspire pas la confiance qu'on demande à
+   quelqu'un qui va y taper son adresse et son mot de passe. */
+.carte-formulaire {
+  margin-top: 30px; padding: 32px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur);
+}
+.carte-formulaire .formulaire { margin-top: 0; }
+.carte-formulaire .button,
+.carte-formulaire button { width: 100%; margin-top: 26px; }
+input[type=email], input[type=password] {
+  width: 100%; padding: 14px 16px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .32); color: var(--text);
+  font: 400 15px/1.6 var(--sans);
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+input[type=email]:focus, input[type=password]:focus {
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
+  background: rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .1);
+}
+.sous-formulaire {
+  margin-top: 26px; text-align: center;
+  font-size: 14px; color: var(--text-soft);
+}
+.sous-formulaire a { color: var(--flamme-claire); text-decoration: none; font-weight: 500; }
+.sous-formulaire a:hover { text-decoration: underline; }
+.avis.reussite {
+  border-color: rgba(95, 214, 164, .3); background: rgba(95, 214, 164, .06);
+  color: #a5ead0;
+}
+.avis.reussite b { color: var(--ok); }
+@media (max-width: 680px) { .carte-formulaire { padding: 22px; } }
+
+/* --------------------------------------------------------- CTA mobile --- */
+/* Sur un petit écran, le premier écran défile hors de vue en quelques
+   secondes et le geste le plus important de la page — créer sa vidéo —
+   disparaît avec lui. La barre le retient au bord de l'écran, mais seulement
+   une fois le premier écran quitté : la faire apparaître d'emblée referait
+   doublon avec les boutons déjà visibles, et masquerait le bas de l'écran
+   pendant la lecture. `env(safe-area-inset-bottom)` la tient au-dessus de la
+   ligne d'accueil d'un iPhone sans encoche à deviner. */
+.cta-mobile {
+  display: none;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(0deg, rgba(7, 7, 12, .96) 60%, rgba(7, 7, 12, .78));
+  border-top: 1px solid var(--hairline-2);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  translate: 0 100%;
+  transition: translate .35s cubic-bezier(.16, 1, .3, 1);
+}
+.cta-mobile.visible { translate: 0 0; }
+.cta-mobile .button { display: flex; width: 100%; }
+
+@media (max-width: 680px) {
+  .cta-mobile { display: block; }
+}
+
+/* ------------------------------------------------ Révélation au défilement --- */
+/* Une animation, pas une transition : les composants de la landing ont leurs
+   propres transitions (survol, relief), et deux règles `transition` sur le même
+   élément s'écrasent. L'animation, elle, ne se dispute avec rien — et elle
+   emploie `translate`, pas `transform`, que le survol garde pour lui. */
+.a-reveler { opacity: 0; }
+.a-reveler.revele {
+  animation: revele .7s cubic-bezier(.16, 1, .3, 1) var(--retard, 0ms) both;
+}
+@keyframes revele {
+  from { opacity: 0; translate: 0 18px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a-reveler { opacity: 1; }
+  .a-reveler.revele { animation: none; }
+}
+
+
+
+/* ------------------------------------------------------------ Franchise --- */
+.franchise {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+  gap: 22px; margin-top: 40px;
+}
+.franchise > div {
+  padding: 28px; border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  border-left: 2px solid rgb(var(--flamme-rvb) / .4);
+  background: rgba(0, 0, 0, .22);
+}
+.franchise h3 { font-size: 17px; font-weight: 600; margin: 0 0 10px; }
+.franchise p { font-size: 14.5px; color: var(--text-soft); margin: 0; line-height: 1.65; }
+
+.appel-note { margin-top: 20px; font-size: 13px; color: var(--text-faint); }
+
+.erreur-page { text-align: center; padding-block: 110px 130px; }
+.erreur-page .section-accroche { margin-inline: auto; }
+.erreur-page .row { justify-content: center; }
+
+/* ---------------------------------------------- Essayage des sous-titres --- */
+.essayage { margin-top: 38px; }
+
+.essayage-champ { position: relative; display: block; margin-bottom: 22px; }
+.essayage-champ input {
+  width: 100%; padding: 20px 92px 20px 24px;
+  font: 500 19px/1.4 var(--sans); color: var(--text);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border: 1px solid var(--hairline); border-radius: 16px;
+  transition: border-color .25s, box-shadow .25s, background .25s;
+}
+.essayage-champ input::placeholder { color: var(--text-faint); }
+.essayage-champ input:focus {
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
+  background: rgb(var(--flamme-rvb) / .05);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .10),
+              0 22px 60px -34px rgb(var(--flamme-rvb) / .8);
+}
+.essayage-compteur {
+  position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+  font: 600 12px var(--sans); letter-spacing: .04em;
+  color: var(--text-faint); pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+.essayage-compteur.proche { color: var(--flamme-claire); }
+
+.essayage-styles {
+  display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 24px;
+}
+.puce {
+  padding: 10px 18px; border-radius: 999px; cursor: pointer;
+  font: 500 13.5px var(--sans); color: var(--text-soft);
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid var(--hairline);
+  transition: color .2s, background .2s, border-color .2s, transform .2s;
+}
+.puce:hover { color: var(--text); border-color: rgba(255, 255, 255, .18); }
+.puce:active { transform: scale(.97); }
+.puce.actif {
+  background: linear-gradient(135deg, var(--flamme-claire), var(--flamme));
+  border-color: transparent; color: var(--sur-flamme); font-weight: 650;
+  box-shadow: 0 14px 34px -18px rgb(var(--flamme-rvb) / .9);
+}
+
+/* La scène : un cadre sombre où le clip occupe toute la largeur. Le fond du
+   clip étant lui-même un dégradé, le cadre reste neutre pour ne pas jurer. */
+.essayage-scene {
+  position: relative; margin: 0; border-radius: 20px; overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #07080b;
+  box-shadow: 0 40px 90px -50px rgba(0, 0, 0, .95);
+}
+.essayage-scene video {
+  display: block; width: 100%; height: auto;
+  /* Le clip est une bande : on réserve sa place pour éviter le saut de page. */
+  aspect-ratio: 540 / 170; object-fit: cover; background: #07080b;
+}
+.essayage-scene figcaption {
+  padding: 16px 22px 18px; font-size: 13.5px; color: var(--text-soft);
+  border-top: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, .015);
+}
+
+/* Pendant le rendu : le clip se retire légèrement et une barre progresse. */
+.essayage.charge .essayage-scene video { opacity: .38; filter: saturate(.5); }
+.essayage-scene video { transition: opacity .35s, filter .35s; }
+.essayage.charge .essayage-scene::after {
+  content: ""; position: absolute; inset-inline: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--flamme), transparent);
+  animation: balayage 1.15s ease-in-out infinite;
+}
+@keyframes balayage {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.essayage-etat {
+  margin: 14px 0 0; min-height: 20px;
+  font-size: 13.5px; color: var(--text-faint);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 680px) {
+  .essayage-champ input { padding: 17px 78px 17px 18px; font-size: 16.5px; }
+  .puce { padding: 9px 15px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .essayage.charge .essayage-scene::after { animation: none; opacity: .6; }
+}
+
+
+/* ===================================================================
+   Le dernier appel des pages intérieures
+   ===================================================================
+   L'accueil a sa propre version (`.lp-final`, plus bas) ; ici reste celle des
+   pages Fonctionnalités et Questions : une image du moteur, noyée sous deux
+   voiles pour que le texte passe partout et que la coupe d'avec le fond ne se
+   voie pas comme un timbre collé. */
+.appel {
+  --bandeau: url('/static/vues/bandeau-nuit.d952c88ce0.jpg');
+  --bandeau-h: 340px;
+  --voile-centre: .26; --voile-haut: .22;
+  --voile-milieu: .26; --voile-bas: .52;
+  position: relative; isolation: isolate;
+  background-image: var(--bandeau);
+  background-size: cover;
+  /* Cadré par le haut : la lune est haute dans l'image, et tout autre
+     cadrage lui coupe le halo au bord supérieur. */
+  background-position: center top;
+  min-height: var(--bandeau-h);
+  max-width: none; width: 100%;
+  border-top: 1px solid rgb(var(--laiton-rvb) / .22);
+  padding-inline: max(36px, calc((100% - 780px) / 2));
+}
+.appel::before {
+  /* `height: auto` n'est pas décoratif : la lueur de section, plus haut,
+     donne à `.appel::before` une hauteur de 60 %. Sans l'annuler, le voile
+     s'arrêtait aux trois cinquièmes du bandeau et l'image reparaissait crue
+     en dessous. */
+  content: ""; position: absolute; inset: 0; height: auto; z-index: -1;
+  background:
+    radial-gradient(58% 74% at 50% 50%,
+                    rgba(7, 7, 12, var(--voile-centre)), transparent 72%),
+    linear-gradient(180deg, var(--ink) 0%,
+                    rgba(7, 7, 12, var(--voile-haut)) 18%,
+                    rgba(7, 7, 12, var(--voile-milieu)) 52%,
+                    rgba(7, 7, 12, var(--voile-bas)) 82%,
+                    var(--ink) 100%),
+    linear-gradient(90deg, var(--ink), transparent 18%,
+                    transparent 82%, var(--ink));
+}
+/* La lueur de section ferait double emploi par-dessus une image. */
+.appel::after { content: none; }
+
+/* --- L'ouverture d'une section ---------------------------------------
+   Un filet avant le sur-titre : l'œil reconnaît un début de chapitre au lieu
+   d'un paragraphe de plus. */
+.section > .eyebrow {
+  display: flex; align-items: center; gap: 12px;
+}
+.section > .eyebrow::before {
+  content: ""; width: 26px; height: 1px; flex: none;
+  background: linear-gradient(90deg, var(--laiton), rgb(var(--laiton-rvb) / .15));
+}
+
+/* Les titres de section respirent davantage, et la phrase d'accroche se
+   rapproche du titre : ensemble ils forment un bloc, au lieu de deux. */
+.section h2 { margin-bottom: 14px; }
+.section-accroche { font-size: 17.5px; max-width: 56ch; margin-bottom: 48px; }
+
+@media (max-width: 760px) {
+  .appel { --bandeau-h: 280px; }
+}
+
+
+
+
+/* Les listes de questions n'ont pas de carte pour les asseoir : on pose donc
+   le voile sous la section elle-même, sinon le champ de braises se lit
+   derrière chaque ligne. */
+.faq { position: relative; isolation: isolate; }
+.faq::before {
+  content: ""; position: absolute; inset: -20px -24px; z-index: -1;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(7, 7, 12, .55), rgba(7, 7, 12, .80) 30%,
+                    rgba(7, 7, 12, .86) 100%);
+}
+
+/* ===================================================================
+   La porte
+   ===================================================================
+   Le site publié en pages statiques peut demander un code. Il n'y a pas de
+   serveur pour le vérifier : c'est le navigateur qui le fait, et la porte
+   masque le contenu au lieu de l'enfermer. Le détail est écrit dans
+   `templates/site/_porte.html`.
+
+   Le masquage est porté par `<html>`, pas par un script : la classe est
+   posée à la publication, dans le fichier lui-même. Un navigateur sans
+   JavaScript garde donc la page fermée, au lieu de l'ouvrir en grand. */
+html.verrouille body > *:not(.porte) { display: none !important; }
+html.verrouille, html.verrouille body { overflow: hidden; height: 100%; }
+/* Et l'inverse, qui compte tout autant : porte ouverte, la porte s'efface.
+   Sans cette ligne, elle restait en place — `position: fixed`, plein écran —
+   chez tout visiteur déjà entré. Le contenu s'affichait bien derrière, et
+   restait invisible : le site paraissait verrouillé pour toujours dès la
+   deuxième visite. Le script la retire aussi, mais il arrive après le premier
+   affichage, et la feuille de style non. */
+html:not(.verrouille) .porte { display: none !important; }
+
+.porte {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(120% 100% at 50% 0%,
+                    rgb(var(--flamme-rvb) / .14), transparent 62%),
+    var(--ink);
+}
+.porte-carte {
+  width: min(380px, 100%);
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding: 40px 32px 34px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur);
+}
+.porte-marque .flamme { filter: drop-shadow(0 0 14px rgb(var(--flamme-rvb) / .6)); }
+.porte h1 {
+  font-family: var(--serif); font-weight: 400; font-size: 34px;
+  letter-spacing: -.01em; margin: 14px 0 0;
+}
+.porte-mot {
+  font-size: 14.5px; color: var(--text-soft); line-height: 1.6;
+  margin: 10px 0 26px; max-width: 26ch;
+}
+.porte-champ { display: block; width: 100%; }
+.porte-champ input {
+  width: 100%; padding: 15px 18px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, .34); color: var(--text);
+  font: 500 17px/1.4 var(--sans);
+  /* Au centre, et espacé : un code se relit caractère par caractère. */
+  text-align: center; letter-spacing: .10em;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.porte-champ input::placeholder { letter-spacing: 0; color: var(--text-faint); }
+.porte-champ input:focus {
+  outline: none; border-color: rgb(var(--flamme-rvb) / .55);
+  background: rgba(0, 0, 0, .46);
+  box-shadow: 0 0 0 4px rgb(var(--flamme-rvb) / .12);
+}
+.porte .button { width: 100%; margin-top: 14px; }
+.porte-avis {
+  min-height: 1.3em;                 /* la carte ne saute pas à l'apparition */
+  margin: 14px 0 0; font-size: 13.5px; color: var(--alert);
+}
+.porte-note {
+  margin: 18px 0 0; font-size: 12.5px; color: var(--text-faint);
+  line-height: 1.55; max-width: 30ch;
+}
+
+/* Le refus se voit : la carte hésite, une fois. */
+.porte.refuse .porte-carte { animation: porte-refus .42s ease; }
+.porte.refuse .porte-champ input { border-color: rgb(255 107 107 / .55); }
+@keyframes porte-refus {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-7px); }
+  45%      { transform: translateX(6px); }
+  70%      { transform: translateX(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .porte.refuse .porte-carte { animation: none; }
+}
+
+/* ==========================================================================
+   La landing
+   ==========================================================================
+   Noir profond, indigo pour l'accent, braise pour ce qui brûle. L'orange n'est
+   jamais une surface de texte : posé en fond, il porte de l'encre sombre ; posé
+   en texte, il est éclairci. Les contrastes sont tenus à 4,5:1 au moins.
+
+   Tout ce qui est propre à la landing porte le préfixe `lp-` ; les composants
+   partagés avec les autres pages (tarifs, essayage, test de l'accroche) sont
+   habillés sous `.page-accueil`, pour que les pages intérieures ne bougent pas.
+   ========================================================================== */
+
+html { scroll-behavior: smooth; }
+[id] { scroll-margin-top: 88px; }
+body.site :focus-visible { outline: 2px solid var(--flamme-claire); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* La flèche des boutons pleins : une chevron déjà dessinée, tournée vers la
+   droite plutôt que redessinée. Un filet qui glisse d'un cran au survol dit
+   « ça avance » mieux qu'un bouton immobile. */
+.bouton-fleche {
+  display: inline-flex; margin-left: 2px;
+  transform: rotate(-90deg);
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1);
+}
+.button.primary:hover .bouton-fleche,
+a:hover > .bouton-fleche { transform: rotate(-90deg) translateY(3px); }
+
+/* Le mot mis en valeur : un dégradé de l'indigo clair à la braise. Le repli
+   est la couleur d'éclat, pour un navigateur qui ne découpe pas le texte. */
+.page-accueil .hero h1 em,
+.page-accueil .section h2 em,
+.page-accueil .appel h2 em {
+  font-style: italic; color: var(--eclat); padding-right: .02em;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .page-accueil .hero h1 em,
+  .page-accueil .section h2 em,
+  .page-accueil .appel h2 em {
+    background: linear-gradient(100deg, var(--flamme-claire) 6%,
+                var(--braise-claire) 64%, var(--braise) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+}
+
+/* ------------------------------------------------------------------ Hero --- */
+.hero {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+  align-items: center; gap: clamp(32px, 5vw, 72px);
+  max-width: 1240px; margin: 0 auto; padding: 84px 36px 60px;
+}
+/* Un voile sous la colonne de texte, et deux lueurs à droite. Le fond animé
+   est beau, mais un titre se lit sur un appui, pas sur des volutes : le voile
+   est dense à gauche, là où se trouve la copie, et s'efface vers le visuel.
+   Il va d'un bord de la fenêtre à l'autre pour n'avoir aucune arête. */
+.hero::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  top: -90px; bottom: -40px; left: 50%; width: 100vw; translate: -50% 0;
+  background:
+    radial-gradient(56% 90% at 24% 48%,
+                    rgba(7, 7, 12, .92) 0%, rgba(7, 7, 12, .66) 46%, transparent 82%),
+    radial-gradient(38% 60% at 82% 38%, rgb(var(--flamme-rvb) / .28), transparent 72%),
+    radial-gradient(24% 34% at 96% 66%, rgb(var(--braise-rvb) / .15), transparent 72%);
+}
+
+.lp-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin: 0 0 26px; padding: 7px 16px 7px 13px; border-radius: 999px;
+  border: 1px solid var(--hairline-2); background: var(--surface);
+  box-shadow: var(--lueur);
+  font-size: 12px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.lp-badge-point {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--braise);
+  animation: lp-pouls 2.4s ease-out infinite;
+}
+@keyframes lp-pouls {
+  0%   { box-shadow: 0 0 0 0 rgb(var(--braise-rvb) / .55); }
+  70%, 100% { box-shadow: 0 0 0 9px rgb(var(--braise-rvb) / 0); }
+}
+
+/* La taille est bornée : « montées pour toi. » est la chute du titre, et
+   au-delà elle se coupait en deux sur un écran d'ordinateur portable. */
+.hero h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: clamp(42px, 5.2vw, 72px); line-height: 1.03;
+  letter-spacing: -.03em; margin: 0 0 24px;
+}
+.hero-accroche {
+  font-size: 18px; line-height: 1.65; color: var(--text-soft);
+  max-width: 48ch; margin: 0;
+}
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.hero-note { margin: 18px 0 0; font-size: 13px; color: var(--text-soft); }
+
+/* Les boutons du premier écran portent un souffle de braise sous l'indigo :
+   la même chaleur que le reste du visuel. */
+.hero .button.primary,
+.lp-demo .button.primary,
+.lp-final .button.primary {
+  box-shadow:
+    inset 0 1px 0 rgb(var(--os-rvb) / .52),
+    inset 0 -1px 0 rgb(var(--creux-rvb) / .38),
+    0 14px 34px -14px rgb(var(--flamme-rvb) / .75),
+    0 22px 54px -26px rgb(var(--braise-rvb) / .55);
+}
+
+/* Ce que Flambée fait, en cinq points qu'on lit sans réfléchir — avant même
+   l'appel à l'action : on ne demande pas un compte à qui ne sait pas encore
+   ce qu'il achète. */
+.hero-capacites {
+  list-style: none; margin: 26px 0 32px; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 9px;
+}
+.hero-capacites li {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px 8px 11px; border-radius: 999px;
+  border: 1px solid var(--hairline); background: var(--surface);
+  font-size: 12.5px; font-weight: 500; color: var(--text-soft);
+  white-space: nowrap;
+}
+.hero-capacites .icone { color: var(--braise-claire); flex: none; }
+
+/* --- Le produit : une fenêtre d'atelier autour de la vraie vidéo ----------- */
+.hero-visuel {
+  position: relative; display: flex; justify-content: center;
+  padding: 10px 32px 30px;
+}
+.lp-fenetre {
+  position: relative; width: min(100%, 560px);
+  border-radius: 24px; border: 1px solid var(--hairline-2);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .075), rgb(var(--os-rvb) / .02)),
+    rgba(13, 13, 22, .88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow), var(--lueur-forte),
+              0 0 130px -34px rgb(var(--flamme-rvb) / .6),
+              0 40px 120px -60px rgb(var(--braise-rvb) / .5);
+}
+.lp-barre {
+  display: flex; align-items: center; gap: 7px;
+  padding: 13px 16px; border-bottom: 1px solid var(--hairline);
+}
+.lp-barre i {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgb(var(--os-rvb) / .16);
+}
+.lp-barre i:first-child { background: rgb(var(--braise-rvb) / .85); }
+.lp-barre span {
+  margin-left: 10px; font-size: 12px; letter-spacing: .02em;
+  color: var(--text-soft);
+}
+.lp-fenetre-corps { display: grid; grid-template-columns: 172px minmax(0, 1fr); }
+.lp-rail {
+  list-style: none; margin: 0; padding: 16px 12px;
+  display: grid; gap: 4px; align-content: start;
+  border-right: 1px solid var(--hairline);
+}
+.lp-rail li {
+  display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center;
+  padding: 9px 8px; border-radius: 10px;
+  font-size: 12px; line-height: 1.3; color: var(--text-soft);
+}
+.lp-rail b { font-family: var(--serif); font-weight: 400; font-size: 13px; }
+.lp-rail li.actif {
+  color: var(--text);
+  background: linear-gradient(90deg, rgb(var(--flamme-rvb) / .24), rgb(var(--flamme-rvb) / .04));
+  box-shadow: inset 0 0 0 1px rgb(var(--flamme-claire-rvb) / .28);
+}
+.lp-rail li.actif b { color: var(--braise-claire); }
+
+.lp-scene {
+  position: relative; display: grid; place-items: center;
+  padding: 28px 18px 32px;
+}
+/* Le sol du téléphone : sans ombre ni lueur dessous, un objet flotte et l'œil
+   le lit comme un dessin. */
+.lp-scene::before {
+  content: ""; position: absolute; z-index: 0; inset: auto 10% 6% 10%; height: 42%;
+  background: radial-gradient(50% 100% at 50% 100%,
+              rgb(var(--flamme-rvb) / .38), transparent 72%);
+  filter: blur(24px);
+}
+
+/* Le téléphone : un cadre sobre, la vidéo respire dedans. */
+.lp-tel {
+  position: relative; z-index: 1; width: min(100%, 232px); padding: 9px;
+  border-radius: 36px;
+  background: linear-gradient(160deg, #33324a 0%, #16161f 18%,
+                              #08080d 55%, #1d1c2c 88%, #454263 100%);
+  box-shadow: 0 44px 90px -34px rgba(0, 0, 0, .95),
+              inset 0 1px 0 rgb(var(--os-rvb) / .28),
+              0 0 0 1px rgb(var(--laiton-rvb) / .30),
+              0 0 80px -24px rgb(var(--flamme-rvb) / .6);
+}
+.lp-tel video, .lp-tel img {
+  display: block; width: 100%; height: auto; aspect-ratio: 9 / 16;
+  border-radius: 28px; background: var(--ink); object-fit: cover;
+}
+.lp-tel-reflet {
+  position: absolute; inset: 9px; border-radius: 28px; pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .13), transparent 40%);
+}
+.lp-tel-petit { width: min(100%, 196px); }
+.lp-tel-grand { width: min(100%, 318px); padding: 11px; border-radius: 46px; }
+.lp-tel-grand video, .lp-tel-grand .lp-tel-reflet { border-radius: 35px; }
+.lp-tel-grand .lp-tel-reflet { inset: 11px; }
+
+/* Pause : une vidéo qui tourne sans fin doit pouvoir s'arrêter. */
+.lp-lecteur {
+  position: absolute; z-index: 3; right: 14px; bottom: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  background: rgba(13, 13, 22, .86); color: var(--text);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font: 600 12.5px var(--sans); cursor: pointer;
+  transition: background .2s, border-color .2s, transform .2s;
+}
+.lp-lecteur:hover { background: rgba(28, 26, 44, .95); border-color: rgb(var(--braise-rvb) / .5); transform: translateY(-1px); }
+.lp-lecteur > span { display: inline-flex; align-items: center; gap: 7px; }
+.lp-lecteur-lecture { display: none !important; }
+.lp-lecteur[aria-pressed="true"] .lp-lecteur-pause { display: none !important; }
+.lp-lecteur[aria-pressed="true"] .lp-lecteur-lecture { display: inline-flex !important; }
+.lp-lecteur-texte { right: auto; bottom: 0; left: 50%; translate: -50% 0; padding: 0 18px; }
+
+/* Deux jalons qui disent ce que fait l'outil, sans texte de plus dans la
+   colonne de gauche. */
+.lp-jeton {
+  position: absolute; z-index: 4;
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 15px; border-radius: 999px;
+  border: 1px solid var(--hairline-2); background: rgba(16, 16, 26, .92);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .95);
+  font-size: 12.5px; font-weight: 500; color: var(--text); white-space: nowrap;
+}
+.lp-jeton-point {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--braise); box-shadow: 0 0 10px var(--braise);
+}
+.lp-jeton-haut { top: 122px; right: 8px; }
+.lp-jeton-bas { bottom: 84px; left: 8px; }
+
+@media (min-width: 1001px) and (prefers-reduced-motion: no-preference) {
+  .hero-visuel { perspective: 1800px; perspective-origin: 60% 45%; }
+  .lp-fenetre { rotate: y -6deg; transition: rotate .9s cubic-bezier(.16, 1, .3, 1); }
+  /* Elle se redresse quand on vient la regarder : la page répond, sans que
+     rien ne bouge tant qu'on ne s'en approche pas. */
+  .hero-visuel:hover .lp-fenetre { rotate: y 0deg; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lp-scene .lp-tel { animation: lp-flotte 7s ease-in-out infinite; }
+  .lp-jeton { animation: lp-flotte 6s ease-in-out infinite; }
+  .lp-jeton-bas { animation-delay: -3s; }
+}
+@keyframes lp-flotte {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+
+/* ---------------------------------------------------------------- Faits --- */
+.chiffres {
+  position: relative; z-index: 1;
+  max-width: 1120px; margin: 0 auto; padding: 0 36px;
+}
+.chiffres-grille {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 26px 8px; text-align: center;
+  border: 1px solid var(--hairline); border-radius: 26px;
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .05), rgb(var(--os-rvb) / .012)),
+    rgba(13, 13, 22, .72);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: var(--lueur);
+}
+.chiffres-grille > div { position: relative; padding: 6px 16px; }
+.chiffres-grille > div + div::before {
+  content: ""; position: absolute; inset: 12% auto 12% 0; width: 1px;
+  background: linear-gradient(180deg, transparent,
+              rgb(var(--os-rvb) / .2), transparent);
+}
+.chiffres-grille b {
+  display: block; font-family: var(--serif); font-weight: 400;
+  font-size: clamp(32px, 4.4vw, 46px); line-height: 1; margin-bottom: 9px;
+  background: linear-gradient(135deg, var(--flamme-claire), var(--braise));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: var(--flamme-claire);
+}
+.chiffres-grille span {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+
+/* ---------------------------------------------------- Les têtes de section --- */
+.page-accueil .lp-section { padding-block: 104px; }
+.lp-tete { max-width: 780px; margin: 0 auto 56px; text-align: center; }
+.page-accueil .section h2 {
+  font-size: clamp(32px, 4.6vw, 56px); line-height: 1.05;
+  text-align: center; text-wrap: balance;
+}
+.page-accueil .section-accroche { margin-inline: auto; text-align: center; }
+.lp-tete .section-accroche { margin-bottom: 0; }
+
+/* Le sur-titre : en braise éclaircie, avec un filet de chaque côté. */
+.page-accueil .section .eyebrow {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-size: 11.5px; color: var(--braise-claire);
+}
+.page-accueil .section .eyebrow::before,
+.page-accueil .section .eyebrow::after {
+  content: ""; width: 28px; height: 1px; flex: none;
+  background: linear-gradient(90deg, transparent, rgb(var(--braise-rvb) / .7));
+}
+.page-accueil .section .eyebrow::after { transform: scaleX(-1); }
+
+/* ------------------------------------------------------ Problème → solution --- */
+.lp-pb-liste {
+  list-style: none; margin: 0 auto; padding: 0;
+  display: grid; gap: 14px; max-width: 980px;
+}
+.lp-pb {
+  display: grid; grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1.15fr);
+  align-items: stretch;
+}
+.lp-pb-avant, .lp-pb-apres {
+  padding: 22px 26px; border-radius: 20px;
+  border: 1px solid var(--hairline);
+}
+.lp-pb b { display: block; font-size: 16.5px; font-weight: 600; margin-bottom: 6px; line-height: 1.35; }
+.lp-pb p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-soft); }
+/* Le problème s'éteint : bordure en tirets, texte adouci — c'est ce qu'on
+   laisse derrière soi. */
+.lp-pb-avant { border-style: dashed; background: rgb(var(--os-rvb) / .018); }
+.lp-pb-avant b { color: var(--text-soft); font-weight: 500; }
+.lp-pb-apres {
+  position: relative; border-color: rgb(var(--flamme-claire-rvb) / .3);
+  background:
+    linear-gradient(135deg, rgb(var(--flamme-rvb) / .16), rgb(var(--os-rvb) / .02) 62%),
+    var(--ink-2);
+  box-shadow: var(--lueur);
+  transition: border-color .3s, box-shadow .3s;
+}
+.lp-pb-apres::before {
+  content: ""; position: absolute; left: -1px; top: 18%; bottom: 18%; width: 2px;
+  border-radius: 2px; background: linear-gradient(180deg, var(--flamme-claire), var(--braise));
+}
+.lp-pb:hover .lp-pb-apres {
+  border-color: rgb(var(--braise-rvb) / .45);
+  box-shadow: var(--lueur-forte), 0 24px 56px -34px rgb(var(--braise-rvb) / .5);
+}
+.lp-pb-fleche { display: grid; place-items: center; color: var(--braise); }
+.lp-pb-fleche .icone { transform: rotate(-90deg); }
+
+/* ---------------------------------------------------------- Avant / après --- */
+.lp-ba {
+  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  align-items: stretch; max-width: 1000px; margin-inline: auto;
+}
+.lp-ba-carte {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 20px; padding: 26px 26px 30px; border-radius: 30px;
+  border: 1px solid var(--hairline);
+}
+.lp-ba-avant { background: rgb(var(--os-rvb) / .02); }
+.lp-ba-apres {
+  /* Le filet dégradé : un fond opaque dans la boîte de remplissage, le
+     dégradé dans celle de la bordure — la bordure transparente le laisse voir. */
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, var(--ink-3), var(--ink-2)) padding-box,
+    linear-gradient(160deg, var(--flamme-claire), var(--flamme) 45%, var(--braise)) border-box;
+  box-shadow: 0 40px 100px -50px rgb(var(--flamme-rvb) / .75),
+              0 0 80px -40px rgb(var(--braise-rvb) / .5);
+}
+.lp-ba-etat {
+  align-self: flex-start; margin: 0; padding: 5px 13px; border-radius: 999px;
+  border: 1px solid var(--hairline-2);
+  font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text-soft);
+}
+.lp-ba-apres .lp-ba-etat { background: var(--braise); border-color: transparent; color: var(--ink); }
+.lp-ba-fleche { display: grid; place-items: center; color: var(--braise); }
+.lp-ba-fleche .icone { transform: rotate(-90deg); }
+
+/* Une source brute, telle qu'on l'enregistre : horizontale, terne, muette
+   côté texte. C'est une illustration — l'étiquette du lecteur le dit. */
+.lp-ba-avant .lp-brut { margin-block: auto; }
+.lp-brut {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px;
+  overflow: hidden; display: grid; place-items: center; color: var(--text-soft);
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(180deg, transparent 58%, rgb(var(--os-rvb) / .07) 58%),
+    linear-gradient(135deg, rgb(var(--os-rvb) / .11), rgb(var(--os-rvb) / .03)),
+    var(--ink-3);
+}
+.lp-brut-lecture {
+  display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%;
+  background: rgb(var(--os-rvb) / .1); border: 1px solid var(--hairline-2);
+}
+.lp-brut-format {
+  position: absolute; left: 12px; bottom: 10px; padding: 3px 8px; border-radius: 6px;
+  background: rgba(0, 0, 0, .5); font-size: 11px; letter-spacing: .1em; color: var(--text-soft);
+}
+.lp-onde {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  width: 100%; max-width: 300px; height: 34px;
+}
+.lp-onde i { flex: 1; max-width: 8px; height: calc(var(--h) * 100%); border-radius: 3px; }
+.lp-onde-brute i { background: rgb(var(--os-rvb) / .3); }
+.lp-onde-nette i { background: linear-gradient(180deg, var(--flamme-claire), var(--braise)); }
+
+/* Les listes à coches : le rond et le signe sont deux couches, le signe est un
+   masque qui prend la couleur du texte — aucune couleur écrite dans l'image. */
+.lp-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; width: 100%; }
+.lp-liste li {
+  position: relative; padding-left: 32px; min-height: 22px;
+  font-size: 14.5px; line-height: 1.5; color: var(--text-soft);
+}
+.lp-liste li::before {
+  content: ""; position: absolute; left: 0; top: 0; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--c-fond); border: 1px solid var(--c-bord);
+}
+.lp-liste li::after {
+  content: ""; position: absolute; left: 5px; top: 5px; width: 12px; height: 12px;
+  background: var(--c-glyphe);
+  -webkit-mask: var(--glyphe) center / contain no-repeat;
+  mask: var(--glyphe) center / contain no-repeat;
+}
+.lp-liste-oui {
+  --c-fond: rgb(var(--braise-rvb) / .14); --c-bord: rgb(var(--braise-rvb) / .42);
+  --c-glyphe: var(--braise-claire);
+  --glyphe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7'/%3E%3C/svg%3E");
+}
+.lp-liste-oui li { color: var(--text); }
+.lp-liste-non {
+  --c-fond: rgb(var(--os-rvb) / .05); --c-bord: var(--hairline-2);
+  --c-glyphe: var(--text-soft);
+  --glyphe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------- Workflow --- */
+.lp-flux {
+  position: relative; list-style: none; margin: 0 auto; padding: 0;
+  max-width: 1180px; display: grid; gap: 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.lp-etape {
+  position: relative; padding: 26px 20px 24px; border-radius: 24px;
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--lueur);
+  transition: transform .35s cubic-bezier(.16, 1, .3, 1), border-color .3s, box-shadow .3s;
+}
+.lp-etape:hover {
+  transform: translateY(-6px); border-color: rgb(var(--braise-rvb) / .45);
+  box-shadow: var(--lueur-forte), 0 30px 60px -34px rgb(var(--braise-rvb) / .45);
+}
+/* Le trait qui relie chaque étape à la suivante. */
+.lp-etape:not(:last-child)::after {
+  content: ""; position: absolute; z-index: 2; top: 49px; left: calc(100% - 3px);
+  width: 22px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--flamme-claire), var(--braise)); opacity: .6;
+}
+.lp-etape-num {
+  position: absolute; top: 14px; right: 18px;
+  font-family: var(--serif); font-size: 36px; line-height: 1;
+  color: rgb(var(--os-rvb) / .16);
+}
+.lp-etape-icone {
+  display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 20px;
+  border-radius: 14px; color: var(--braise-claire);
+  background: linear-gradient(145deg, rgb(var(--flamme-rvb) / .24), rgb(var(--braise-rvb) / .10));
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .3);
+}
+.lp-etape h3 { font-size: 17px; font-weight: 600; margin: 0 0 8px; line-height: 1.3; }
+.lp-etape p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-soft); }
+
+/* ---------------------------------------------------------- Fonctionnalités --- */
+.lp-bento {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px;
+  max-width: 1120px; margin: 0 auto;
+}
+.lp-carte {
+  position: relative; overflow: hidden; isolation: isolate;
+  grid-column: span 2; padding: 30px; border-radius: 26px;
+  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .055), rgb(var(--os-rvb) / .012)),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--lueur);
+  transition: transform .35s cubic-bezier(.16, 1, .3, 1), border-color .3s, box-shadow .3s;
+}
+.lp-carte:nth-child(6n+1), .lp-carte:nth-child(6n+4) { grid-column: span 4; }
+.lp-carte:nth-child(6n+5), .lp-carte:nth-child(6n+6) { grid-column: span 3; }
+/* Une lueur qui suit le pointeur : le script pose --mx et --my. Sans lui, elle
+   reste en haut de la carte. */
+.lp-carte::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0;
+  transition: opacity .35s;
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 0%),
+              rgb(var(--flamme-rvb) / .26), rgb(var(--braise-rvb) / .09) 46%, transparent 72%);
+}
+.lp-carte:hover { transform: translateY(-4px); border-color: rgb(var(--flamme-claire-rvb) / .42); box-shadow: var(--lueur-forte), 0 30px 60px -36px rgb(var(--flamme-rvb) / .6); }
+.lp-carte:hover::before { opacity: 1; }
+.lp-carte-icone {
+  display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 20px;
+  border-radius: 14px; color: var(--braise-claire);
+  background: linear-gradient(145deg, rgb(var(--flamme-rvb) / .24), rgb(var(--braise-rvb) / .10));
+  border: 1px solid rgb(var(--flamme-claire-rvb) / .3);
+}
+.lp-carte h3 { font-size: 20px; font-weight: 600; margin: 0 0 10px; line-height: 1.25; letter-spacing: -.015em; }
+.lp-carte p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--text-soft); max-width: 52ch; }
+.lp-suite { margin: 34px 0 0; text-align: center; }
+.lp-suite a {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 4px;
+  color: var(--braise-claire); font-weight: 600; font-size: 15px; text-decoration: none;
+  border-bottom: 1px solid rgb(var(--braise-rvb) / .4);
+}
+.lp-suite a:hover { border-bottom-color: var(--braise-claire); }
+
+/* -------------------------------------------------------------- Démonstration --- */
+.page-accueil .lp-demo-section { max-width: 1240px; }
+.lp-demo {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr);
+  align-items: center; gap: clamp(24px, 5vw, 64px);
+  padding: clamp(28px, 5vw, 72px); border-radius: 40px;
+  border: 1px solid var(--hairline-2);
+  background:
+    radial-gradient(70% 90% at 86% 50%, rgb(var(--flamme-rvb) / .36), transparent 70%),
+    radial-gradient(42% 60% at 100% 100%, rgb(var(--braise-rvb) / .22), transparent 70%),
+    linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur-forte);
+}
+.page-accueil .lp-demo-texte h2,
+.page-accueil .lp-demo-texte .section-accroche { text-align: left; margin-inline: 0; }
+.page-accueil .lp-demo-texte .eyebrow { justify-content: flex-start; }
+.page-accueil .lp-demo-texte .eyebrow::after { content: none; }
+.lp-demo-texte .section-accroche { margin-bottom: 28px; }
+.lp-demo-actions { margin-top: 32px; }
+.lp-demo-scene { position: relative; display: grid; place-items: center; padding: 20px 0 62px; }
+.lp-halo {
+  position: absolute; width: min(440px, 92%); aspect-ratio: 1; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgb(var(--flamme-rvb) / 0),
+              rgb(var(--flamme-claire-rvb) / .6), rgb(var(--braise-rvb) / .55),
+              rgb(var(--flamme-rvb) / 0) 72%);
+  filter: blur(48px); opacity: .7;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lp-halo { animation: lp-tourne 20s linear infinite; }
+}
+@keyframes lp-tourne { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------ Les composants partagés --- */
+/* Le test de l'accroche. */
+.page-accueil .duel-manches { max-width: 900px; margin-inline: auto; }
+.page-accueil .duel-choix {
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .05), rgb(var(--os-rvb) / .012)),
+    rgba(13, 13, 22, .82);
+}
+.page-accueil .duel-sujet span { color: var(--text-soft); }
+.page-accueil .duel-manche.jouee .gagnante {
+  border-color: rgb(var(--braise-rvb) / .5);
+  background: linear-gradient(165deg, rgb(var(--braise-rvb) / .11), rgb(var(--flamme-rvb) / .05)), var(--ink-2);
+}
+.page-accueil .duel-manche.jouee .gagnante .duel-badge {
+  background: var(--braise); border-color: transparent; color: var(--ink);
+}
+.page-accueil .duel-jauge i { background: linear-gradient(90deg, var(--flamme-claire), var(--braise)); }
+.page-accueil .duel-verdict b { color: var(--braise-claire); }
+.page-accueil .duel-bilan, .page-accueil .duel-final {
+  max-width: 900px; margin-inline: auto; text-align: center;
+}
+.page-accueil .duel-bilan b { color: var(--braise-claire); }
+
+/* L'essayage : une carte de verre, avec le clip au centre. */
+.page-accueil .essayage {
+  max-width: 920px; margin: 0 auto; padding: clamp(18px, 3vw, 32px);
+  border-radius: 32px; border: 1px solid var(--hairline-2);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .06), rgb(var(--os-rvb) / .015)),
+    rgba(13, 13, 22, .86);
+  box-shadow: var(--shadow), var(--lueur-forte), 0 0 110px -50px rgb(var(--flamme-rvb) / .6);
+}
+.page-accueil .essayage-champ input { border-radius: 18px; }
+.page-accueil .essayage-styles { margin-bottom: 22px; }
+.page-accueil .puce { min-height: 44px; padding-block: 0; }
+/* Le texte clair sur le dégradé plein : de l'indigo au fond de nuit, jamais
+   l'éclat clair, où le texte blanc tombait sous 3:1. */
+.page-accueil .puce.actif {
+  background: linear-gradient(168deg, var(--flamme), var(--flamme-nuit));
+  box-shadow: inset 0 1px 0 rgb(var(--os-rvb) / .35),
+              0 14px 34px -18px rgb(var(--flamme-rvb) / .9),
+              0 0 0 1px rgb(var(--braise-rvb) / .35);
+}
+.page-accueil .essayage-scene { border-radius: 22px; }
+.page-accueil .essayage-etat { color: var(--text-soft); }
+
+/* Les tarifs : les cartes restent celles de style.css, elles gagnent ici la
+   mise en scène — filet dégradé sur la formule mise en avant, relief au survol.
+   Aucune donnée ni aucun lien ne change : le gabarit `_tarifs.html` est
+   inchangé. */
+.page-accueil .section-tarifs { max-width: 1180px; padding-block: 104px; }
+.section-tarifs .bascule-facturation { display: flex; width: fit-content; margin: 40px auto 46px; }
+.section-tarifs .bascule-facturation button { min-height: 44px; }
+.section-tarifs .bascule-facturation button.actif {
+  background: linear-gradient(168deg, var(--flamme), var(--flamme-nuit));
+  color: var(--sur-flamme);
+}
+.section-tarifs .tarifs-grille { align-items: stretch; gap: 20px; }
+.section-tarifs .tarif {
+  display: flex; flex-direction: column; padding: 38px 32px; border-radius: 28px;
+  transition: transform .35s cubic-bezier(.16, 1, .3, 1), box-shadow .3s, border-color .3s;
+}
+.section-tarifs .tarif:hover {
+  transform: translateY(-6px); border-color: rgb(var(--flamme-claire-rvb) / .4);
+  box-shadow: var(--lueur-forte), 0 34px 70px -40px rgb(var(--flamme-rvb) / .6);
+}
+.section-tarifs .tarif.vedette {
+  border-color: transparent;
+  background:
+    linear-gradient(180deg, var(--ink-3), var(--ink-2)) padding-box,
+    linear-gradient(160deg, var(--flamme-claire), var(--flamme) 42%, var(--braise)) border-box;
+  box-shadow: 0 40px 100px -46px rgb(var(--flamme-rvb) / .8),
+              0 0 90px -46px rgb(var(--braise-rvb) / .6);
+}
+.section-tarifs .ruban { background: var(--braise); color: var(--ink); }
+.section-tarifs .tarif-prix b { font-size: 48px; }
+.section-tarifs .tarif-volume { color: var(--braise-claire); }
+.section-tarifs .tarif-liste li::before { color: var(--braise); }
+.section-tarifs .tarif-note { color: var(--text-soft); }
+.section-tarifs .tarif-prix span { color: var(--text-soft); }
+
+/* Ce que Flambée ne fait pas. */
+.page-accueil .franchise { max-width: 1120px; margin: 0 auto; }
+.page-accueil .franchise > div {
+  border-left: 2px solid rgb(var(--braise-rvb) / .55);
+  background:
+    linear-gradient(180deg, rgb(var(--os-rvb) / .04), rgb(var(--os-rvb) / .01)),
+    rgba(13, 13, 22, .7);
+}
+
+/* ------------------------------------------------------------ L'appel final --- */
+.appel.lp-final {
+  --bandeau-h: 0px;
+  max-width: 1120px; width: auto; min-height: 0;
+  margin: 24px auto 110px; overflow: hidden;
+  padding: clamp(44px, 7vw, 88px) clamp(24px, 6vw, 72px);
+  border: 1px solid var(--hairline-2); border-radius: 44px;
+  background: linear-gradient(180deg, var(--ink-3), var(--ink-2));
+  box-shadow: var(--shadow), var(--lueur-forte);
+}
+.appel.lp-final::before {
+  content: ""; position: absolute; inset: 0; height: auto; z-index: -1;
+  background:
+    radial-gradient(60% 80% at 14% 0%, rgb(var(--flamme-rvb) / .44), transparent 70%),
+    radial-gradient(52% 72% at 92% 100%, rgb(var(--braise-rvb) / .34), transparent 70%);
+}
+.lp-final-fond {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    linear-gradient(rgb(var(--os-rvb) / .06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--os-rvb) / .06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 40%, black, transparent);
+  mask-image: radial-gradient(70% 70% at 50% 40%, black, transparent);
+}
+.lp-final .eyebrow {
+  margin: 0 0 18px; font-size: 11.5px; color: var(--braise-claire);
+  display: block; text-align: center;
+}
+.appel.lp-final h2 {
+  font-size: clamp(36px, 5.6vw, 68px); line-height: 1.04; margin: 0 0 18px;
+  text-wrap: balance;
+}
+.appel.lp-final > p:not(.eyebrow):not(.appel-note) { font-size: 18px; margin: 0 0 34px; }
+.lp-final-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.appel.lp-final .appel-note { color: var(--text-soft); margin-top: 22px; }
+
+/* ------------------------------------------------------------- Pied de page --- */
+.site-footer {
+  position: relative; z-index: 1;
+  padding: 72px max(36px, calc((100% - 1120px) / 2)) 30px;
+  border-top: 1px solid var(--hairline);
+  background:
+    linear-gradient(180deg, rgb(var(--flamme-rvb) / .05), transparent 45%),
+    rgba(3, 3, 7, .72);
+}
+.site-footer::before {
+  content: ""; position: absolute; top: -1px; left: 50%; translate: -50% 0;
+  width: min(560px, 70%); height: 1px;
+  background: linear-gradient(90deg, transparent,
+              rgb(var(--braise-rvb) / .75), rgb(var(--flamme-claire-rvb) / .75), transparent);
+}
+.footer-grille {
+  display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 44px; margin: 0 auto 48px;
+}
+.footer-marque .brand {
+  font-family: var(--serif); font-size: 26px; margin-bottom: 14px; color: var(--text);
+  align-items: center;
+}
+.footer-marque .brand .flamme { filter: drop-shadow(0 0 12px rgb(var(--flamme-rvb) / .55)); }
+.footer-marque p { font-size: 14px; color: var(--text-soft); max-width: 34ch; line-height: 1.65; margin: 0; }
+.site-footer h4 {
+  font-size: 11px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--braise-claire); margin: 0 0 16px;
+}
+.site-footer a {
+  display: block; color: var(--text-soft); text-decoration: none;
+  font-size: 14px; margin-bottom: 11px; transition: color .2s, translate .2s;
+}
+.site-footer a:not(.button):hover { color: var(--text); translate: 2px 0; }
+.site-footer a.footer-cta {
+  display: inline-flex; margin: 22px 0 0; color: var(--sur-flamme);
+}
+.footer-bas {
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin: 0 auto; padding-top: 26px; border-top: 1px solid var(--hairline);
+  font-size: 12.5px; color: var(--text-soft);
+}
+
+/* --------------------------------------------------------- Barre CTA mobile --- */
+.cta-mobile .button { box-shadow: 0 10px 30px -12px rgb(var(--braise-rvb) / .5); }
+
+/* ----------------------------------------------------------------- Écrans --- */
+@media (max-width: 1080px) {
+  .lp-flux { grid-template-columns: 1fr; max-width: 640px; gap: 14px; padding-left: 30px; }
+  .lp-flux::before {
+    content: ""; position: absolute; left: 11px; top: 24px; bottom: 24px; width: 2px;
+    background: linear-gradient(180deg, var(--flamme-claire), var(--braise)); opacity: .45;
+  }
+  .lp-etape {
+    display: grid; grid-template-columns: 48px 1fr; column-gap: 16px; padding: 20px 22px 20px 20px;
+  }
+  .lp-etape-icone { grid-row: 1 / span 2; margin: 0; }
+  .lp-etape h3 { align-self: end; padding-right: 40px; }
+  .lp-etape:not(:last-child)::after { content: none; }
+  .lp-etape::before {
+    content: ""; position: absolute; left: -26px; top: 34px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--braise);
+    box-shadow: 0 0 0 4px var(--ink), 0 0 16px rgb(var(--braise-rvb) / .6);
+  }
+  .lp-etape-num { top: 12px; right: 16px; font-size: 30px; }
+}
+
+@media (max-width: 1000px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 56px 24px 44px; text-align: center; }
+  .hero-accroche { margin-inline: auto; }
+  .hero-capacites, .hero-actions { justify-content: center; }
+  .lp-demo { grid-template-columns: 1fr; text-align: center; }
+  .page-accueil .lp-demo-texte h2,
+  .page-accueil .lp-demo-texte .section-accroche { text-align: center; margin-inline: auto; }
+  .page-accueil .lp-demo-texte .eyebrow { justify-content: center; }
+  .page-accueil .lp-demo-texte .eyebrow::after { content: ""; }
+  .lp-demo-texte .lp-liste { max-width: 420px; margin-inline: auto; text-align: left; }
+  .lp-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-carte, .lp-carte:nth-child(n) { grid-column: span 1; }
+  .footer-grille { grid-template-columns: 1fr 1fr; gap: 34px; }
+}
+
+@media (max-width: 860px) {
+  .lp-ba { grid-template-columns: 1fr; gap: 12px; max-width: 460px; }
+  .lp-ba-fleche { height: 36px; }
+  .lp-ba-fleche .icone { transform: none; }
+}
+
+@media (max-width: 760px) {
+  .lp-pb { grid-template-columns: 1fr; }
+  .lp-pb-fleche { height: 34px; }
+  .lp-pb-fleche .icone { transform: none; }
+  .lp-pb-apres::before { display: none; }
+}
+
+@media (max-width: 680px) {
+  .section { padding: 62px 20px; }
+  .page-accueil .lp-section, .page-accueil .section-tarifs { padding-block: 72px; }
+  .lp-tete { margin-bottom: 40px; }
+  .hero { padding: 40px 20px 36px; }
+  .hero-actions .button { flex: 1 1 100%; }
+  .hero-capacites li { font-size: 12px; padding: 7px 12px 7px 10px; }
+  .hero-visuel { padding: 6px 4px 26px; }
+  .lp-fenetre-corps { grid-template-columns: 1fr; }
+  .lp-rail { display: none; }
+  .lp-scene { padding: 22px 12px 26px; }
+  .lp-jeton { font-size: 11.5px; padding: 8px 12px; }
+  .lp-jeton-haut { top: 96px; right: -2px; }
+  .lp-jeton-bas { bottom: 74px; left: -2px; }
+  .chiffres { padding: 0 20px; }
+  .chiffres-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; padding: 22px 6px; }
+  .chiffres-grille > div:nth-child(3)::before { content: none; }
+  .lp-bento { grid-template-columns: 1fr; }
+  .lp-carte { padding: 26px 22px; }
+  .lp-demo { border-radius: 30px; }
+  .appel.lp-final { margin: 8px 20px 90px; border-radius: 32px; }
+  .lp-final-actions .button { flex: 1 1 100%; }
+  .footer-grille { grid-template-columns: 1fr; gap: 30px; }
+  .site-footer { padding: 52px 20px 24px; }
+  .page-accueil .essayage { border-radius: 24px; padding: 16px; }
+}
+
+/* Sans mouvement, la mise en scène s'immobilise : plus de flottement, plus de
+   pulsation, et les cartes ne se soulèvent plus au survol. */
+@media (prefers-reduced-motion: reduce) {
+  .lp-badge-point, .lp-scene .lp-tel, .lp-jeton, .lp-halo { animation: none; }
+  .lp-etape, .lp-carte, .section-tarifs .tarif, .lp-lecteur { transition: none; }
+  .lp-etape:hover, .lp-carte:hover, .section-tarifs .tarif:hover { transform: none; }
+  .lp-fenetre { rotate: none; }
+}
