@@ -246,6 +246,8 @@ def render_segment(
         mask=mask,
         mask_height_ratio=settings.mask_height_ratio,
         tag=f"s{segment.source_index}t{int(segment.start * 100)}",
+        framing=settings.framing,
+        focus_x=settings.focus_x,
     )
 
     media = probe(source.path)
@@ -262,8 +264,9 @@ def render_segment(
     args += ["-filter_complex", f"[0:v]{vf}[v]", "-map", "[v]"]
 
     if use_source_audio:
-        args += ["-map", "0:a:0",
-                 "-af", f"volume={settings.source_audio_volume:.3f},aresample=48000"]
+        # Pas de volume ici : `assembler.finalize` mixe le son d'origine et
+        # applique le curseur. Le faire deux fois l'élevait au carré.
+        args += ["-map", "0:a:0", "-af", "aresample=48000"]
     else:
         args += ["-map", "1:a"]
 

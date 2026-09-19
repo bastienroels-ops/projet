@@ -150,11 +150,18 @@ def vertical_filter(
     motion: str | None = None,
     motion_duration: float = 0.0,
     tag: str = "",
+    framing: str = "fill",
+    focus_x: float = 0.5,
 ) -> str:
     """Construit le filtre qui met une source au format 9:16.
 
-    Le cadre est rempli par recadrage centré (`scale`+`crop`) : pas de bandes
-    noires, pas de déformation.
+    Par défaut (`framing="fill"`) le cadre est rempli par recadrage
+    (`scale`+`crop`) : pas de bandes noires, pas de déformation. `focus_x`
+    décale ce recadrage sur une vidéo plus large que le cadre (0 = bord
+    gauche, 1 = bord droit, 0,5 = centré).
+
+    `framing="fit"` garde la vidéo entière : elle est posée au centre d'un
+    fond fait d'une copie d'elle-même, agrandie et floutée. Rien n'est rogné.
 
     `mask` (``"blur"``/``"black"``) masque la zone basse où se trouvent en
     général les sous-titres incrustés de la source.
@@ -172,7 +179,22 @@ def vertical_filter(
     fps = fps or config.FORMAT.fps
 
     chain: list[str] = []
-    if motion and motion_duration > 0.2:
+    if framing == "fit":
+        # Le fond et l'avant-plan partent de la même source : `split` d'abord.
+        # Le flou passe par une réduction puis un agrandissement, comme celui
+        # du masque plus bas — visuellement équivalent et bien moins cher.
+        back, front, blur, keep = f"gb{tag}", f"gf{tag}", f"gz{tag}", f"gk{tag}"
+        small_w, small_h = max(8, even(width / 16)), max(8, even(height / 16))
+        chain += [
+            f"split=2[{back}][{front}];"
+            f"[{back}]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},scale={small_w}:{small_h},"
+            f"scale={width}:{height}:flags=bicubic[{blur}];"
+            f"[{front}]scale={width}:{height}:force_original_aspect_ratio=decrease"
+            f"[{keep}];"
+            f"[{blur}][{keep}]overlay=(W-w)/2:(H-h)/2"
+        ]
+    elif motion and motion_duration > 0.2:
         zoom = 1.08
         big_w, big_h = even(width * zoom), even(height * zoom)
         margin_x, margin_y = big_w - width, big_h - height
@@ -190,9 +212,12 @@ def vertical_filter(
             f"crop={width}:{height}:x='{x_expr}':y='{y_expr}'",
         ]
     else:
+        focus = max(0.0, min(1.0, focus_x))
+        crop = (f"crop={width}:{height}" if abs(focus - 0.5) < 0.005
+                else f"crop={width}:{height}:x='(iw-ow)*{focus:.3f}':y='(ih-oh)/2'")
         chain += [
             f"scale={width}:{height}:force_original_aspect_ratio=increase",
-            f"crop={width}:{height}",
+            crop,
         ]
 
     chain += [f"fps={fps}", "setsar=1"]

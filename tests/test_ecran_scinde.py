@@ -44,8 +44,12 @@ def _graphe(**extra):
     source = Source(index=0, url="x", path="/tmp/x.mp4", title="x")
     source.duration, source.has_audio = 10.0, False
     segments = [Segment(source_index=0, start=0.0, duration=6.0)]
-    reglages = config.RenderSettings(subtitles=False, music=None, motion=False,
-                                     **extra)
+    # Ces tests portent sur la géométrie : le son d'origine, gardé par défaut,
+    # ferait passer la vidéo par un `concat` et changerait le nom de ses
+    # étiquettes sans rien changer à l'image.
+    reglages = config.RenderSettings(**{
+        "subtitles": False, "music": None, "motion": False,
+        "keep_source_audio": False, **extra})
     return assembler.build_graph(
         segments, {0: source}, voice_path=None, subtitle_path=None,
         music_path=None, settings=reglages, duration=6.0, fmt=config.FORMAT,

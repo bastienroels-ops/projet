@@ -17,8 +17,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
-from . import (analyzer, assembler, calage, config, downloader, subtitles,
-               trimmer, voice, voicestudio)
+from . import (analyzer, assembler, calage, config, downloader, solo,
+               subtitles, trimmer, voice, voicestudio)
 from . import account, users
 from .media import Cancelled, MediaError, detect_encoder, ensure_tools, probe
 from .project import Project
@@ -60,9 +60,11 @@ def _clear_cancel(project_id: str) -> None:
 def run_download(project: Project, urls: list[str]) -> None:
     """Télécharge les sources, extrait les accroches et analyse les plans."""
     token = cancel_token(project.id)
+    solo_avant = project.solo
     project.urls = urls
     project.sources = []
     project.analyses = {}
+    _oublier_les_paroles(project)
     project.ensure_dirs()
     project.set_job("download", "running", progress=0.02,
                     message=f"Téléchargement de {len(urls)} vidéo(s)…")
@@ -90,27 +92,12 @@ def run_download(project: Project, urls: list[str]) -> None:
             errors = " ".join(s.error for s in project.sources if s.error)
             raise MediaError(f"Aucune vidéo téléchargée. {errors}".strip())
 
-        # Accroches et analyse tournent ensemble : ce sont deux décodages
-        # indépendants, autant occuper tous les cœurs d'un coup.
-        project.set_job("download", "running", progress=0.68,
-                        message="Extraction des accroches et analyse des plans…")
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            hooks = pool.submit(trimmer.extract_hooks, project.sources,
-                                project.hooks_dir)
-            analyses = pool.submit(analyzer.analyze_all, project.sources)
-            hooks.result()
-            project.analyses = {
-                index: analysis.to_dict()
-                for index, analysis in analyses.result().items()
-            }
+        _preparer_les_sources(project, token, "download", 0.68)
+        _appliquer_le_mode(project, solo_avant)
 
-        _raise_if_cancelled(token)
-        _apply_scores(project)
-
-        project.step = max(project.step, 2)
         project.set_job(
             "download", "done", progress=1.0,
-            message=f"{len(project.ready_sources)} vidéo(s) prête(s).",
+            message=_bilan_des_sources(project),
         )
     except Cancelled:
         project.set_job("download", "error", message="Téléchargement annulé.",
@@ -134,6 +121,8 @@ def run_import(
     de 3 s, détection des plans et score d'accroche.
     """
     token = cancel_token(project.id)
+    solo_avant = project.solo
+    _oublier_les_paroles(project)
     project.ensure_dirs()
     project.set_job("import", "running", progress=0.05,
                     message=f"Analyse de {len(paths)} fichier(s)…")
@@ -163,7 +152,8 @@ def run_import(
             source.width = info.width
             source.height = info.height
             source.has_audio = info.has_audio
-            source.warnings = downloader._check_source(source)
+            source.warnings = downloader._check_source(
+                source, solo=len(paths) == 1)
             sources.append(source)
 
         project.sources = sources
@@ -172,23 +162,10 @@ def run_import(
             errors = " ".join(s.error for s in sources if s.error)
             raise MediaError(f"Aucune vidéo exploitable. {errors}".strip())
 
-        project.set_job("import", "running", progress=0.5,
-                        message="Extraction des accroches et analyse des plans…")
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            hooks = pool.submit(trimmer.extract_hooks, project.sources,
-                                project.hooks_dir)
-            analyses = pool.submit(analyzer.analyze_all, project.sources)
-            hooks.result()
-            project.analyses = {
-                index: analysis.to_dict()
-                for index, analysis in analyses.result().items()
-            }
-
-        _raise_if_cancelled(token)
-        _apply_scores(project)
-        project.step = max(project.step, 2)
+        _preparer_les_sources(project, token, "import", 0.5)
+        _appliquer_le_mode(project, solo_avant)
         project.set_job("import", "done", progress=1.0,
-                        message=f"{len(project.ready_sources)} vidéo(s) prête(s).")
+                        message=_bilan_des_sources(project))
     except Cancelled:
         project.set_job("import", "error", message="Import annulé.",
                         error="Annulé par l'utilisateur.")
@@ -196,6 +173,122 @@ def run_import(
         log.error("Import KO : %s", traceback.format_exc())
         project.set_job("import", "error", message="Import interrompu.",
                         error=str(exc))
+    finally:
+        _clear_cancel(project.id)
+
+
+def _preparer_les_sources(project: Project, token: threading.Event,
+                          tache: str, progression: float) -> None:
+    """Prépare les vidéos arrivées, selon qu'il faut les monter ou les retoucher.
+
+    À plusieurs, on extrait l'accroche de chacune et on repère leurs plans : de
+    quoi choisir laquelle ouvre le montage. Seule, une vidéo n'a rien à
+    départager ni à découper — l'analyser serait du temps perdu, et l'étape
+    Accroche n'aurait pas de sens : on passe directement au style.
+    """
+    if project.solo:
+        source = project.ready_sources[0]
+        project.hook_index = project.recommended_hook = source.index
+        project.step = max(project.step, 3)
+        return
+
+    # Accroches et analyse tournent ensemble : ce sont deux décodages
+    # indépendants, autant occuper tous les cœurs d'un coup.
+    project.set_job(tache, "running", progress=progression,
+                    message="Extraction des accroches et analyse des plans…")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        hooks = pool.submit(trimmer.extract_hooks, project.sources,
+                            project.hooks_dir)
+        analyses = pool.submit(analyzer.analyze_all, project.sources)
+        hooks.result()
+        project.analyses = {
+            index: analysis.to_dict()
+            for index, analysis in analyses.result().items()
+        }
+
+    _raise_if_cancelled(token)
+    _apply_scores(project)
+    project.step = max(project.step, 2)
+
+
+def _bilan_des_sources(project: Project) -> str:
+    if project.solo:
+        return "Vidéo prête : tu peux la retoucher."
+    return f"{len(project.ready_sources)} vidéo(s) prête(s)."
+
+
+def _appliquer_le_mode(project: Project, solo_avant: bool) -> None:
+    """Règle les options qui dépendent du mode, quand le mode change.
+
+    Retouchée seule, une vidéo garde son son et son cadre : ni ambiance à
+    doser, ni coupes à caler, ni travelling qu'on n'a pas demandé. Montée avec
+    d'autres, elle retrouve les réglages d'un montage. Rien n'est touché tant
+    que le mode ne change pas : un choix de l'utilisateur ne doit pas sauter
+    parce qu'il relance un téléchargement.
+    """
+    if project.solo == solo_avant:
+        return
+    defauts = config.RenderSettings()
+    if project.solo:
+        reglages = dict(motion=False, scene_aware=False, keep_source_audio=True)
+    else:
+        reglages = dict(motion=defauts.motion, scene_aware=defauts.scene_aware,
+                        keep_source_audio=defauts.keep_source_audio)
+    project.settings = replace(project.settings, **reglages)
+
+
+def _oublier_les_paroles(project: Project) -> None:
+    """De nouvelles vidéos, de nouvelles paroles : les anciennes ne valent plus."""
+    project.transcript_words = []
+    project.transcript_done = False
+
+
+def voix_off_active(project: Project) -> bool:
+    """Une vidéo seule n'a de voix off que si on lui en a donné une : un texte
+    à lire, ou l'enregistrement importé. En montage, il y en a toujours une."""
+    if not project.solo:
+        return True
+    return bool(project.script.strip()
+                or project.settings.voice == voicestudio.VOICE_ID)
+
+
+def _reglages_du_rendu(project: Project) -> config.RenderSettings:
+    """Les réglages tels que l'assemblage doit les lire.
+
+    Le son d'origine n'est jamais retiré d'office. Sans voix off, l'assemblage
+    le laisse à 100 % (voir `assembler.source_gain`) ; avec, il passe au
+    niveau choisi par l'utilisateur.
+    """
+    return project.settings
+
+
+def run_transcription(project: Project) -> None:
+    """Écoute la vidéo et en tire les paroles, pour les sous-titres."""
+    token = cancel_token(project.id)
+    project.set_job("transcribe", "running", progress=0.05,
+                    message="Écoute de la vidéo…")
+    try:
+        if not project.solo:
+            raise MediaError("La transcription ne concerne que le mode une "
+                             "seule vidéo.")
+        source = project.ready_sources[0]
+        mots = solo.paroles_de(source.path, project.dir,
+                               has_audio=source.has_audio)
+        _raise_if_cancelled(token)
+        project.transcript_words = [mot.to_dict() for mot in mots]
+        project.transcript_done = True
+        project.set_job(
+            "transcribe", "done", progress=1.0,
+            message=f"{len(mots)} mot(s) reconnu(s)." if mots
+            else "Aucune parole détectée : écris le texte, ou passe.",
+        )
+    except Cancelled:
+        project.set_job("transcribe", "error", message="Transcription annulée.",
+                        error="Annulé par l'utilisateur.")
+    except Exception as exc:
+        log.error("Transcription KO : %s", traceback.format_exc())
+        project.set_job("transcribe", "error",
+                        message="Transcription impossible.", error=str(exc))
     finally:
         _clear_cancel(project.id)
 
@@ -229,47 +322,18 @@ def run_render(project: Project, *, fast: bool = False) -> None:
                 f"Outil manquant : {', '.join(missing)}. Installe ffmpeg "
                 "(ex. `brew install ffmpeg` ou `apt install ffmpeg`)."
             )
-        if (not project.script.strip()
-                and project.settings.voice != voicestudio.VOICE_ID):
-            raise MediaError("Aucun script validé.")
         if not project.ready_sources:
             raise MediaError("Aucune vidéo source exploitable.")
+        # Retouchée seule, la vidéo n'a pas besoin de script : ce sont ses
+        # propres paroles qui parlent.
+        if (not project.solo and not project.script.strip()
+                and project.settings.voice != voicestudio.VOICE_ID):
+            raise MediaError("Aucun script validé.")
 
-        settings = project.settings
-
-        # 1. Voix off ------------------------------------------------------
-        # Rendue une seule fois par script : un rendu final qui suit un aperçu
-        # réutilise la piste déjà synthétisée (et son minutage au mot).
-        track = _voice_track(project, cached_only=False)
-        project.voice_path = track.path
-        project.voice_duration = track.duration
-        target_duration = track.duration + TAIL_SILENCE
-        _raise_if_cancelled(token)
-
-        # 2. Sous-titres ---------------------------------------------------
-        if settings.subtitles:
-            project.set_job("render", "running", progress=0.12,
-                            message="Sous-titres animés…")
-            project.subtitle_path = str(subtitles.write_ass(
-                track.words,
-                project.dir / "subtitles.ass",
-                style=subtitles.placer(
-                    config.subtitle_style(settings.subtitle_preset),
-                    settings, config.FORMAT),
-                offset=track.lead_in,
-                max_duration=target_duration,
-            ))
+        if project.solo:
+            target_duration = _preparer_la_retouche(project, token)
         else:
-            project.subtitle_path = ""
-
-        # 3. Plan de montage ----------------------------------------------
-        project.segments = trimmer.plan_segments(
-            project.sources,
-            hook_index=project.hook_index or project.ready_sources[0].index,
-            target_duration=target_duration,
-            scenes=project.scene_cuts() if settings.scene_aware else None,
-        )
-        _raise_if_cancelled(token)
+            target_duration = _preparer_le_montage(project, token)
 
         # 4. Rendu ---------------------------------------------------------
         encoder = detect_encoder()
@@ -277,7 +341,8 @@ def run_render(project: Project, *, fast: bool = False) -> None:
         project.set_job(
             "render", "running", progress=0.15,
             message=f"{'Aperçu' if fast else 'Montage'} et encodage "
-                    f"({len(project.segments)} plans, {fmt.size}, {encoder.name})…",
+                    + (f"({fmt.size}, {encoder.name})…" if project.solo else
+                       f"({len(project.segments)} plans, {fmt.size}, {encoder.name})…"),
         )
 
         def on_progress(fraction: float) -> None:
@@ -291,7 +356,17 @@ def run_render(project: Project, *, fast: bool = False) -> None:
         if fast:
             out_path = project.dir / "apercu.mp4"
         else:
-            out_path = config.OUTPUT_DIR / assembler.output_name(project.topic)
+            # Un sous-dossier par compte : sans lui, tous les rendus finaux
+            # de tous les utilisateurs tombaient dans le même `output/`, seul
+            # espace à ne pas suivre le cloisonnement appliqué partout
+            # ailleurs (work/utilisateurs/<id>/…). Deux comptes rendant au
+            # même moment un sujet au nom proche pouvaient alors se marcher
+            # dessus, silencieusement.
+            out_dir = config.OUTPUT_DIR / (str(project.owner) if project.owner else "local")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            nom = project.topic or (
+                project.ready_sources[0].title if project.solo else "")
+            out_path = out_dir / assembler.output_name(nom)
 
         result = _render_with_fallback(
             project, out_path,
@@ -307,11 +382,16 @@ def run_render(project: Project, *, fast: bool = False) -> None:
             if proprietaire:
                 account.noter(proprietaire, "rendu", out_path.name)  # un crédit
         project.step = 5
+        coupee = (f" Attention : la voix off ({project.voice_duration:.0f}s) dépasse "
+                  f"la vidéo et a été coupée à {target_duration:.0f}s."
+                  if project.solo and project.voice_path
+                  and project.voice_duration > target_duration + 0.3 else "")
         project.set_job(
             "render", "done", progress=1.0,
             message=f"{'Aperçu prêt' if fast else 'Vidéo prête'} : {out_path.name} — "
                     f"{result.duration:.0f}s, {result.size_bytes / 1e6:.1f} Mo, "
-                    f"rendu en {result.elapsed:.0f}s ({result.encoder}, {fmt.size})",
+                    f"rendu en {result.elapsed:.0f}s ({result.encoder}, {fmt.size})"
+                    + coupee,
         )
     except Cancelled:
         project.set_job("render", "error", message="Rendu annulé.",
@@ -321,6 +401,118 @@ def run_render(project: Project, *, fast: bool = False) -> None:
         project.set_job("render", "error", message="Rendu interrompu.", error=str(exc))
     finally:
         _clear_cancel(project.id)
+
+
+def _preparer_le_montage(project: Project, token: threading.Event) -> float:
+    """Voix off, sous-titres et plan de montage. Retourne la durée visée."""
+    settings = project.settings
+    # 1. Voix off ----------------------------------------------------
+    # Rendue une seule fois par script : un rendu final qui suit un aperçu
+    # réutilise la piste déjà synthétisée (et son minutage au mot).
+    track = _voice_track(project, cached_only=False)
+    project.voice_path = track.path
+    project.voice_duration = track.duration
+    target_duration = track.duration + TAIL_SILENCE
+    _raise_if_cancelled(token)
+
+    # 2. Sous-titres ---------------------------------------------------
+    if settings.subtitles:
+        project.set_job("render", "running", progress=0.12,
+                        message="Sous-titres animés…")
+        project.subtitle_path = str(subtitles.write_ass(
+            track.words,
+            project.dir / "subtitles.ass",
+            style=subtitles.placer(
+                config.subtitle_style(settings.subtitle_preset),
+                settings, config.FORMAT),
+            offset=track.lead_in,
+            max_duration=target_duration,
+        ))
+    else:
+        project.subtitle_path = ""
+
+    # 3. Plan de montage ----------------------------------------------
+    project.segments = trimmer.plan_segments(
+        project.sources,
+        hook_index=project.hook_index or project.ready_sources[0].index,
+        target_duration=target_duration,
+        scenes=project.scene_cuts() if settings.scene_aware else None,
+    )
+    _raise_if_cancelled(token)
+    return target_duration
+
+
+def _preparer_la_retouche(project: Project, token: threading.Event) -> float:
+    """Sous-titres et voix off facultative d'une vidéo seule.
+
+    Retourne sa durée : elle est gardée entière. Pas de plan de montage : un
+    seul extrait, du début à la fin, dont le son est celui de la vidéo — auquel
+    s'ajoute la voix off si l'utilisateur en a demandé une.
+    """
+    source = project.ready_sources[0]
+    settings = project.settings
+    try:
+        duration = probe(source.path).duration or source.duration
+    except MediaError:
+        duration = source.duration
+    if duration <= 0:
+        raise MediaError("Durée de la vidéo inconnue.")
+
+    # 1. Voix off (facultative) ----------------------------------------
+    track = None
+    if voix_off_active(project):
+        track = _voice_track(project, cached_only=False)
+        project.voice_path = track.path
+        project.voice_duration = track.duration
+        if track.duration > duration + 0.3:
+            log.warning("Voix off de %.1f s sur une vidéo de %.1f s : coupée.",
+                        track.duration, duration)
+    else:
+        project.voice_path = ""
+        project.voice_duration = 0.0
+    _raise_if_cancelled(token)
+
+    # 2. Sous-titres ---------------------------------------------------
+    # Avec une voix off, ce qu'on entend au premier plan est elle : les
+    # sous-titres la suivent, comme en montage. Sans, ce sont les paroles de
+    # la vidéo.
+    mots: list[voice.Word] = []
+    decalage = 0.0
+    if settings.subtitles:
+        if track is not None:
+            mots, decalage = track.words, track.lead_in
+        else:
+            if not project.transcript_done:
+                # L'étape Texte n'a pas été visitée : on écoute la vidéo.
+                project.set_job("render", "running", progress=0.06,
+                                message="Écoute de la vidéo pour les sous-titres…")
+                paroles = solo.paroles_de(source.path, project.dir,
+                                          has_audio=source.has_audio)
+                project.transcript_words = [m.to_dict() for m in paroles]
+                project.transcript_done = True
+            _raise_if_cancelled(token)
+            mots = [voice.Word(**mot) for mot in project.transcript_words]
+
+    if mots:
+        project.set_job("render", "running", progress=0.12,
+                        message="Sous-titres animés…")
+        project.subtitle_path = str(subtitles.write_ass(
+            mots,
+            project.dir / "subtitles.ass",
+            style=subtitles.placer(
+                config.subtitle_style(settings.subtitle_preset),
+                settings, config.FORMAT),
+            offset=decalage,
+            max_duration=duration,
+        ))
+    else:
+        project.subtitle_path = ""      # rien n'est dit : rien à afficher
+
+    project.segments = [trimmer.Segment(source_index=source.index, start=0.0,
+                                        duration=round(duration, 3),
+                                        is_hook=True)]
+    _raise_if_cancelled(token)
+    return duration
 
 
 # Le texte du filigrane. Discret, mais reconnaissable : c'est ce qui distingue
@@ -352,7 +544,7 @@ def _render_with_fallback(
     cancel: threading.Event,
 ) -> assembler.AssemblyResult:
     """Tente le rendu en une passe, et bascule sur le repli si ffmpeg refuse."""
-    settings = project.settings
+    settings = _reglages_du_rendu(project)
     chemin_musique = music_path(settings.music)
     chemin_fond = fond_path(settings.split_clip, project)
     subtitle_path = Path(project.subtitle_path) if project.subtitle_path else None

@@ -125,8 +125,8 @@ class Step:
 
 
 STEPS: list[Step] = [
-    Step("01", "Tu donnes la matière", "Deux à cinq liens sur une même thématique, "
-         "ou des vidéos déjà sur ton téléphone."),
+    Step("01", "Tu donnes la matière", "Un lien suffit pour retoucher une vidéo. "
+         "De deux à cinq, Flambée les monte ensemble."),
     Step("02", "Tu choisis l'accroche", "Les premières secondes de chaque source, "
          "côte à côte, classées par impact."),
     Step("03", "Tu poses le style", "Voix, sous-titres, musique, travelling. "

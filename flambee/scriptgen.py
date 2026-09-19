@@ -100,6 +100,80 @@ def generate(
     return script
 
 
+def inspirer_depuis_tendance(caracteristiques: dict, *, model: str | None = None) -> str:
+    """Une idée de contenu originale inspirée des caractéristiques d'une
+    tendance analysée — jamais une reprise de son texte.
+
+    `caracteristiques` vient de `trends.AnalyseVideo.to_dict()["analyse"]` :
+    seuls le sujet, l'amorce, le CTA, les hashtags et le rythme y passent —
+    jamais la transcription intégrale, pour qu'il n'y ait rien à recopier.
+    Même mécanique que `generate()` : nécessite `ANTHROPIC_API_KEY`.
+    """
+    if not api_key_available():
+        raise ScriptError(
+            "Aucune clé API trouvée. Définis ANTHROPIC_API_KEY pour utiliser "
+            "l'inspiration automatique."
+        )
+    try:
+        import anthropic
+    except ImportError as exc:  # pragma: no cover
+        raise ScriptError("Le paquet `anthropic` n'est pas installé.") from exc
+
+    parts = []
+    if caracteristiques.get("sujet"):
+        parts.append(f"Sujet observé : {caracteristiques['sujet']}")
+    if caracteristiques.get("hook_extrait"):
+        parts.append(f"Amorce observée : {caracteristiques['hook_extrait']}")
+    if caracteristiques.get("cta_detecte"):
+        parts.append(f"Appel à l'action observé : {caracteristiques['cta_detecte']}")
+    if caracteristiques.get("hashtags"):
+        parts.append(f"Hashtags : {', '.join(caracteristiques['hashtags'][:8])}")
+    if caracteristiques.get("rythme_coupes_par_minute"):
+        parts.append(
+            f"Rythme : environ {caracteristiques['rythme_coupes_par_minute']:.0f} "
+            "changements de plan par minute"
+        )
+    contexte = "\n".join(parts) or "Aucune caractéristique détaillée disponible."
+
+    system = (
+        "Tu aides un créateur à s'inspirer d'une tendance TikTok pour produire "
+        "une idée de vidéo ORIGINALE, sur sa propre thématique. Tu ne dois "
+        "jamais reprendre le texte, les mots ou la structure exacte de la "
+        "vidéo observée : tu t'appuies sur ce qui explique son succès (l'angle "
+        "du hook, le rythme, le type d'appel à l'action) pour proposer un "
+        "concept neuf. Réponds en français, avec : un titre court, l'angle du "
+        "hook proposé, un résumé du déroulé en trois phrases, et une phrase "
+        "sur pourquoi cet angle peut fonctionner. Pas de markdown, du texte "
+        "simple avec des retours à la ligne entre les parties."
+    )
+    client = anthropic.Anthropic()
+    try:
+        response = client.messages.create(
+            model=model or config.ANTHROPIC_MODEL,
+            max_tokens=700,
+            temperature=1.0,
+            system=system,
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Caractéristiques observées sur une vidéo tendance (pas "
+                    f"son texte intégral) :\n{contexte}\n\nPropose une idée "
+                    "originale qui s'en inspire."
+                ),
+            }],
+        )
+    except Exception as exc:
+        raise ScriptError(f"Appel à l'API Claude impossible : {exc}") from exc
+
+    text = "".join(
+        block.text for block in response.content if getattr(block, "type", "") == "text"
+    )
+    idee = tidy(text)
+    if not idee:
+        raise ScriptError("Claude a renvoyé une réponse vide.")
+    return idee
+
+
 def tidy(text: str) -> str:
     """Retire les scories courantes autour d'un script généré."""
     text = text.strip()

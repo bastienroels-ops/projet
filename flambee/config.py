@@ -110,7 +110,9 @@ if _porte and not PORTE_DIRECTE:
 
 
 # --- Contraintes sources --------------------------------------------------
-MIN_SOURCES = 2
+# Une seule vidéo suffit : elle est alors retouchée telle quelle (sous-titres,
+# cadrage, style), sans montage. De deux à cinq, Flambée les mixe.
+MIN_SOURCES = 1
 MAX_SOURCES = 5
 MIN_SOURCE_DURATION = float(os.environ.get("FLAMBEE_MIN_DURATION", "45"))
 HOOK_DURATION = float(os.environ.get("FLAMBEE_HOOK_DURATION", "3"))
@@ -389,8 +391,13 @@ class RenderSettings:
     mask_source_subtitles: bool = False
     mask_mode: str = "blur"            # "blur" | "black"
     mask_height_ratio: float = 0.22    # part basse de l'image à masquer
-    keep_source_audio: bool = False
-    source_audio_volume: float = 0.05
+    # L'audio d'origine est gardé par défaut : une vidéo ASMR sans son n'a plus
+    # de raison d'être. `source_audio_volume` est son niveau *sous une voix
+    # off* ; sans voix off, le son d'origine reste à 100 %, quel que soit ce
+    # curseur (voir `assembler.source_gain`).
+    keep_source_audio: bool = True
+    source_audio_volume: float = 0.35
+    voice_volume: float = 1.0          # niveau de la voix off (0 à 1,5)
     motion: bool = True                # léger travelling sur chaque plan
     scene_aware: bool = True           # caler les coupes sur les changements de plan
     subtitle_preset: str = "punch"
@@ -400,6 +407,13 @@ class RenderSettings:
     # l'interface de TikTok ne couvre pas la même chose d'un téléphone à
     # l'autre. 0,24 place le texte à peu près là où les styles le mettaient.
     subtitle_position: float = 0.24
+
+    # --- Cadrage 9:16 ----------------------------------------------------
+    # « fill » remplit le cadre en recadrant ; `focus_x` choisit quelle partie
+    # d'une vidéo plus large est gardée (0 = gauche, 1 = droite).
+    # « fit » montre la vidéo entière, sur une copie floutée d'elle-même.
+    framing: str = "fill"
+    focus_x: float = 0.5
 
     # --- Écran scindé ----------------------------------------------------
     # Le montage occupe une bande, une seconde vidéo — jeu, boucle

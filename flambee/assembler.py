@@ -44,6 +44,15 @@ VOICE_LOUDNESS = "loudnorm=I=-14:TP=-1.5:LRA=11"
 DUCK = "sidechaincompress=threshold=0.02:ratio=9:attack=15:release=350:makeup=1"
 
 
+def source_gain(settings: config.RenderSettings, *, voiced: bool) -> float:
+    """Niveau de l'audio d'origine dans le mixage final.
+
+    Sans voix off, il n'y a rien à laisser passer devant : le son d'origine
+    reste entier. Sous une voix off, le curseur de l'utilisateur s'applique.
+    """
+    return settings.source_audio_volume if voiced else 1.0
+
+
 @dataclass
 class AssemblyResult:
     path: str
@@ -135,6 +144,7 @@ def build_graph(
             motion=motion_for(position) if settings.motion else None,
             motion_duration=segment.duration,
             tag=f"m{position}",
+            framing=settings.framing, focus_x=settings.focus_x,
         )
         label = f"v{position}"
         filters.append(
@@ -228,23 +238,27 @@ def build_graph(
     voice_side: str | None = None
 
     if ambience and audio_labels:
-        filters.append(
-            f"[acat]volume={settings.source_audio_volume:.3f}[aamb]"
-        )
+        gain = source_gain(settings, voiced=voice_path is not None)
+        filters.append(f"[acat]volume={gain:.3f}[aamb]")
         tracks.append("aamb")
 
     if voice_path:
         stream = _next_input_index(inputs)
         inputs += ["-i", str(voice_path)]
+        niveau = max(0.0, min(1.5, settings.voice_volume))
         if music_path:
             # La voix sert aussi de déclencheur au ducking : on la duplique.
+            # Le déclencheur est pris avant le curseur de volume : baisser la
+            # voix ne doit pas faire remonter la musique.
             filters.append(
                 f"[{stream}:a]aresample=48000,{VOICE_LOUDNESS},"
-                f"asplit=2[avoice][aduck]"
+                f"asplit=2[avoice0][aduck]"
             )
+            filters.append(f"[avoice0]volume={niveau:.3f}[avoice]")
             voice_side = "aduck"
         else:
-            filters.append(f"[{stream}:a]aresample=48000,{VOICE_LOUDNESS}[avoice]")
+            filters.append(f"[{stream}:a]aresample=48000,{VOICE_LOUDNESS},"
+                           f"volume={niveau:.3f}[avoice]")
         tracks.append("avoice")
 
     if music_path:
@@ -394,8 +408,10 @@ def finalize(
     pseudo_source = Source(index=0, url="", path=str(montage), duration=info.duration)
     pseudo_source.has_audio = info.has_audio
     segment = Segment(source_index=0, start=0.0, duration=target)
+    # Le montage est déjà au bon format : rien à recadrer une seconde fois.
     passthrough = config.RenderSettings(**{**settings.__dict__, "motion": False,
-                                           "mask_source_subtitles": False})
+                                           "mask_source_subtitles": False,
+                                           "framing": "fill", "focus_x": 0.5})
 
     graph = build_graph(
         [segment], {0: pseudo_source},

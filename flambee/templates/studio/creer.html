@@ -13,7 +13,7 @@
 
     <nav class="steps" id="steps" aria-label="Étapes de la création">
       <button class="step" data-step="1"><b>1</b><span>Sources</span></button>
-      <button class="step" data-step="2"><b>2</b><span>Accroche</span></button>
+      <button class="step" data-step="2" data-mode="montage"><b>2</b><span>Accroche</span></button>
       <button class="step" data-step="3"><b>3</b><span>Style</span></button>
       <button class="step" data-step="4"><b>4</b><span>Script</span></button>
       <button class="step" data-step="5"><b>5</b><span>Rendu</span></button>
@@ -32,10 +32,12 @@
   <!-- Étape 1 ---------------------------------------------------------- -->
   <section class="panel" data-panel="1">
     <p class="eyebrow">Étape 1 — La matière</p>
-    <h2>Tout commence par <em>trois bonnes vidéos</em>.</h2>
-    <p class="hint">De {{ min_sources }} à {{ max_sources }} liens TikTok ou YouTube Shorts
-      sur une même thématique, un par ligne. Flambée en tire un montage vertical,
-      une voix et des sous-titres.</p>
+    <h2>Une vidéo suffit. <em>Ou jusqu'à {{ max_sources }}.</em></h2>
+    <p class="hint">Colle <b>un seul lien</b> TikTok, YouTube Shorts ou Instagram
+      Reels : Flambée récupère la vidéo, et tu la sous-titres, la recadres, la
+      stylises, puis tu l'exportes en 9:16. Avec 2 à {{ max_sources }} liens sur
+      une même thématique, un par ligne, elle en tire un montage : une voix, des
+      sous-titres.</p>
 
     {# TikTok et YouTube refusent d'être affichés dans une autre page — ils
        envoient `x-frame-options: SAMEORIGIN` et un `frame-ancestors` qui ne
@@ -66,17 +68,17 @@
       application à l'autre.</p>
 
     <textarea id="urls" rows="5" spellcheck="false"
-      placeholder="https://www.tiktok.com/@compte/video/123...&#10;https://www.youtube.com/shorts/abc..."></textarea>
+      placeholder="https://www.tiktok.com/@compte/video/123...&#10;(un lien par ligne ; un seul suffit)"></textarea>
     <p class="compte-liens" id="compte-liens"
        data-min="{{ min_sources }}" data-max="{{ max_sources }}"></p>
     <div class="row">
-      <button class="primary" id="btn-download">Télécharger les vidéos</button>
+      <button class="primary" id="btn-download">Récupérer la vidéo</button>
       <button class="ghost" id="btn-new">Nouveau projet</button>
     </div>
 
     <div class="separator"><span>ou</span></div>
 
-    <p class="hint">Importe des vidéos déjà enregistrées sur l'appareil. Indispensable
+    <p class="hint">Importe une ou plusieurs vidéos déjà enregistrées sur l'appareil. Indispensable
       si la plateforme refuse le téléchargement.</p>
     <div class="row">
       <label class="button ghost file-button">
@@ -106,7 +108,8 @@
   <!-- Étape 3 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="3">
     <p class="eyebrow">Étape 3 — La signature</p>
-    <h2>Ta voix, <em>ton style</em>.</h2>
+    <h2 data-mode="montage">Ta voix, <em>ton style</em>.</h2>
+    <h2 data-mode="solo">Ta vidéo, <em>ton style</em>.</h2>
     <p class="hint">Ces réglages donnent son caractère à la vidéo. Ils se modifient
       à tout moment, avant chaque rendu.</p>
 
@@ -153,6 +156,9 @@
             </select>
           </label>
         </div>
+        <p class="mention" data-mode="solo">Facultative. Si tu écris un texte à
+          l'étape suivante, cette voix le lira par-dessus le son de ta vidéo ;
+          sinon la vidéo garde son seul son d'origine.</p>
         <div class="choix" id="choix-voix"></div>
         <p class="vide-choix" id="voix-aucune" hidden>Aucune voix ne correspond
           à ces filtres.</p>
@@ -196,9 +202,12 @@
           Créateur, et l'Essai appose une mention « Flambée » en haut du rendu.
           <a href="/studio/abonnement">Voir les formules</a>.
         </p>
-        <p class="mention">Les sous-titres sont calés sur le son de la voix,
-          pas sur le minutage annoncé par la synthèse : chaque mot s'allume
-          quand il est prononcé.</p>
+        <p class="mention" data-mode="montage">Les sous-titres sont calés sur le
+          son de la voix, pas sur le minutage annoncé par la synthèse : chaque
+          mot s'allume quand il est prononcé.</p>
+        <p class="mention" data-mode="solo">Les sous-titres viennent de ce qui se
+          dit dans ta vidéo. À l'étape suivante, tu corriges le texte, ou tu
+          l'écris toi-même si personne ne parle.</p>
 
         {# La hauteur appartient à l'utilisateur, pas au style : c'est son
            écran et son application, et l'interface de TikTok ne recouvre pas
@@ -231,6 +240,36 @@
             <span class="preview-note">Rendu réel, bas du cadre.</span>
           </figcaption>
         </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Volumes --------------------------------------------------------- -->
+    <section class="reglage" data-reglage="volumes">
+      <button class="reglage-tete" type="button" aria-expanded="false">
+        <span class="reglage-icone">{{ icone("note") }}</span>
+        <span class="reglage-mots">
+          <b>Volumes</b>
+          <small class="reglage-resume" id="resume-volumes">—</small>
+        </span>
+        <span class="reglage-chevron">{{ icone("chevron") }}</span>
+      </button>
+      <div class="reglage-corps"><div class="reglage-dedans">
+        <div class="checks">
+          <label><input type="checkbox" id="keep_source_audio" checked> Garder le son d'origine de la vidéo</label>
+        </div>
+        <div class="grid reglage-fin">
+          <label id="bloc-volume-video"><span>Volume de la vidéo <b class="value" id="source_audio_volume_v">35%</b></span>
+            <input type="range" id="source_audio_volume" min="0" max="100" value="35">
+          </label>
+          <label id="bloc-volume-voix"><span>Volume de la voix off <b class="value" id="voice_volume_v">100%</b></span>
+            <input type="range" id="voice_volume" min="0" max="150" value="100">
+          </label>
+        </div>
+        <p class="mention" id="note-volumes">Le volume de la vidéo est celui de
+          son son d'origine <em>sous la voix off</em>. Sans voix off, la vidéo
+          garde 100 % de son son. Le volume de la musique se règle dans
+          « Musique de fond ».</p>
         </div>
       </div>
     </section>
@@ -313,17 +352,34 @@
       <button class="reglage-tete" type="button" aria-expanded="false">
         <span class="reglage-icone">{{ icone("ciseaux") }}</span>
         <span class="reglage-mots">
-          <b>Montage et image</b>
+          <b data-mode="montage">Montage et image</b>
+          <b data-mode="solo">Cadrage et image</b>
           <small class="reglage-resume" id="resume-image">—</small>
         </span>
         <span class="reglage-chevron">{{ icone("chevron") }}</span>
       </button>
       <div class="reglage-corps"><div class="reglage-dedans">
+        {# Le cadrage vaut pour les deux modes : une source horizontale se
+           recadre de la même façon qu'on la monte ou qu'on la retouche. #}
+        <div class="grid reglage-fin">
+          <label><span>Cadrage 9:16</span>
+            <select id="framing">
+              <option value="fill">Remplir l'écran (recadrer)</option>
+              <option value="fit">Vidéo entière, sur fond flouté</option>
+            </select>
+          </label>
+          <label id="bloc-focus"><span>Partie gardée <b class="value" id="focus_x_v">Centre</b></span>
+            <input type="range" id="focus_x" min="0" max="100" value="50">
+          </label>
+        </div>
+        <p class="mention" id="note-cadrage">Une vidéo horizontale perd ses côtés
+          quand elle remplit l'écran : déplace le curseur pour choisir ce qui
+          reste, ou montre-la entière.</p>
+
         <div class="checks">
-          <label><input type="checkbox" id="motion" checked> Léger travelling sur chaque plan</label>
-          <label><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
-          <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres des vidéos sources</label>
-          <label><input type="checkbox" id="keep_source_audio"> Garder un fond d'ambiance des vidéos sources</label>
+          <label><input type="checkbox" id="motion" checked> Léger travelling <span data-mode="montage">sur chaque plan</span><span data-mode="solo">sur la vidéo</span></label>
+          <label data-mode="montage"><input type="checkbox" id="scene_aware" checked> Caler les coupes sur les changements de plan</label>
+          <label><input type="checkbox" id="mask_source_subtitles"> Masquer les sous-titres <span data-mode="montage">des vidéos sources</span><span data-mode="solo">déjà incrustés dans la vidéo</span></label>
         </div>
 
         <div class="grid reglage-fin" id="mask-options">
@@ -343,6 +399,32 @@
 
   <!-- Étape 4 ---------------------------------------------------------- -->
   <section class="panel hidden" data-panel="4">
+    {# Une vidéo seule n'a pas de script : ce sont ses paroles qui deviennent
+       les sous-titres. Écoutées d'abord, puis corrigées à la main. #}
+    <div data-mode="solo">
+      <p class="eyebrow">Étape 3 — Le texte</p>
+      <h2>Les mots de <em>ta vidéo</em>.</h2>
+      <p class="hint">Flambée écoute la vidéo et écrit ce qui s'y dit : corrige
+        le texte, les sous-titres suivent. Personne ne parle ? Écris ce que tu
+        veux voir affiché, il sera réparti sur la durée de la vidéo.</p>
+
+      <p class="hint" id="transcript-etat"></p>
+      <label class="block"><span>Texte des sous-titres — éditable</span>
+        <textarea id="transcript" rows="9" spellcheck="true"
+          placeholder="Le texte de la vidéo apparaît ici."></textarea>
+      </label>
+      <label class="block"><span>Voix off — facultative</span>
+        <textarea id="voix_off" rows="5" spellcheck="true"
+          placeholder="Laisse vide pour garder le seul son de ta vidéo. Sinon, écris ici ce que la voix doit dire."></textarea>
+      </label>
+      <p class="hint" id="voix-off-etat"></p>
+      <div class="row">
+        <button class="primary" id="btn-transcript-next">Continuer</button>
+        <button class="ghost" id="btn-transcribe" type="button">Écouter la vidéo de nouveau</button>
+      </div>
+    </div>
+
+    <div data-mode="montage">
     <p class="eyebrow">Étape 4 — Les mots</p>
     <h2>Un hook fort, <em>une chute nette</em>.</h2>
     <p class="hint">Donne le sujet : le script vise une accroche dans les trois
@@ -399,6 +481,7 @@
     </div>
     <p class="hint" id="script-meta"></p>
     <div class="row"><button class="primary" id="btn-script-next" disabled>Valider le script</button></div>
+    </div>
   </section>
 
   <!-- Étape 5 ---------------------------------------------------------- -->
@@ -415,10 +498,10 @@
     <div id="recap" class="recap">
       <div class="bilan">
         <span class="bilan-icone">{{ icone("film") }}</span>
-        <span class="bilan-mots"><small>Sources</small>
+        <span class="bilan-mots"><small id="recap-sources-label">Sources</small>
           <b id="recap-sources">—</b></span>
       </div>
-      <div class="bilan">
+      <div class="bilan" data-mode="montage">
         <span class="bilan-icone">{{ icone("eclair") }}</span>
         <span class="bilan-mots"><small>Accroche</small>
           <b id="recap-accroche">—</b></span>

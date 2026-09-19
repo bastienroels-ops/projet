@@ -1,0 +1,176 @@
+{% extends "studio/base.html" %}
+{% block title %}Trend Finder — Flambée{% endblock %}
+{% block contenu %}
+<div class="page">
+  <div class="page-titre"><h1>Trend <em>Finder</em></h1></div>
+  <p class="page-accroche">Repère les vidéos qui prennent dans ta niche, comprends
+    ce qui explique leurs performances, et pars t'en inspirer — sans jamais
+    copier.</p>
+
+  <div class="avis">
+    <b>Comment ça marche aujourd'hui</b>
+    Il n'existe pas d'API TikTok gratuite et légale pour chercher par
+    mots-clés sur toute la plateforme — Flambée ne contourne pas ses
+    protections pour en simuler une. Colle donc ici les liens des vidéos que
+    tu as repérées toi-même (recherche normale sur TikTok, un hashtag, un
+    compte…) : cette page en récupère les vraies statistiques publiques et
+    fait le reste — tri, pépites, analyse, inspiration. Le détail de ce
+    qu'il faudrait pour brancher une vraie recherche automatique est dans
+    <code>docs/TENDANCES.md</code>.
+  </div>
+
+  <nav class="onglets" role="tablist">
+    <button class="onglet actif" data-onglet="resultats" type="button">Résultats</button>
+    <button class="onglet" data-onglet="pepites" type="button">Pépites</button>
+    <button class="onglet" data-onglet="tendances" type="button">Tendances</button>
+    <button class="onglet" data-onglet="mes-tendances" type="button">Mes tendances</button>
+    <button class="onglet" data-onglet="veille" type="button">Veille</button>
+  </nav>
+
+  <!-- ------------------------------------------------------------ Résultats -->
+  <section class="tf-panneau actif" data-panneau="resultats">
+    <form class="carte tf-filtres" id="tf-formulaire">
+      <label class="tf-pleine-largeur"><span>Liens des vidéos repérées (un par ligne)</span>
+        <textarea name="liens" id="tf-liens" rows="3"
+                  placeholder="https://www.tiktok.com/@compte/video/123...&#10;https://www.tiktok.com/@autre/video/456..."></textarea>
+      </label>
+
+      <div class="tf-ligne-champs tf-pleine-largeur">
+        <label><span>Filtrer par mots-clés</span>
+          <input type="text" name="mots_cles" placeholder="ex. recette rapide">
+        </label>
+        <label><span>Filtrer par hashtags</span>
+          <input type="text" id="tf-hashtag-saisie" placeholder="#recette puis Entrée">
+        </label>
+        <label><span>Vues minimum</span>
+          <input type="number" name="vues_min" min="0" step="1000" placeholder="ex. 50000">
+        </label>
+      </div>
+      <div class="tf-hashtags-liste tf-pleine-largeur" id="tf-hashtags-liste"></div>
+
+      <div class="tf-ligne-champs tf-pleine-largeur">
+        <label><span>Période</span>
+          <select name="periode" id="tf-periode">
+            <option value="">Toutes</option>
+            <option value="7j">7 derniers jours</option>
+            <option value="30j">30 derniers jours</option>
+            <option value="3m">3 derniers mois</option>
+            <option value="2026">Depuis 2026</option>
+            <option value="personnalisee">Période personnalisée</option>
+          </select>
+        </label>
+        <label id="tf-depuis-champ" hidden><span>Depuis le</span>
+          <input type="date" name="depuis_le_jour"></label>
+        <label id="tf-jusqu-champ" hidden><span>Jusqu'au</span>
+          <input type="date" name="jusqu_au_jour"></label>
+        <label><span>Pays</span>
+          <input type="text" name="pays" placeholder="ex. France"></label>
+      </div>
+
+      <div class="tf-pleine-largeur">
+        <button class="button primary" type="submit" id="tf-bouton-rechercher">Rechercher</button>
+        <p class="hint" style="margin-top:10px">Le filtre pays est reçu mais
+          n'agit pas encore : TikTok ne communique pas l'origine géographique
+          d'une vidéo par cette méthode.</p>
+      </div>
+    </form>
+
+    <div id="tf-resultats-avis"></div>
+
+    <div class="tf-resultats-entete" id="tf-resultats-entete" hidden>
+      <p class="tf-resultats-compte" id="tf-resultats-compte"></p>
+      <div class="row" style="margin:0; gap:10px">
+        <label class="tf-tri"><span class="hint" style="margin:0">Trier :</span>
+          <select id="tf-tri">
+            <option value="vues">Plus vues</option>
+            <option value="recentes">Plus récentes</option>
+            <option value="engagement">Meilleur engagement</option>
+            <option value="emergentes">Tendances émergentes</option>
+          </select>
+        </label>
+        <button type="button" class="button ghost" id="tf-sauver-recherche">
+          {{ icone("marque_page") }} Sauvegarder cette recherche</button>
+      </div>
+    </div>
+
+    <div class="tf-grille" id="tf-resultats-zone"></div>
+  </section>
+
+  <!-- -------------------------------------------------------------- Pépites -->
+  <section class="tf-panneau" data-panneau="pepites">
+    <p class="page-accroche">Les vidéos de tes recherches qui semblent
+      décoller vite plutôt que celles qui cumulent le plus de vues.
+      La croissance n'est <b>mesurée</b> qu'après un second passage sur la
+      même vidéo ; en attendant, une estimation à un seul relevé est
+      clairement marquée comme telle.</p>
+    <div class="tf-grille" id="tf-pepites-zone"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------ Tendances -->
+  <section class="tf-panneau" data-panneau="tendances">
+    <p class="page-accroche">Les hashtags qui reviennent le plus dans <b>tes
+      propres recherches</b> — pas un classement TikTok global, qu'aucune
+      source ne fournit aujourd'hui à Flambée.</p>
+    <div class="tf-liste-simple" id="tf-tendances-zone"></div>
+  </section>
+
+  <!-- -------------------------------------------------------- Mes tendances -->
+  <section class="tf-panneau" data-panneau="mes-tendances">
+    <p class="page-accroche">Ce que tu as choisi de garder : vidéos, hashtags,
+      recherches et tendances sauvegardés.</p>
+    <div class="tf-liste-simple" id="tf-sauvegardes-zone"></div>
+  </section>
+
+  <!-- --------------------------------------------------------------- Veille -->
+  <section class="tf-panneau" data-panneau="veille">
+    <p class="page-accroche">Enregistre une liste de liens à surveiller. Rien
+      ne tourne encore automatiquement : c'est l'architecture, prête pour le
+      jour où une vérification planifiée sera branchée.</p>
+    <form class="carte tf-filtres" id="tf-veille-formulaire">
+      <label><span>Nom de la veille</span>
+        <input type="text" name="libelle" placeholder="ex. Recettes rapides"></label>
+      <label><span>Fréquence souhaitée</span>
+        <select name="frequence_heures">
+          <option value="24">Chaque jour</option>
+          <option value="168">Chaque semaine</option>
+        </select>
+      </label>
+      <label class="tf-pleine-largeur"><span>Liens à surveiller (un par ligne)</span>
+        <textarea name="liens" rows="3"></textarea>
+      </label>
+      <div class="tf-pleine-largeur">
+        <button class="button primary" type="submit">Créer la veille</button>
+      </div>
+    </form>
+    <div class="tf-liste-simple" id="tf-veille-zone"></div>
+  </section>
+
+  {# Les icônes que le script pose sur les cartes qu'il fabrique. Redessinées
+     en JavaScript, elles cesseraient de vivre à un seul endroit : le script
+     les recopie d'ici, comme app.js le fait pour l'étape 5. #}
+  <div class="selects-caches" id="sprites" hidden aria-hidden="true">
+    <span data-icone="oeil">{{ icone("oeil") }}</span>
+    <span data-icone="coeur">{{ icone("coeur") }}</span>
+    <span data-icone="bulle">{{ icone("bulle") }}</span>
+    <span data-icone="partage">{{ icone("partage") }}</span>
+    <span data-icone="horloge">{{ icone("horloge") }}</span>
+    <span data-icone="eclair">{{ icone("eclair") }}</span>
+    <span data-icone="tendance">{{ icone("tendance") }}</span>
+    <span data-icone="lien">{{ icone("lien") }}</span>
+    <span data-icone="marque_page">{{ icone("marque_page") }}</span>
+    <span data-icone="cloche">{{ icone("cloche") }}</span>
+    <span data-icone="ampoule">{{ icone("ampoule") }}</span>
+    <span data-icone="film">{{ icone("film") }}</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.FLAMBEE_TENDANCES = {
+  transcriptionAutorisee: {{ "true" if transcription_pro.autorisee else "false" }},
+  transcriptionDisponible: {{ "true" if transcription_pro.disponible else "false" }},
+};
+</script>
+<script src="/static/tendances.js"></script>
+{% endblock %}

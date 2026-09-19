@@ -80,10 +80,12 @@ def normalize_urls(raw: str | Iterable[str]) -> list[str]:
 
 
 def validate_urls(urls: list[str]) -> None:
-    """Vérifie le nombre de liens fournis (2 à 5 d'après le cahier des charges)."""
+    """Vérifie le nombre de liens fournis (1 à 5).
+
+    Un seul lien est un cas complet : la vidéo est retouchée sans montage."""
     if len(urls) < config.MIN_SOURCES:
         raise DownloadError(
-            f"Il faut au moins {config.MIN_SOURCES} liens vidéo "
+            "Colle au moins un lien vidéo "
             f"({len(urls)} détecté(s))."
         )
     if len(urls) > config.MAX_SOURCES:
@@ -129,8 +131,11 @@ def download_one(
     index: int,
     *,
     cancel: threading.Event | None = None,
+    solo: bool = False,
 ) -> Source:
-    """Télécharge une vidéo et retourne ses métadonnées."""
+    """Télécharge une vidéo et retourne ses métadonnées.
+
+    `solo` : c'est la seule vidéo du projet, elle ne sera pas découpée."""
     from yt_dlp import YoutubeDL  # import tardif : démarrage de l'app plus rapide
     from yt_dlp.utils import DownloadError as YdlError
 
@@ -189,14 +194,17 @@ def download_one(
     except MediaError as exc:
         source.warnings.append(f"Analyse ffprobe impossible : {exc}")
 
-    source.warnings.extend(_check_source(source))
+    source.warnings.extend(_check_source(source, solo=solo))
     return source
 
 
-def _check_source(source: Source) -> list[str]:
-    """Contrôles simples demandés par le cahier des charges."""
+def _check_source(source: Source, *, solo: bool = False) -> list[str]:
+    """Contrôles simples demandés par le cahier des charges.
+
+    Seule, une vidéo n'est pas découpée : sa durée n'a alors rien à signaler."""
     warnings: list[str] = []
-    if source.duration and source.duration < config.MIN_SOURCE_DURATION:
+    if (not solo and source.duration
+            and source.duration < config.MIN_SOURCE_DURATION):
         warnings.append(
             f"Vidéo courte ({source.duration:.0f}s) : moins de "
             f"{config.MIN_SOURCE_DURATION:.0f}s, peu de matière à découper."
@@ -305,7 +313,8 @@ def download_all(
             source = Source(index=index, url=url, error="Téléchargement annulé.")
         else:
             log.info("Téléchargement %s/%s : %s", index, total, url)
-            source = download_one(url, dest_dir, index, cancel=cancel)
+            source = download_one(url, dest_dir, index, cancel=cancel,
+                                  solo=total == 1)
         with lock:
             done += 1
             results[index] = source

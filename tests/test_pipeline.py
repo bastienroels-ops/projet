@@ -59,9 +59,10 @@ def test_normalize_urls_dedupe_et_filtre():
 
 def test_validate_urls_bornes():
     with pytest.raises(DownloadError):
-        validate_urls(["https://a.test/1"])
+        validate_urls([])
     with pytest.raises(DownloadError):
         validate_urls([f"https://a.test/{i}" for i in range(6)])
+    validate_urls(["https://a.test/1"])           # une seule vidéo suffit
     validate_urls([f"https://a.test/{i}" for i in range(3)])
 
 

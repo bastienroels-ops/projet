@@ -59,9 +59,9 @@ def test_page_daccueil(compte):
 def test_parcours_complet(compte, fake_download, monkeypatch):
     project_id = _create(compte)
 
-    # Étape 1 : moins de 2 liens → refus
+    # Étape 1 : aucun lien → refus (un seul suffit, voir test_solo.py)
     refus = compte.post(f"/api/projects/{project_id}/sources",
-                        json={"urls": "https://a.test/1"})
+                        json={"urls": "pas un lien"})
     assert refus.status_code == 400
 
     body = compte.post(f"/api/projects/{project_id}/sources", json={
@@ -231,7 +231,7 @@ def test_telechargements_paralleles(monkeypatch, tmp_path):
 
     from flambee import downloader as dl
 
-    def slow_download(url, dest_dir, index, cancel=None):
+    def slow_download(url, dest_dir, index, cancel=None, solo=False):
         _time.sleep(0.4)
         return dl.Source(index=index, url=url, path=f"/tmp/{index}.mp4", duration=60)
 

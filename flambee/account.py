@@ -80,6 +80,12 @@ def musique_autorisee(utilisateur: Utilisateur) -> bool:
     return est_pro(utilisateur)
 
 
+def tendances_transcription_autorisee(utilisateur: Utilisateur) -> bool:
+    """La transcription complète d'une vidéo tendance (hook exact, appel à
+    l'action fiable) demande le même moteur coûteux que Script Viral."""
+    return est_pro(utilisateur)
+
+
 def filigrane(utilisateur: Utilisateur) -> bool:
     """Les rendus de l'Essai portent une mention discrète."""
     return not est_pro(utilisateur)

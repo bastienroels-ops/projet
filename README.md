@@ -1,7 +1,8 @@
 # 🔥 Flambée
 
-Outil **100 % local et personnel** de montage vidéo vertical : à partir de 2 à 5 liens
-TikTok / YouTube Shorts sur une même thématique, il produit une nouvelle vidéo 9:16
+Outil **100 % local et personnel** de montage vidéo vertical : à partir d'**un seul lien**
+TikTok / YouTube Shorts / Instagram Reels (retouche : sous-titres, cadrage, style) ou de
+2 à 5 liens sur une même thématique (montage), il produit une nouvelle vidéo 9:16
 prête à publier (voix off IA + sous-titres animés + musique).
 
 Pas de compte, pas de base de données, pas de déploiement : une petite webapp FastAPI
@@ -63,6 +64,7 @@ la requête. `FLAMBEE_INSTALL_MOTEUR=0` le retire complètement.
 | Rubrique | État |
 |---|---|
 | **Créer** | Les 5 étapes de montage. |
+| **Trend Finder** | Repère des vidéos tendance à partir de liens repérés à la main, les trie, en analyse une (plans, rythme, transcription), et aide à s'en inspirer sans copier. Aucune recherche automatique sur TikTok n'est branchée — voir [`docs/TENDANCES.md`](docs/TENDANCES.md). |
 | **Script Viral** | Récupère le texte d'une vidéo (lien ou fichier) par transcription locale. Réservé aux formules payantes. |
 | **Voice Studio** | Importe ta propre voix : le minutage est retrouvé par transcription, les sous-titres se calent dessus. Réservé aux formules payantes. |
 | **Mes créations** | Tous les projets, avec leur rendu. |
@@ -237,11 +239,27 @@ Sur l'iPhone : *Partager → Sur l'écran d'accueil* pour l'ouvrir comme une app
 
 | Étape | Ce qui se passe |
 |---|---|
-| **1. Sources** | 2 à 5 liens collés → téléchargement `yt-dlp` dans `work/<projet>/sources`. Durée, résolution et nombre de vues sont affichés ; une vidéo de moins de 45 s déclenche un avertissement. **Ou** import direct de vidéos depuis l'appareil, quand la plateforme refuse le téléchargement. |
+| **1. Sources** | 1 à 5 liens collés → téléchargement `yt-dlp` dans `work/<projet>/sources`. Durée, résolution et nombre de vues sont affichés ; une vidéo de moins de 45 s déclenche un avertissement (sauf si elle est seule). **Ou** import direct de vidéos depuis l'appareil, quand la plateforme refuse le téléchargement. |
 | **2. Accroche** | Les 3 premières secondes de chaque source sont extraites (ffmpeg) et jouées côte à côte. Un clic choisit celle qui ouvrira le montage. |
-| **3. Style** | Voix `edge-tts` (+ débit), **six styles de sous-titres**, musique de fond et son volume, travelling, coupes calées sur les plans, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, fond d'ambiance des vidéos d'origine. |
+| **3. Style** | Voix `edge-tts` (+ débit), **six styles de sous-titres**, musique de fond et son volume, travelling, coupes calées sur les plans, masquage (flou ou bandeau noir) des sous-titres incrustés dans les sources, **volumes** séparés (son d'origine, voix off, musique). Le son d'origine est gardé par défaut ; voix off facultative en vidéo seule comme en montage. |
 | **4. Script** | Sujet + consignes → appel à l'API Claude, **ou** bouton « Copier le prompt » pour le coller dans une conversation Claude et rapporter le texte. Le script reste éditable, avec un compteur de mots et la durée estimée. |
 | **5. Rendu** | Voix off → sous-titres `.ass` calés au mot → découpe, recadrage 9:16, montage, mixage et encodage **en une seule passe ffmpeg** → `.mp4` dans `output/`. Aperçu 540p en quelques secondes, barre de progression réelle, bouton d'annulation. |
+
+### Une seule vidéo : le mode retouche
+
+Un lien suffit. Avec **une seule** source, Flambée ne monte rien : la vidéo est gardée
+entière, avec son propre son, et le parcours passe à quatre étapes.
+
+| Étape | Ce qui change avec une seule vidéo |
+|---|---|
+| **1. Vidéo** | Un lien (ou un fichier). Pas d'avertissement de durée : rien n'est découpé. |
+| **2. Accroche** | Supprimée : il n'y a rien à départager. |
+| **3. Style** | Plus de voix off. Sous-titres, musique, écran scindé, masquage des sous-titres incrustés. **Cadrage 9:16** : remplir l'écran (avec choix de la partie gardée) ou vidéo entière sur fond flouté. |
+| **4. Texte** | Les paroles de la vidéo sont écoutées (Whisper local, langue détectée) puis proposées en texte éditable ; le minutage suit les corrections. Sans parole, le texte écrit est réparti sur la durée. |
+| **5. Rendu** | Un seul extrait couvrant toute la vidéo : son d'origine à 100 % sans voix off, mixé sous la voix off si on en ajoute une (texte facultatif à l'étape Texte), sous-titres et musique par-dessus. Aucun script requis. |
+
+Le mode se déduit du nombre de vidéos prêtes : à partir de deux, le montage décrit
+ci-dessous est inchangé.
 
 ## Comment c'est monté
 
@@ -330,6 +348,7 @@ flambee/
   account.py      formule, quotas et historique des crédits
   transcribe.py   transcription locale (faster-whisper)
   voicestudio.py  voix importée et son minutage
+  trends.py       Trend Finder — vidéos repérées, pépites, veille (architecture)
   templates/studio/ gabarits de l'application
   templates/site/ gabarits du site public
 colab/            carnet Colab + lanceur (serveur derrière un tunnel HTTPS)

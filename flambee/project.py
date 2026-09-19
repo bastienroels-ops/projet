@@ -56,6 +56,12 @@ class Project:
     voice_lead_in: float = 0.0
     voice_words: list[dict] = field(default_factory=list)
     subtitle_path: str = ""
+    # Mode une seule vidéo : les paroles de la vidéo elle-même, mot à mot,
+    # avec leur minutage. Elles tiennent lieu de voix off pour les sous-titres.
+    # `transcript_done` distingue « pas encore écoutée » de « écoutée, et rien
+    # n'y était dit » : les deux donnent une liste vide.
+    transcript_words: list[dict] = field(default_factory=list)
+    transcript_done: bool = False
     output_path: str = ""
     preview_path: str = ""
     job: JobState = field(default_factory=JobState)
@@ -121,6 +127,8 @@ class Project:
         neuf.topic, neuf.instructions, neuf.script = (
             self.topic, self.instructions, self.script)
         neuf.settings = replace(self.settings)
+        neuf.transcript_words = [dict(m) for m in self.transcript_words]
+        neuf.transcript_done = self.transcript_done
 
         # La voix ne dépend que du script et des réglages de voix : si la
         # variante ne les change pas, elle est déjà bonne. Le contrôle de
@@ -150,6 +158,15 @@ class Project:
     @property
     def ready_sources(self) -> list[Source]:
         return [s for s in self.sources if s.ok]
+
+    @property
+    def solo(self) -> bool:
+        """Une seule vidéo prête : on la retouche, on ne monte rien.
+
+        Déduit des sources plutôt que mémorisé : il n'y a pas de second état à
+        garder cohérent quand on télécharge d'autres liens.
+        """
+        return len(self.ready_sources) == 1
 
     def scene_cuts(self) -> dict[int, list[float]]:
         """Changements de plan détectés, par index de source."""
@@ -181,6 +198,8 @@ class Project:
             "voice_lead_in": self.voice_lead_in,
             "voice_words": self.voice_words,
             "subtitle_path": self.subtitle_path,
+            "transcript_words": self.transcript_words,
+            "transcript_done": self.transcript_done,
             "output_path": self.output_path,
             "preview_path": self.preview_path,
             "job": asdict(self.job),
@@ -205,6 +224,8 @@ class Project:
             voice_lead_in=data.get("voice_lead_in", 0.0),
             voice_words=data.get("voice_words", []),
             subtitle_path=data.get("subtitle_path", ""),
+            transcript_words=data.get("transcript_words", []),
+            transcript_done=bool(data.get("transcript_done", False)),
             output_path=data.get("output_path", ""),
             preview_path=data.get("preview_path", ""),
         )

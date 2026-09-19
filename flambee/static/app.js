@@ -103,29 +103,72 @@ function alertBox(message, ok = false) {
 }
 
 /* ------------------------------------------------------------ Étapes --- */
-const NOMS_ETAPES = ["Sources", "Accroche", "Style", "Script", "Rendu"];
+/* Deux parcours. Une vidéo seule n'a ni accroche à choisir ni script à écrire :
+   l'étape Accroche disparaît, et « Script » devient « Texte » — celui des
+   sous-titres. Les numéros affichés suivent le parcours, pas les numéros
+   internes du serveur (1, 3, 4, 5 en mode une vidéo). */
+const ETAPES = {
+  montage: [[1, "Sources"], [2, "Accroche"], [3, "Style"], [4, "Script"], [5, "Rendu"]],
+  solo: [[1, "Vidéo"], [3, "Style"], [4, "Texte"], [5, "Rendu"]],
+};
+
+function estSolo() {
+  return Boolean(state.project && state.project.solo);
+}
+
+function parcours() {
+  return estSolo() ? ETAPES.solo : ETAPES.montage;
+}
+
+/* Les éléments marqués `data-mode` n'existent que dans un des deux modes. */
+function appliquerLeMode(project) {
+  const solo = Boolean(project.solo);
+  $$("[data-mode]").forEach((el) => {
+    el.classList.toggle("hidden", el.dataset.mode === "solo" ? !solo : solo);
+  });
+  state.modeAffiche = solo ? "solo" : "montage";
+}
 
 function showStep(step) {
+  if (estSolo() && step === 2) step = 3;       // pas d'accroche à choisir
   state.step = step;
+  const etapes = parcours();
+  const rangDe = (n) => etapes.findIndex(([numero]) => numero === n);
+
   $$(".panel").forEach((p) => p.classList.toggle("hidden", +p.dataset.panel !== step));
+  $$(".panel").forEach((p) => {
+    const rang = rangDe(+p.dataset.panel);
+    if (rang < 0) return;
+    p.querySelectorAll(".eyebrow").forEach((e) => {
+      e.textContent = e.textContent.replace(/^Étape \d+/, `Étape ${rang + 1}`);
+    });
+  });
   $$(".step").forEach((b) => {
     const n = +b.dataset.step;
+    const rang = rangDe(n);
+    if (rang >= 0) {
+      b.querySelector("b").textContent = rang + 1;
+      b.querySelector("span").textContent = etapes[rang][1];
+    }
     b.classList.toggle("active", n === step);
     b.classList.toggle("done", state.project ? n < state.project.step : false);
     b.disabled = state.project ? n > state.project.step : n > 1;
   });
 
-  /* Les cinq pastilles disent où l'on est ; elles ne disent pas combien il
+  /* Les pastilles disent où l'on est ; elles ne disent pas combien il
      reste. Une phrase et une barre s'en chargent. */
   const n = $("#parcours-n");
   if (!n) return;
-  n.textContent = step;
-  $("#parcours-nom").textContent = NOMS_ETAPES[step - 1] || "";
-  $("#parcours-part").style.width = `${(step / NOMS_ETAPES.length) * 100}%`;
-  const reste = NOMS_ETAPES.length - step;
+  const rang = Math.max(0, rangDe(step));
+  n.textContent = rang + 1;
+  $("#parcours-nom").textContent = (etapes[rang] || [])[1] || "";
+  $("#parcours-part").style.width = `${((rang + 1) / etapes.length) * 100}%`;
+  const reste = etapes.length - rang - 1;
   $("#parcours-reste").textContent = reste
     ? `Encore ${reste} étape${reste > 1 ? "s" : ""}`
     : "Dernière étape";
+
+  if (step === 4 && estSolo()) ecouterLaVideoSiBesoin();
 }
 
 /* ---------------------------------------------------------- Rendu UI --- */
@@ -257,7 +300,16 @@ function renderSettings(settings) {
   state.splitClip = settings.split_clip || "";
   $("#mask_source_subtitles").checked = settings.mask_source_subtitles;
   $("#keep_source_audio").checked = settings.keep_source_audio;
+  const volVideo = Math.round((settings.source_audio_volume ?? 0.35) * 100);
+  $("#source_audio_volume").value = volVideo;
+  $("#source_audio_volume_v").textContent = `${volVideo}%`;
+  const volVoix = Math.round((settings.voice_volume ?? 1) * 100);
+  $("#voice_volume").value = volVoix;
+  $("#voice_volume_v").textContent = `${volVoix}%`;
   $("#mask_mode").value = settings.mask_mode;
+  $("#framing").value = settings.framing || "fill";
+  $("#focus_x").value = Math.round((settings.focus_x ?? 0.5) * 100);
+  peindreLeCadrage();
   $("#motion").checked = settings.motion;
   $("#scene_aware").checked = settings.scene_aware;
   if ($("#subtitle_preset").options.length) {
@@ -319,13 +371,24 @@ function renderRecap(project) {
     const el = $(id);
     if (el) el.textContent = String(valeur);
   };
-  poser("#recap-sources", `${project.sources.filter((s) => s.ok).length} vidéo(s)`);
+  const prete = project.sources.filter((s) => s.ok);
+  poser("#recap-sources-label", project.solo ? "Vidéo" : "Sources");
+  poser("#recap-sources", project.solo
+    ? (prete[0].title || "Ta vidéo")
+    : `${prete.length} vidéo(s)`);
   poser("#recap-accroche", hook ? (hook.title || "Source " + hook.index) : "—");
-  poser("#recap-voix", voix
-    ? `${voix.prenom || voix.label}${voix.pays_long ? " · " + voix.pays_long : ""}`
-    : project.settings.voice);
+  poser("#recap-voix", project.voix_off_active === false
+    ? "Aucune — son d'origine seul"
+    : voix
+      ? `${voix.prenom || voix.label}${voix.pays_long ? " · " + voix.pays_long : ""}`
+      : project.settings.voice);
+  const nbMots = (project.transcript_words || []).length;
   poser("#recap-soustitres", project.settings.subtitles
-    ? (style ? style.label : "Animés") : "Désactivés");
+    ? (style ? style.label : "Animés")
+      + (project.solo && project.transcript_done
+        ? (nbMots ? ` · ${nbMots} mot${nbMots > 1 ? "s" : ""}` : " · aucun texte")
+        : "")
+    : "Désactivés");
   poser("#recap-musique", piste
     ? `${piste.label} · ${Math.round(project.settings.music_volume * 100)}%`
     : "Aucune");
@@ -418,10 +481,12 @@ function escapeHtml(text) {
 
 function applyProject(project) {
   state.project = project;
+  appliquerLeMode(project);
   renderJob(project.job);
   renderSources(project.sources);
   renderHooks(project);
   renderSettings(project.settings);
+  peindreLeTexte(project);
   renderRecap(project);
   renderResult(project);
   montrerLaVariante(project);
@@ -492,7 +557,7 @@ function startPolling() {
         stopPolling();
         if (wasRunning && ["download", "import"].includes(project.job.name)
             && project.job.state === "done") {
-          showStep(2);
+          showStep(2);                        // vidéo seule : showStep saute à 3
         }
         if (wasRunning && project.job.name === "render" && project.job.state === "done") {
           showStep(5);
@@ -837,6 +902,15 @@ function peindreStyles() {
 /* Le schéma de hauteur : la barre blanche descend et monte avec le curseur,
    et l'on voit d'un coup si elle entre dans la zone que l'interface de la
    plateforme recouvre. */
+function peindreLeCadrage() {
+  const valeur = +$("#focus_x").value;
+  $("#focus_x_v").textContent = valeur < 20 ? `Gauche · ${valeur}%`
+    : valeur > 80 ? `Droite · ${valeur}%` : `Centre · ${valeur}%`;
+  paintRange($("#focus_x"));
+  // Le curseur ne sert que si l'on recadre : la vidéo entière n'a rien à choisir.
+  $("#bloc-focus").classList.toggle("hidden", $("#framing").value === "fit");
+}
+
 function peindreHauteur() {
   const curseur = $("#subtitle_position");
   const barre = $("#repere-texte");
@@ -922,6 +996,18 @@ function resumerReglages() {
   dire("#resume-soustitres", !$("#subtitles").checked ? "Désactivés"
     : `${style ? style.label : "—"} · hauteur ${$("#subtitle_position").value}%`);
 
+  const avecVoix = !state.project || state.project.voix_off_active !== false;
+  dire("#resume-volumes", !$("#keep_source_audio").checked
+    ? "Son d'origine coupé"
+    : avecVoix
+      ? `Vidéo ${$("#source_audio_volume").value}% · voix off ${$("#voice_volume").value}%`
+      : "Vidéo 100% (sans voix off)");
+  const noteVolumes = $("#note-volumes");
+  if (noteVolumes) noteVolumes.dataset.voix = avecVoix ? "1" : "0";
+  ["#source_audio_volume", "#voice_volume"].forEach((sel) => {
+    $(sel).disabled = !$("#keep_source_audio").checked && sel === "#source_audio_volume";
+  });
+
   const piste = (state.tracks || []).find((t) => t.id === $("#music").value);
   dire("#resume-musique", piste
     ? `${piste.label} · ${$("#music_volume").value}%` : "Aucune");
@@ -932,10 +1018,12 @@ function resumerReglages() {
     : "Aucun");
 
   const options = [
+    $("#framing").value === "fit" && "vidéo entière",
+    $("#framing").value === "fill" && +$("#focus_x").value !== 50
+      && `cadrée ${+$("#focus_x").value < 50 ? "à gauche" : "à droite"}`,
     $("#motion").checked && "travelling",
     $("#scene_aware").checked && "coupes calées",
     $("#mask_source_subtitles").checked && "sous-titres sources masqués",
-    $("#keep_source_audio").checked && "ambiance conservée",
   ].filter(Boolean);
   dire("#resume-image", options.length ? options.join(" · ") : "Aucun effet");
 }
@@ -1075,6 +1163,92 @@ function rendreLeBrouillon(project) {
 }
 
 /* ====================================================================== */
+/* Le texte d'une vidéo seule                                              */
+/*                                                                         */
+/* Les paroles sont écoutées une fois, puis vivent dans le projet : ce que  */
+/* le serveur renvoie fait foi, sauf si l'utilisateur est en train de       */
+/* corriger. Le sondage rafraîchit la page toutes les deux secondes ; sans  */
+/* ce garde-fou, il effacerait la phrase à moitié tapée.                    */
+/* ====================================================================== */
+
+function peindreLeTexte(project) {
+  const zone = $("#transcript");
+  if (!zone || !project.solo) return;
+
+  if (state.texteDe !== project.id) {           // un autre projet : on repart
+    state.texteDe = project.id;
+    state.texteModifie = false;
+    zone.value = "";
+  }
+  if (!state.texteModifie) zone.value = project.transcript_text || "";
+
+  const voixOff = $("#voix_off");
+  if (voixOff) {
+    if (state.texteDe !== state.voixOffDe) {    // nouveau projet : on repart
+      state.voixOffDe = state.texteDe;
+      state.voixOffModifiee = false;
+    }
+    if (!state.voixOffModifiee) voixOff.value = project.script || "";
+    const mots = voixOff.value.trim().split(/\s+/).filter(Boolean).length;
+    const secondes = Math.round((mots / 170) * 60);
+    const duree = project.estimated_duration || 0;
+    const importee = project.settings.voice === "importee";
+    $("#voix-off-etat").textContent = importee && !mots
+      ? "Ta voix importée sera ajoutée au son de la vidéo."
+      : !mots ? "Sans voix off, la vidéo garde 100 % de son son d'origine."
+      : `≈ ${secondes} s de voix off, mixée avec le son d'origine (réglage `
+        + "« Volumes » à l'étape Style)."
+        + (duree && secondes > duree * 1.1
+          ? ` Attention : la vidéo ne dure que ${Math.round(duree)} s, la fin `
+            + "de la voix off serait coupée." : "")
+        + (project.settings.subtitles
+          ? " Les sous-titres suivent la voix off." : "");
+  }
+
+  const ecoute = project.job.name === "transcribe" && project.job.state === "running";
+  const mots = (project.transcript_words || []).length;
+  let etat;
+  if (!project.settings.subtitles) {
+    etat = "Les sous-titres sont désactivés (étape Style) : tu peux passer.";
+  } else if (ecoute) {
+    etat = "Flambée écoute la vidéo… tu peux déjà écrire le texte toi-même.";
+  } else if (!project.transcript_done) {
+    etat = "La vidéo n'a pas encore été écoutée : écris le texte, ou relance l'écoute.";
+  } else if (!mots) {
+    etat = "Aucune parole détectée. Écris le texte des sous-titres, ou continue sans.";
+  } else {
+    etat = `${mots} mot${mots > 1 ? "s" : ""} reconnu${mots > 1 ? "s" : ""}. `
+      + "Corrige ce qui doit l'être : le minutage suit.";
+  }
+  $("#transcript-etat").textContent = etat;
+  $("#btn-transcribe").disabled = ecoute;
+  $("#btn-transcript-next").disabled = ecoute;
+}
+
+/* En arrivant sur l'étape, on écoute la vidéo sans qu'on ait à le demander —
+   une seule fois par projet. Si le moteur manque, le message le dit et le
+   texte reste à écrire à la main. */
+function ecouterLaVideoSiBesoin() {
+  const projet = state.project;
+  if (!projet || !projet.solo || !projet.settings.subtitles) return;
+  if (projet.transcript_done || projet.job.state === "running") return;
+  state.ecoutesTentees = state.ecoutesTentees || new Set();
+  if (state.ecoutesTentees.has(projet.id)) return;
+  state.ecoutesTentees.add(projet.id);
+  lancerLEcoute();
+}
+
+async function lancerLEcoute() {
+  if (!state.project) return;
+  try {
+    alertBox("");
+    applyProject(await api(`/api/projects/${state.project.id}/transcription`,
+      { method: "POST" }));
+    startPolling();
+  } catch (err) { alertBox(err.message); }
+}
+
+/* ====================================================================== */
 /* La chasse aux liens                                                     */
 /*                                                                         */
 /* TikTok et YouTube refusent d'être affichés dans une autre page — mesuré :*/
@@ -1102,16 +1276,22 @@ function compterLesLiens() {
   const boite = $("#compte-liens");
   if (!boite) return;
   const liens = liensActuels();
-  const mini = +boite.dataset.min || 2;
+  const n = liens.length;
+  const mini = +boite.dataset.min || 1;
   const maxi = +boite.dataset.max || 5;
-  boite.dataset.etat = !liens.length ? "vide"
-    : liens.length < mini ? "court" : liens.length > maxi ? "long" : "juste";
-  boite.textContent = !liens.length
-    ? `Aucun lien — il en faut ${mini} à ${maxi}`
-    : `${liens.length} lien${liens.length > 1 ? "s" : ""} sur ${maxi}`
-      + (liens.length < mini ? ` — il en faut au moins ${mini}` : "");
+  boite.dataset.etat = !n ? "vide" : n > maxi ? "long" : "juste";
+  boite.textContent = !n
+    ? `Aucun lien — un seul suffit pour retoucher une vidéo, jusqu'à ${maxi} pour un montage.`
+    : n === 1
+      ? "1 lien — la vidéo sera retouchée telle quelle : sous-titres, cadrage, style."
+      : n > maxi
+        ? `${n} liens : ${maxi} au plus.`
+        : `${n} liens sur ${maxi} — Flambée les mixe en un seul montage.`;
   const bouton = $("#btn-download");
-  if (bouton) bouton.disabled = liens.length < mini;
+  if (bouton) {
+    bouton.disabled = n < mini;
+    bouton.textContent = n > 1 ? "Télécharger les vidéos" : "Récupérer la vidéo";
+  }
 }
 
 /* La lecture du presse-papier demande un geste de l'utilisateur et un
@@ -1316,10 +1496,14 @@ function bind() {
     mask_mode: $("#mask_mode").value,
     mask_height_ratio: +$("#mask_height_ratio").value / 100,
     keep_source_audio: $("#keep_source_audio").checked,
+    source_audio_volume: +$("#source_audio_volume").value / 100,
+    voice_volume: +$("#voice_volume").value / 100,
     motion: $("#motion").checked,
     scene_aware: $("#scene_aware").checked,
     subtitle_preset: $("#subtitle_preset").value,
     subtitle_position: +$("#subtitle_position").value / 100,
+    framing: $("#framing").value,
+    focus_x: +$("#focus_x").value / 100,
     split_clip: state.splitClip || "",
     split_ratio: +$("#split_ratio").value / 100,
     split_bottom: $("#split_bottom").value === "1",
@@ -1328,6 +1512,14 @@ function bind() {
   $("#music_volume").addEventListener("input", (e) => {
     $("#music_volume_v").textContent = `${e.target.value}%`;
     paintRange(e.target);
+  });
+  [["#source_audio_volume", "#source_audio_volume_v"],
+   ["#voice_volume", "#voice_volume_v"]].forEach(([curseur, valeur]) => {
+    $(curseur).addEventListener("input", (e) => {
+      $(valeur).textContent = `${e.target.value}%`;
+      paintRange(e.target);
+      resumerReglages();
+    });
   });
   $("#mask_height_ratio").addEventListener("input", (e) => {
     $("#mask_height_ratio_v").textContent = `${e.target.value}%`;
@@ -1347,6 +1539,14 @@ function bind() {
   $("#subtitles").addEventListener("change", syncCartes);
   ["#motion", "#scene_aware", "#mask_source_subtitles", "#keep_source_audio"]
     .forEach((sel) => $(sel).addEventListener("change", resumerReglages));
+  $("#framing").addEventListener("change", () => {
+    peindreLeCadrage();
+    resumerReglages();
+  });
+  $("#focus_x").addEventListener("input", () => {
+    peindreLeCadrage();
+    resumerReglages();
+  });
   $("#music_volume").addEventListener("input", resumerReglages);
   $("#subtitle_position").addEventListener("input", () => {
     peindreHauteur();
@@ -1489,6 +1689,35 @@ function bind() {
     } catch (err) { alertBox(err.message); }
   });
 
+  $("#transcript").addEventListener("input", () => { state.texteModifie = true; });
+  $("#voix_off").addEventListener("input", () => {
+    state.voixOffModifiee = true;
+    peindreLeTexte(state.project);
+  });
+
+  $("#btn-transcribe").addEventListener("click", () => {
+    if (state.texteModifie
+        && !window.confirm("Remplacer ton texte par une nouvelle écoute de la vidéo ?")) {
+      return;
+    }
+    state.texteModifie = false;
+    lancerLEcoute();
+  });
+
+  $("#btn-transcript-next").addEventListener("click", async () => {
+    try {
+      // Sans modification, on n'envoie rien : le serveur garde ses mots
+      // minutés tels quels et l'étape est simplement franchie.
+      const texte = state.texteModifie ? $("#transcript").value : null;
+      applyProject(await api(`/api/projects/${state.project.id}/transcription/texte`,
+        { method: "POST", rejouable: true,
+          body: { texte, voix_off: $("#voix_off").value } }));
+      state.texteModifie = false;
+      state.voixOffModifiee = false;
+      showStep(5);
+    } catch (err) { alertBox(err.message); }
+  });
+
   $("#btn-variante").addEventListener("click", async (e) => {
     try {
       alertBox("");
@@ -1500,8 +1729,11 @@ function bind() {
       $("#script").value = "";
       applyProject(neuf);
       showStep(3);
-      alertBox("Variante prête : mêmes vidéos, même script. Change ce que tu "
-        + "veux et relance le rendu.", true);
+      alertBox(neuf.solo
+        ? "Variante prête : même vidéo, même texte. Change ce que tu veux et "
+          + "relance le rendu."
+        : "Variante prête : mêmes vidéos, même script. Change ce que tu veux "
+          + "et relance le rendu.", true);
     } catch (err) { alertBox(err.message); }
     finally { e.target.disabled = false; }
   });

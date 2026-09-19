@@ -70,6 +70,9 @@
       </a>
 
       <p class="groupe">Outils</p>
+      <a class="entree {% if rubrique == 'tendances' %}active{% endif %}" href="/studio/tendances">
+        {{ icone("tendance") }} Trend Finder
+      </a>
       <a class="entree {% if rubrique == 'script' %}active{% endif %}" href="/studio/script-viral">
         {{ icone("document") }} Script Viral
         {% if not plan_actuel.pro %}<span class="ecusson">PRO</span>{% endif %}

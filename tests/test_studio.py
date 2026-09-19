@@ -88,7 +88,7 @@ def test_les_liens_vers_les_plateformes_n_ouvrent_pas_de_vue_a_part(compte):
 
 
 def test_le_compteur_de_liens_porte_les_bornes_du_moteur(compte):
-    """Deux à cinq sources : c'est une règle de `config`. Recopiée dans le
+    """Une à cinq sources : c'est une règle de `config`. Recopiée dans le
     JavaScript, elle dériverait au premier changement."""
     from flambee import config
 

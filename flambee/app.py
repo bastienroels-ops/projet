@@ -21,8 +21,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from . import (__version__, account, config, downloader, media,
-               pipeline, plans, samples, scriptgen, site, transcribe, users,
-               voice, voicestudio)
+               pipeline, plans, samples, scriptgen, site, solo, transcribe, trends,
+               users, voice, voicestudio)
 from . import courriel, icones
 from .auth import (fermer_session, install_auth, ouvrir_session,
                    requete_securisee, utilisateur_courant)
@@ -68,12 +68,15 @@ class SettingsIn(BaseModel):
     mask_source_subtitles: bool = False
     mask_mode: str = "blur"
     mask_height_ratio: float = 0.22
-    keep_source_audio: bool = False
-    source_audio_volume: float = 0.05
+    keep_source_audio: bool = True
+    source_audio_volume: float = 0.35
+    voice_volume: float = 1.0
     motion: bool = True
     scene_aware: bool = True
     subtitle_preset: str = config.DEFAULT_SUBTITLE_PRESET
     subtitle_position: float = 0.24
+    framing: str = "fill"
+    focus_x: float = 0.5
     split_clip: str = ""
     split_ratio: float = 0.62
     split_bottom: bool = True
@@ -88,6 +91,38 @@ class ScriptIn(BaseModel):
     instructions: str = ""
     duration: int = 45
     script: str = ""
+
+
+class TendanceRechercheIn(BaseModel):
+    liens: str = ""                    # un lien par ligne, repérés à la main
+    mots_cles: str = ""
+    hashtags: list[str] = Field(default_factory=list)
+    periode: str = ""                  # "7j" | "30j" | "3m" | "2026" | ""
+    depuis_le: str = ""                # période personnalisée (ISO)
+    jusqu_au: str = ""
+    pays: str = ""                     # reçu, non filtrant (voir docs/TENDANCES.md)
+    vues_min: int | None = None
+
+
+class TendanceAnalyseIn(BaseModel):
+    url: str = ""
+
+
+class TendanceInspirationIn(BaseModel):
+    caracteristiques: dict = Field(default_factory=dict)
+
+
+class TendanceSauvegardeIn(BaseModel):
+    type: str = ""
+    reference: str = ""
+    libelle: str = ""
+    donnees: dict = Field(default_factory=dict)
+
+
+class TendanceVeilleIn(BaseModel):
+    libelle: str = ""
+    liens: str = ""
+    frequence_heures: int = 24
 
 
 # --- Helpers --------------------------------------------------------------
@@ -154,10 +189,17 @@ def _project_payload(project: Project) -> dict:
     if project.preview_path and Path(project.preview_path).exists():
         data["preview_url"] = f"/api/projects/{project.id}/preview"
     data["recommended_hook"] = project.recommended_hook
+    data["solo"] = project.solo
+    data["voix_off_active"] = pipeline.voix_off_active(project)
+    data["transcript_text"] = solo.texte_des_mots(project.transcript_words)
     data["script_notes"] = scriptgen.review(project.script) if project.script else []
-    data["estimated_duration"] = round(
-        scriptgen.estimate_duration(project.script), 1
-    ) if project.script else 0.0
+    if project.solo:
+        # Rien n'est lu ni coupé : la vidéo dure ce qu'elle dure.
+        data["estimated_duration"] = round(project.ready_sources[0].duration, 1)
+    else:
+        data["estimated_duration"] = round(
+            scriptgen.estimate_duration(project.script), 1
+        ) if project.script else 0.0
     return data
 
 
@@ -826,6 +868,22 @@ async def studio_voix_supprimer(request: Request):
     return RedirectResponse("/studio/voix", status_code=303)
 
 
+# --- Trend Finder -----------------------------------------------------------
+@app.get("/studio/tendances", response_class=HTMLResponse)
+async def studio_tendances(request: Request):
+    """Coquille de la page ; tout le contenu vient des routes `/api/tendances/*`
+    en JSON, comme `/studio` (créer.html + app.js) plutôt que rendu côté
+    serveur — les tris et filtres doivent rester instantanés."""
+    compte = _utilisateur(request)
+    return templates.TemplateResponse(
+        request, "studio/tendances.html",
+        _contexte_app("tendances", request, transcription_pro={
+            "autorisee": account.tendances_transcription_autorisee(compte),
+            "disponible": transcribe.available(),
+        }),
+    )
+
+
 # --- Environnement --------------------------------------------------------
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
@@ -1360,8 +1418,12 @@ async def update_settings(request: Request, project_id: str, body: SettingsIn):
     data["music_volume"] = max(0.0, min(1.0, data["music_volume"]))
     data["mask_height_ratio"] = max(0.05, min(0.6, data["mask_height_ratio"]))
     data["source_audio_volume"] = max(0.0, min(1.0, data["source_audio_volume"]))
+    data["voice_volume"] = max(0.0, min(1.5, data["voice_volume"]))
     if data["mask_mode"] not in ("blur", "black"):
         data["mask_mode"] = "blur"
+    if data["framing"] not in ("fill", "fit"):
+        data["framing"] = "fill"
+    data["focus_x"] = max(0.0, min(1.0, data["focus_x"]))
     if data["subtitle_preset"] not in config.SUBTITLE_PRESETS:
         data["subtitle_preset"] = config.DEFAULT_SUBTITLE_PRESET
     # La formule décide, pas la requête : sans ce contrôle, un style réservé
@@ -1448,6 +1510,64 @@ async def save_script(request: Request, project_id: str, body: ScriptIn):
     return _project_payload(project)
 
 
+# --- Étape 4 en mode une seule vidéo : le texte de la vidéo ---------------
+class TexteIn(BaseModel):
+    texte: str | None = None      # None : ne rien changer, seulement avancer
+    # Voix off facultative : le texte que la voix lira. None : inchangé ;
+    # vide : plus de voix off, la vidéo garde son seul son d'origine.
+    voix_off: str | None = None
+
+
+@app.post("/api/projects/{project_id}/transcription")
+async def transcrire(request: Request, project_id: str):
+    """Écoute la vidéo et en tire le texte des sous-titres."""
+    project = _get(project_id, request)
+    _require_idle(project)
+    if not project.solo:
+        raise HTTPException(
+            status_code=400,
+            detail="La transcription concerne le mode une seule vidéo.")
+    if not transcribe.available():
+        raise HTTPException(
+            status_code=503,
+            detail="Moteur de transcription indisponible : "
+                   f"{transcribe.raison_indisponible()}. Tu peux écrire le "
+                   "texte à la main.")
+    _start_job(project, "transcribe", "Écoute de la vidéo…")
+    _spawn(pipeline.run_transcription, project)
+    return _project_payload(project)
+
+
+@app.post("/api/projects/{project_id}/transcription/texte")
+async def corriger_le_texte(request: Request, project_id: str, body: TexteIn):
+    """Enregistre le texte corrigé, recalé sur le minutage de la vidéo.
+
+    Un texte vide est permis : c'est « pas de sous-titres pour cette vidéo ».
+    Sans texte du tout, rien n'est modifié : l'étape est simplement franchie."""
+    project = _get(project_id, request)
+    _require_idle(project)
+    if not project.solo:
+        raise HTTPException(
+            status_code=400,
+            detail="Le texte ne se corrige que sur une vidéo seule.")
+    if body.texte is not None:
+        source = project.ready_sources[0]
+        anciens = [voice.Word(**mot) for mot in project.transcript_words]
+        mots = solo.realigner(anciens, body.texte, source.duration)
+        project.transcript_words = [mot.to_dict() for mot in mots]
+        project.transcript_done = True
+    if body.voix_off is not None:
+        project.script = scriptgen.tidy(body.voix_off)
+    project.step = max(project.step, 5)
+    project.save()
+    # Comme pour le script du montage : la voix se fabrique pendant que
+    # l'utilisateur lit son récapitulatif.
+    if (body.voix_off is not None and project.script.strip()
+            and project.job.state != "running"):
+        _spawn(pipeline.prechauffer_la_voix, project)
+    return _project_payload(project)
+
+
 @app.post("/api/projects/{project_id}/variante")
 async def variante(request: Request, project_id: str):
     """Repart des mêmes vidéos pour essayer autre chose.
@@ -1492,10 +1612,12 @@ async def render(request: Request, project_id: str,
             detail="Le style de sous-titres de ce projet demande la formule "
                    "Créateur. Choisis-en un autre à l'étape Style.",
         )
-    if not project.script.strip() and project.settings.voice != voicestudio.VOICE_ID:
-        raise HTTPException(status_code=400, detail="Valide d'abord un script.")
     if not project.ready_sources:
         raise HTTPException(status_code=400, detail="Aucune vidéo source prête.")
+    # Une vidéo seule n'a pas besoin de script : ses paroles font foi.
+    if (not project.solo and not project.script.strip()
+            and project.settings.voice != voicestudio.VOICE_ID):
+        raise HTTPException(status_code=400, detail="Valide d'abord un script.")
     if project.hook_index is None:
         project.hook_index = (
             project.recommended_hook or project.ready_sources[0].index
@@ -1602,6 +1724,179 @@ async def cleanup(request: Request, project_id: str):
             shutil.rmtree(folder, ignore_errors=True)
     project.ensure_dirs()
     return {"freed_bytes": freed}
+
+
+# --- Trend Finder — API ------------------------------------------------
+@app.post("/api/tendances/recherche")
+async def tendances_recherche(request: Request, body: TendanceRechercheIn):
+    """Récupère les métadonnées réelles des vidéos dont l'utilisateur colle
+    les liens.
+
+    La recherche par mots-clés sur tout TikTok n'est pas connectée — voir
+    `docs/TENDANCES.md` — donc les champs mots-clés/hashtags/période/vues
+    filtrent ici les vidéos obtenues plutôt que d'interroger TikTok.
+    """
+    compte = _utilisateur(request)
+    liens = downloader.normalize_urls(body.liens)
+    if not liens:
+        raise HTTPException(status_code=400,
+                            detail="Colle au moins un lien de vidéo repérée.")
+    if len(liens) > trends.MAX_LIENS_RECHERCHE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {trends.MAX_LIENS_RECHERCHE} liens par recherche "
+                   f"({len(liens)} reçus).",
+        )
+    missing = media.ensure_tools()
+    if missing:
+        raise HTTPException(status_code=400,
+                            detail=f"Outil manquant : {', '.join(missing)}.")
+
+    videos = await asyncio.to_thread(trends.fetch_all, liens)
+    for video in videos:
+        if video.ok:
+            await asyncio.to_thread(trends.enregistrer_releve, compte.id, video)
+
+    depuis_le = body.depuis_le or trends.periode_vers_date(body.periode)
+    filtrees = trends.appliquer_filtres(
+        videos, mots_cles=body.mots_cles, hashtags=body.hashtags,
+        vues_min=body.vues_min, depuis_le=depuis_le, jusqu_au=body.jusqu_au,
+    )
+    avertissements = []
+    if body.pays:
+        avertissements.append(
+            "Le filtre pays n'est pas applicable : TikTok ne communique pas "
+            "l'origine géographique d'une vidéo par cette méthode."
+        )
+    return {
+        "videos": [v.to_dict() for v in filtrees],
+        "total_recu": len(videos),
+        "total_apres_filtres": len(filtrees),
+        "echecs": [v.to_dict() for v in videos if not v.ok],
+        "avertissements": avertissements,
+    }
+
+
+@app.get("/api/tendances/pepites")
+async def tendances_pepites(request: Request):
+    compte = _utilisateur(request)
+    return {"pepites": await asyncio.to_thread(trends.pepites, compte.id)}
+
+
+@app.get("/api/tendances/hashtags")
+async def tendances_hashtags(request: Request):
+    """Hashtags observés dans les recherches passées de ce compte — pas un
+    classement TikTok, voir `docs/TENDANCES.md`."""
+    compte = _utilisateur(request)
+    return {"hashtags": await asyncio.to_thread(trends.hashtags_observes, compte.id)}
+
+
+@app.post("/api/tendances/analyser")
+async def tendances_analyser(request: Request, body: TendanceAnalyseIn):
+    compte = _utilisateur(request)
+    liens = downloader.normalize_urls(body.url)
+    if not liens:
+        raise HTTPException(status_code=400, detail="Lien de vidéo invalide.")
+    missing = media.ensure_tools()
+    if missing:
+        raise HTTPException(status_code=400,
+                            detail=f"Outil manquant : {', '.join(missing)}.")
+
+    # Un sous-dossier par vidéo (empreinte du lien) : deux analyses lancées
+    # en même temps par le même compte n'écrivent jamais au même endroit.
+    empreinte = hashlib.sha256(liens[0].encode("utf-8")).hexdigest()[:16]
+    dossier = compte.dossier / "tendances" / "analyses" / empreinte
+    avec_transcription = (account.tendances_transcription_autorisee(compte)
+                          and transcribe.available())
+    try:
+        analyse = await asyncio.to_thread(
+            trends.analyser_video, liens[0], dossier=dossier,
+            avec_transcription=avec_transcription,
+        )
+    except media.MediaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if analyse.video.ok:
+        await asyncio.to_thread(trends.enregistrer_releve, compte.id, analyse.video)
+    return analyse.to_dict()
+
+
+@app.post("/api/tendances/inspirer")
+async def tendances_inspirer(request: Request, body: TendanceInspirationIn):
+    _utilisateur(request)
+    try:
+        idee = await asyncio.to_thread(
+            scriptgen.inspirer_depuis_tendance, body.caracteristiques)
+    except scriptgen.ScriptError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"idee": idee}
+
+
+@app.get("/api/tendances/sauvegardes")
+async def tendances_sauvegardes(request: Request, type: str | None = None):
+    compte = _utilisateur(request)
+    return {"sauvegardes": await asyncio.to_thread(
+        trends.sauvegardes, compte.id, type_=type)}
+
+
+@app.post("/api/tendances/sauvegardes")
+async def tendances_sauvegarder(request: Request, body: TendanceSauvegardeIn):
+    compte = _utilisateur(request)
+    try:
+        sauvegarde = await asyncio.to_thread(
+            trends.sauvegarder, compte.id, body.type, body.reference,
+            libelle=body.libelle, donnees=body.donnees,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return sauvegarde
+
+
+@app.delete("/api/tendances/sauvegardes/{sauvegarde_id}")
+async def tendances_sauvegarde_supprimer(request: Request, sauvegarde_id: int):
+    compte = _utilisateur(request)
+    trouve = await asyncio.to_thread(
+        trends.supprimer_sauvegarde, compte.id, sauvegarde_id)
+    if not trouve:
+        raise HTTPException(status_code=404, detail="Sauvegarde introuvable.")
+    return {"ok": True}
+
+
+@app.get("/api/tendances/veille")
+async def tendances_veille_liste(request: Request):
+    compte = _utilisateur(request)
+    return {"surveillances": await asyncio.to_thread(trends.surveillances, compte.id)}
+
+
+@app.post("/api/tendances/veille")
+async def tendances_veille_creer(request: Request, body: TendanceVeilleIn):
+    """Enregistre l'intention de surveiller une recherche.
+
+    Aucun ordonnanceur ne tourne encore : `trends.verifier_surveillances()`
+    est prête à être appelée par un futur cron, mais rien ne le fait
+    aujourd'hui. La surveillance créée est donc en attente, pas active — la
+    réponse et l'interface le disent.
+    """
+    compte = _utilisateur(request)
+    liens = downloader.normalize_urls(body.liens)
+    if not liens:
+        raise HTTPException(status_code=400,
+                            detail="La veille demande au moins un lien à surveiller.")
+    surveillance = await asyncio.to_thread(
+        trends.creer_surveillance, compte.id,
+        body.libelle or "Veille sans nom", {"liens": liens},
+        frequence_heures=body.frequence_heures,
+    )
+    return surveillance
+
+
+@app.delete("/api/tendances/veille/{surveillance_id}")
+async def tendances_veille_supprimer(request: Request, surveillance_id: int):
+    compte = _utilisateur(request)
+    trouve = await asyncio.to_thread(
+        trends.supprimer_surveillance, compte.id, surveillance_id)
+    if not trouve:
+        raise HTTPException(status_code=404, detail="Surveillance introuvable.")
+    return {"ok": True}
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
