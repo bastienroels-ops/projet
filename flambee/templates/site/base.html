@@ -13,7 +13,7 @@
      l'inverse. Les deux sont donc là. #}
   <link rel="apple-touch-icon" href="/static/icone-180.png">
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <meta name="description" content="{% block description %}Flambée transforme plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.{% endblock %}">
+  <meta name="description" content="{% block description %}Flambée transforme une ou plusieurs vidéos sources en une vidéo verticale prête à publier : montage, voix, sous-titres animés.{% endblock %}">
   <title>{% block title %}Flambée{% endblock %}</title>
 
   <!-- Aperçu lors d'un partage : sans ces balises, le lien s'affiche nu. -->
@@ -57,28 +57,42 @@
 <div class="vignette" aria-hidden="true"></div>
 <div class="progression" id="progression" aria-hidden="true"></div>
 
+<a class="lien-evitement" href="#contenu">Aller au contenu</a>
+
+{# L'en-tête. Sur grand écran : la marque, trois liens, puis à droite la
+   connexion et l'appel principal. Sur téléphone, l'appel sort du menu et
+   reste dans la barre, à côté du bouton : c'est le geste qui compte, il ne
+   doit pas se cacher derrière un menu qu'il faut d'abord ouvrir. #}
 <header class="site-header">
-  <a class="brand" href="/">{{ icone("flamme", classe="flamme") }} Flambée</a>
-  <nav class="site-nav" id="site-nav">
-    <a href="/fonctionnalites" {% if page == 'fonctionnalites' %}class="courant"{% endif %}>Fonctionnalités</a>
-    <a href="/tarifs" {% if page == 'tarifs' %}class="courant"{% endif %}>Tarifs</a>
-    <a href="/faq" {% if page == 'faq' %}class="courant"{% endif %}>Questions</a>
+  <a class="brand" href="/" aria-label="Flambée — accueil">{{ icone("flamme", classe="flamme") }} Flambée</a>
+  <nav class="site-nav" id="site-nav" aria-label="Navigation principale">
+    <a href="/fonctionnalites" {% if page == 'fonctionnalites' %}class="courant" aria-current="page"{% endif %}>Fonctionnalités</a>
+    <a href="/tarifs" {% if page == 'tarifs' %}class="courant" aria-current="page"{% endif %}>Tarifs</a>
+    <a href="/faq" {% if page == 'faq' %}class="courant" aria-current="page"{% endif %}>Questions</a>
     {% if connecte %}
-    <a href="/studio/profil">{{ connecte.nom or connecte.email }}</a>
-    <a href="/studio" class="button primary petit">Ouvrir l'atelier</a>
+    <a href="/studio/profil" class="nav-droite">{{ connecte.nom or connecte.email }}</a>
+    <span class="nav-cta-bureau"><a href="/studio" class="button primary petit">Ouvrir l'atelier</a></span>
     {% else %}
-    <a href="/connexion" {% if page == 'connexion' %}class="courant"{% endif %}>Connexion</a>
+    <a href="/connexion" class="nav-droite{% if page == 'connexion' %} courant{% endif %}">Connexion</a>
     {% if inscriptions %}
-    <a href="/inscription" class="button primary petit">Créer un compte</a>
+    <span class="nav-cta-bureau"><a href="/inscription" class="button primary petit">Essayer gratuitement</a></span>
     {% endif %}
     {% endif %}
   </nav>
-  <button class="menu-bouton" id="menu-bouton" aria-label="Menu" aria-expanded="false">
+  {% if connecte %}
+  <a href="/studio" class="button primary petit entete-cta">Atelier</a>
+  {% elif inscriptions %}
+  <a href="/inscription" class="button primary petit entete-cta"><span>Essayer<span class="entete-cta-suite"> gratuitement</span></span></a>
+  {% endif %}
+  <button class="menu-bouton" id="menu-bouton" type="button" aria-label="Menu"
+          aria-expanded="false" aria-controls="site-nav">
     <span></span><span></span>
   </button>
 </header>
 
+<main id="contenu" class="site-main">
 {% block contenu %}{% endblock %}
+</main>
 
 <footer class="site-footer">
   <div class="footer-grille">
@@ -86,26 +100,30 @@
       <div class="brand">{{ icone("flamme", classe="flamme") }} Flambée</div>
       <p>L'atelier qui transforme des vidéos éparses en un format vertical
          qui tient en haleine.</p>
+      {% if connecte %}
+      <a href="/studio" class="button primary petit footer-cta">Ouvrir l'atelier</a>
+      {% elif inscriptions %}
+      <a href="/inscription" class="button primary petit footer-cta">Essayer gratuitement</a>
+      {% endif %}
     </div>
-    <div>
+    <nav aria-label="Produit">
       <h4>Produit</h4>
       <a href="/fonctionnalites">Fonctionnalités</a>
       <a href="/tarifs">Tarifs</a>
       <a href="/studio">Ouvrir l'atelier</a>
-    </div>
-    <div>
+    </nav>
+    <nav aria-label="Compte et aide">
       <h4>Aide</h4>
       <a href="/faq">Questions fréquentes</a>
       <a href="/connexion">Connexion</a>
       {% if inscriptions %}<a href="/inscription">Créer un compte</a>{% endif %}
-      <a href="/studio">Ouvrir l'atelier</a>
-    </div>
-    <div>
+    </nav>
+    <nav aria-label="Cadre légal">
       <h4>Cadre légal</h4>
       <a href="/mentions-legales">Mentions légales</a>
       <a href="/conditions">Conditions d'utilisation</a>
       <a href="/confidentialite">Confidentialité</a>
-    </div>
+    </nav>
   </div>
   <div class="footer-bas">
     <span>© {{ annee }} Flambée</span>

@@ -326,12 +326,28 @@ _APPEL = (
     '  <a href="/#essayage" class="button primary grand">Essayer les sous-titres</a>\n'
     "</section>")
 
+# L'accueil a sa propre version du dernier appel : la même promesse, mais dans
+# le cadre à halos de la landing. Sans elle, la vitrine retomberait sur le
+# bandeau des pages intérieures — deux identités pour un seul site.
+_APPEL_ACCUEIL = (
+    '<section class="appel lp-final" aria-labelledby="final-titre">\n'
+    '  <div class="lp-final-fond" aria-hidden="true"></div>\n'
+    '  <p class="eyebrow">À toi de jouer</p>\n'
+    '  <h2 id="final-titre">Sers-toi, <em>c\'est gratuit</em>.</h2>\n'
+    "  <p>Pas de compte, pas de formule, rien à payer. Les six écritures de\n"
+    "     sous-titres et le test de l'accroche sont là, ouverts à tout le\n"
+    "     monde, et le resteront.</p>\n"
+    '  <div class="lp-final-actions">\n'
+    '    <a href="/#essayage" class="button primary grand">Essayer les sous-titres</a>\n'
+    "  </div>\n"
+    "</section>")
+
 # Les blocs entiers que la vitrine gratuite n'a pas lieu de montrer.
 # La clause d'abonnement renvoie à une page de tarifs qui n'existe plus et
 # décrit une facturation qui n'a pas lieu : la laisser serait plus trompeur
 # que de l'ôter. Une clause la remplace, qui dit ce qu'il en est vraiment.
 _A_RETIRER = (
-    r'<section class="section section-tarifs">.*?</section>',
+    r'<section class="section section-tarifs"[^>]*>.*?</section>',
     r'<a href="/tarifs"[^>]*>.*?</a>',
 )
 
@@ -360,6 +376,11 @@ def _en_vitrine(html: str) -> str:
         if "formule=" in m.group(2):
             return ""
         classes = _CLASSE.search(avant + apres)
+        # L'appel de la barre mobile n'a de place que pour deux mots : « Voir la
+        # démonstration » y débordait. Le bouton du menu et celui du bas de
+        # page portent déjà la même invitation.
+        if classes and "entete-cta" in classes.group(1):
+            return ""
         if classes and "button" in classes.group(1):
             return (f'<a href="/#essayage" class="{classes.group(1)}">'
                     f"Voir la démonstration</a>")
@@ -386,7 +407,7 @@ def _en_vitrine(html: str) -> str:
     # Le navigateur dessine le texte : la saisie libre fonctionne, et
     # l'accroche peut de nouveau y inviter — en disant d'où vient quoi.
     html = re.sub(
-        r'<p class="section-accroche">Six écritures\. Tape ce que tu veux.*?</p>',
+        r'<p class="section-accroche">(?:Six|\d+) écritures\. Tape ce que tu veux.*?</p>',
         '<p class="section-accroche">Six écritures. Tape ce que tu veux : le '
         "fond est une vraie image du moteur vidéo, et ton navigateur y dessine "
         "le texte avec la police, la taille et les couleurs exactes du rendu.</p>",
@@ -394,6 +415,8 @@ def _en_vitrine(html: str) -> str:
     for promesse, honnete in _PROMESSES.items():
         html = html.replace(promesse, honnete)
     html = re.sub(r'<section class="appel">.*?</section>', _APPEL, html, flags=re.S)
+    html = re.sub(r'<section class="appel lp-final"[^>]*>.*?</section>',
+                  lambda _: _APPEL_ACCUEIL, html, flags=re.S)
     return html
 
 

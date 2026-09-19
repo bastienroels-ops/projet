@@ -1,19 +1,27 @@
 {% extends "site/base.html" %}
 {% block title %}Flambée — des vidéos courtes qui tiennent en haleine{% endblock %}
 
+{# La landing. Tout ce qui est donnée vient du backend — `steps`, `duel`,
+   `presets`, `features`, `plans` — et rien n'y est réécrit en dur. Ne sont
+   écrits ici que les textes de mise en page. Aucun chiffre de performance,
+   aucun témoignage, aucun logo de tiers : ce que la page montre, l'outil le
+   fait, et la vidéo de démonstration est un rendu réel du moteur. #}
+
 {% block contenu %}
-<section class="hero">
+
+{# ---------------------------------------------------------------- Hero --- #}
+<section class="hero" id="haut" aria-labelledby="hero-titre">
   <div class="hero-texte">
-    <p class="eyebrow">Montage vertical automatisé</p>
-    <h1>Trois vidéos.<br>Une voix.<br><em>Une vidéo qui prend.</em></h1>
+    <p class="lp-badge"><span class="lp-badge-point" aria-hidden="true"></span>Montage vertical automatisé</p>
+    <h1 id="hero-titre">Des vidéos courtes,<br><em>montées pour toi.</em></h1>
     <p class="hero-accroche">
-      Tu donnes des liens. Flambée choisit l'accroche, coupe au bon endroit,
-      pose la voix et les sous-titres, mixe le son. Tu récupères un fichier
-      prêt à publier.
+      Tu donnes des liens ou des fichiers. Flambée choisit l'accroche, coupe au
+      bon endroit, pose la voix off et les sous-titres animés, mixe le son. Tu
+      récupères une vidéo verticale, prête à publier.
     </p>
 
     <ul class="hero-capacites">
-      <li>{{ icone("lien", taille=16) }}<span>2 à 5 sources, liens ou fichiers</span></li>
+      <li>{{ icone("lien", taille=16) }}<span>1 à 5 sources, liens ou fichiers</span></li>
       <li>{{ icone("eclair", taille=16) }}<span>Accroche repérée automatiquement</span></li>
       <li>{{ icone("micro", taille=16) }}<span>Voix IA et sous-titres au mot</span></li>
       <li>{{ icone("note", taille=16) }}<span>Musique mixée toute seule</span></li>
@@ -22,100 +30,222 @@
 
     <div class="hero-actions">
       <a href="/inscription" class="button primary grand">
-        Créer ma vidéo
+        Créer ma première vidéo
         {{ icone("chevron", taille=16, classe="bouton-fleche") }}
       </a>
-      <a href="/tarifs" class="button ghost grand">Voir les tarifs</a>
+      <a href="#workflow" class="button ghost grand">Voir comment ça marche</a>
     </div>
     <p class="hero-note">Essai gratuit — aucune carte bancaire demandée.</p>
   </div>
 
+  {# Le produit, autour de la vraie démonstration. La fenêtre et son rail sont
+     une mise en scène — la vidéo, elle, est le rendu réel du moteur. #}
   <div class="hero-visuel">
-    <div class="scene">
-      <div class="telephone">
-        <video id="hero-video" muted loop autoplay playsinline preload="auto"
-               poster="/api/demo/poster" src="/api/demo"></video>
-        <div class="telephone-reflet"></div>
+    <div class="lp-fenetre">
+      <div class="lp-barre" aria-hidden="true">
+        <i></i><i></i><i></i><span>Atelier Flambée</span>
       </div>
-      <!-- Deux jalons qui racontent le montage sans un mot de plus. -->
-      <div class="jeton jeton-haut">
-        <span class="jeton-point"></span>Accroche choisie
-      </div>
-      <div class="jeton jeton-bas">
-        <span class="jeton-point"></span>Sous-titres calés au mot
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="bande">
-  <p>« Le montage tue plus d'idées que le manque d'idées. »</p>
-</section>
-
-{# La convergence. Le titre annonce « trois vidéos, une vidéo » ; cette
-   section le montre au lieu de le dire. Le conteneur est haut et la scène y
-   reste collée : le défilement devient le temps du récit. #}
-{# La séquence. Cinq actes, un seul décor : le conteneur est haut, la scène y
-   reste collée, et le défilement devient le temps du récit. Elle remplace à la
-   fois l'ancienne liste « Cinq étapes » — une énumération numérotée pour la
-   partie la plus importante du site — et la convergence, qui racontait la même
-   chose une seconde fois. #}
-<section class="sequence" id="sequence" aria-labelledby="sequence-titre">
-  <div class="sequence-piste">
-    <div class="sequence-cadre">
-
-      <div class="sequence-texte">
-        <p class="eyebrow">Comment ça marche</p>
-        <h2 id="sequence-titre">Cinq étapes,<br><em>pas une de plus</em>.</h2>
-        <ol class="sequence-liste">
+      <div class="lp-fenetre-corps">
+        <ol class="lp-rail" aria-hidden="true">
           {% for etape in steps %}
-          <li data-acte="{{ loop.index0 }}"{% if loop.first %} class="actif"{% endif %}>
-            <span class="sequence-numero">{{ etape.number }}</span>
-            <div>
-              <b>{{ etape.title }}</b>
-              <span>{{ etape.body }}</span>
-            </div>
-          </li>
+          <li{% if loop.index == 3 %} class="actif"{% endif %}><b>{{ etape.number }}</b><span>{{ etape.title }}</span></li>
           {% endfor %}
         </ol>
-      </div>
-
-      <div class="sequence-plateau" aria-hidden="true">
-        <article class="source source-1">
-          <span class="source-etiquette">Source 1</span>
-          <span class="source-note"><i style="--part:.62"></i>62</span>
-        </article>
-        <article class="source source-2">
-          <span class="source-etiquette">Source 2</span>
-          <span class="source-note"><i style="--part:.91"></i>91</span>
-          <span class="source-retenue"><i>Accroche </i>retenue</span>
-        </article>
-        <article class="source source-3">
-          <span class="source-etiquette">Source 3</span>
-          <span class="source-note"><i style="--part:.44"></i>44</span>
-        </article>
-
-        <div class="montage">
-          <div class="montage-cadre">
-            <div class="montage-bande"></div>
-            <div class="montage-script">
-              <span></span><span></span><span></span>
-            </div>
-            <span class="montage-soustitre">personne <b>ne connaît</b></span>
+        <div class="lp-scene">
+          <div class="lp-tel">
+            <video id="hero-video" muted loop autoplay playsinline preload="auto"
+                   poster="/api/demo/poster" src="/api/demo"
+                   aria-label="Démonstration : une vidéo verticale sous-titrée, rendue par Flambée"></video>
+            <div class="lp-tel-reflet" aria-hidden="true"></div>
           </div>
-          <span class="montage-etiquette">1080 × 1920 · prêt à publier</span>
+          <button type="button" class="lp-lecteur" data-lecteur="hero-video"
+                  aria-label="Mettre la vidéo en pause" aria-pressed="false">
+            <span class="lp-lecteur-pause">{{ icone("pause", taille=15) }}</span>
+            <span class="lp-lecteur-lecture">{{ icone("lecture", taille=15) }}</span>
+          </button>
         </div>
       </div>
-
+      <!-- Deux jalons qui racontent le montage sans un mot de plus. -->
+      <div class="lp-jeton lp-jeton-haut" aria-hidden="true">
+        <span class="lp-jeton-point"></span>Accroche choisie
+      </div>
+      <div class="lp-jeton lp-jeton-bas" aria-hidden="true">
+        <span class="lp-jeton-point"></span>Sous-titres calés au mot
+      </div>
     </div>
   </div>
 </section>
 
+{# Quatre faits vérifiables, pas des mesures : le format, la sortie, le nombre
+   de styles réellement proposés, et rien à installer. #}
+<section class="chiffres" aria-label="En bref">
+  <div class="chiffres-grille">
+    <div><b>9:16</b><span>Format vertical natif</span></div>
+    <div><b>1080p</b><span>Résolution de sortie</span></div>
+    <div><b>{{ presets|length }}</b><span>Styles de sous-titres</span></div>
+    <div><b>0</b><span>Logiciel à installer</span></div>
+  </div>
+</section>
 
-{# Le test de l'accroche. La séquence vient de montrer Flambée choisir entre
-   trois sources ; ici le visiteur choisit lui-même, et découvre le critère.
-   Les six accroches sont des exemples écrits pour la démonstration : elles
-   illustrent ce que le moteur cherche, elles ne rapportent aucune mesure. #}
+{# ------------------------------------------------- Problème → solution --- #}
+<section class="section lp-section" id="probleme" aria-labelledby="probleme-titre">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Le problème</p>
+    <h2 id="probleme-titre">Le montage mange <em>le temps de créer</em>.</h2>
+    <p class="section-accroche">Une vidéo courte se joue en quelques secondes, mais
+      la fabriquer prend des heures de tâches qui n'ont rien de créatif. Voilà
+      ce que Flambée prend en charge.</p>
+  </div>
+
+  <ul class="lp-pb-liste">
+    <li class="lp-pb" data-rev>
+      <div class="lp-pb-avant">
+        <span class="sr-only">Sans Flambée : </span>
+        <b>Un montage qui n'en finit pas</b>
+        <p>Chercher où couper, quel début garder, sur quel plan enchaîner.</p>
+      </div>
+      <span class="lp-pb-fleche" aria-hidden="true">{{ icone("chevron", taille=18) }}</span>
+      <div class="lp-pb-apres">
+        <span class="sr-only">Avec Flambée : </span>
+        <b>Des coupes qui tombent juste</b>
+        <p>Les changements de plan sont détectés, et l'accroche la plus percutante de tes sources t'est proposée en tête.</p>
+      </div>
+    </li>
+    <li class="lp-pb" data-rev>
+      <div class="lp-pb-avant">
+        <span class="sr-only">Sans Flambée : </span>
+        <b>Des sous-titres à caler à la main</b>
+        <p>Mot par mot, image par image, dans une police qu'il faut aussi choisir.</p>
+      </div>
+      <span class="lp-pb-fleche" aria-hidden="true">{{ icone("chevron", taille=18) }}</span>
+      <div class="lp-pb-apres">
+        <span class="sr-only">Avec Flambée : </span>
+        <b>Des sous-titres au mot près</b>
+        <p>Chaque mot s'allume quand il est prononcé, en {{ presets|length }} styles prêts à l'emploi.</p>
+      </div>
+    </li>
+    <li class="lp-pb" data-rev>
+      <div class="lp-pb-avant">
+        <span class="sr-only">Sans Flambée : </span>
+        <b>Une voix off à enregistrer</b>
+        <p>Trouver le calme, refaire les prises, nettoyer le son.</p>
+      </div>
+      <span class="lp-pb-fleche" aria-hidden="true">{{ icone("chevron", taille=18) }}</span>
+      <div class="lp-pb-apres">
+        <span class="sr-only">Avec Flambée : </span>
+        <b>Une voix off de synthèse</b>
+        <p>Des voix françaises neuronales, et un script que tu peux modifier jusqu'au bout.</p>
+      </div>
+    </li>
+    <li class="lp-pb" data-rev>
+      <div class="lp-pb-avant">
+        <span class="sr-only">Sans Flambée : </span>
+        <b>Un formatage pour chaque plateforme</b>
+        <p>Recadrer, redimensionner, masquer ce qui gêne, exporter — encore.</p>
+      </div>
+      <span class="lp-pb-fleche" aria-hidden="true">{{ icone("chevron", taille=18) }}</span>
+      <div class="lp-pb-apres">
+        <span class="sr-only">Avec Flambée : </span>
+        <b>Vertical par construction</b>
+        <p>Tout est pensé pour le 9:16 en 1080 × 1920 : recadrage centré, sous-titres d'origine masqués.</p>
+      </div>
+    </li>
+    <li class="lp-pb" data-rev>
+      <div class="lp-pb-avant">
+        <span class="sr-only">Sans Flambée : </span>
+        <b>Tout recommencer à chaque vidéo</b>
+        <p>Les mêmes gestes, les mêmes réglages, les mêmes exports, semaine après semaine.</p>
+      </div>
+      <span class="lp-pb-fleche" aria-hidden="true">{{ icone("chevron", taille=18) }}</span>
+      <div class="lp-pb-apres">
+        <span class="sr-only">Avec Flambée : </span>
+        <b>Une seule passe</b>
+        <p>Découpe, recadrage, montage, sous-titres et mixage tiennent dans un seul encodage.</p>
+      </div>
+    </li>
+  </ul>
+</section>
+
+{# ----------------------------------------------------- Avant / après --- #}
+{# Le « avant » est une illustration d'une source brute typique — un plan
+   horizontal, sans sous-titres, au son non traité. Le « après » montre un
+   vrai rendu du moteur : c'est l'affiche de la démonstration. #}
+<section class="section lp-section" id="avant-apres" aria-labelledby="avant-apres-titre">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Avant / après</p>
+    <h2 id="avant-apres-titre">D'une source brute à <em>une vidéo qui se regarde</em>.</h2>
+    <p class="section-accroche">À gauche, ce que tu as en entrée. À droite, ce que
+      tu récupères.</p>
+  </div>
+
+  <div class="lp-ba">
+    <article class="lp-ba-carte lp-ba-avant" data-rev>
+      <p class="lp-ba-etat">Avant</p>
+      <div class="lp-brut" role="img"
+           aria-label="Illustration : une vidéo brute, horizontale, sans sous-titres">
+        <span class="lp-brut-lecture">{{ icone("lecture", taille=26) }}</span>
+        <span class="lp-brut-format">16:9</span>
+      </div>
+      <div class="lp-onde lp-onde-brute" aria-hidden="true">
+        <i style="--h:.30"></i><i style="--h:.72"></i><i style="--h:.18"></i><i style="--h:.55"></i><i style="--h:.90"></i><i style="--h:.22"></i><i style="--h:.64"></i><i style="--h:.12"></i><i style="--h:.80"></i><i style="--h:.36"></i><i style="--h:.94"></i><i style="--h:.26"></i><i style="--h:.58"></i><i style="--h:.16"></i><i style="--h:.70"></i><i style="--h:.40"></i><i style="--h:.86"></i><i style="--h:.20"></i><i style="--h:.62"></i><i style="--h:.28"></i>
+      </div>
+      <ul class="lp-liste lp-liste-non">
+        <li>Vidéo brute, telle qu'enregistrée</li>
+        <li>Aucun sous-titre</li>
+        <li>Son non optimisé</li>
+        <li>Format horizontal</li>
+      </ul>
+    </article>
+
+    <span class="lp-ba-fleche" aria-hidden="true">{{ icone("chevron", taille=22) }}</span>
+
+    <article class="lp-ba-carte lp-ba-apres" data-rev>
+      <p class="lp-ba-etat">Après</p>
+      <div class="lp-tel lp-tel-petit">
+        <img src="/api/demo/poster" width="404" height="718" loading="lazy" decoding="async"
+             alt="Un vrai rendu Flambée : vidéo verticale avec sous-titres animés">
+        <div class="lp-tel-reflet" aria-hidden="true"></div>
+      </div>
+      <div class="lp-onde lp-onde-nette" aria-hidden="true">
+        <i style="--h:.42"></i><i style="--h:.58"></i><i style="--h:.66"></i><i style="--h:.60"></i><i style="--h:.72"></i><i style="--h:.64"></i><i style="--h:.56"></i><i style="--h:.68"></i><i style="--h:.74"></i><i style="--h:.62"></i><i style="--h:.54"></i><i style="--h:.66"></i><i style="--h:.70"></i><i style="--h:.60"></i><i style="--h:.52"></i><i style="--h:.64"></i><i style="--h:.68"></i><i style="--h:.58"></i><i style="--h:.50"></i><i style="--h:.60"></i>
+      </div>
+      <ul class="lp-liste lp-liste-oui">
+        <li>Vidéo montée, coupes calées sur les plans</li>
+        <li>Sous-titres animés, mot par mot</li>
+        <li>Voix off et musique mixées</li>
+        <li>Rendu vertical, 1080 × 1920</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+{# ------------------------------------------------------------ Workflow --- #}
+<section class="section lp-section" id="workflow" aria-labelledby="workflow-titre">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Comment ça marche</p>
+    <h2 id="workflow-titre">Cinq étapes, <em>pas une de plus</em>.</h2>
+    <p class="section-accroche">De la matière brute au fichier prêt à publier, chaque
+      étape se règle dans l'atelier et se relit avant le rendu.</p>
+  </div>
+
+  {% set icones_etapes = ["lien", "eclair", "sous-titres", "document", "film"] %}
+  <ol class="lp-flux">
+    {% for etape in steps %}
+    <li class="lp-etape" data-rev>
+      <span class="lp-etape-num" aria-hidden="true">{{ etape.number }}</span>
+      <span class="lp-etape-icone">{{ icone(icones_etapes[loop.index0] if loop.index0 < icones_etapes|length else "flamme", taille=22) }}</span>
+      <h3>{{ etape.title }}</h3>
+      <p>{{ etape.body }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+{# Le test de l'accroche. Le flux vient de montrer Flambée choisir entre
+   plusieurs sources ; ici le visiteur choisit lui-même, et découvre le
+   critère. Les six accroches sont des exemples écrits pour la démonstration :
+   elles illustrent ce que le moteur cherche, elles ne rapportent aucune
+   mesure. #}
 <section class="section duel" id="duel" aria-labelledby="duel-titre">
   <p class="eyebrow">Le test de l'accroche</p>
   <h2 id="duel-titre">Deux accroches. <em>Une seule retient.</em></h2>
@@ -154,12 +284,15 @@
   </p>
 </section>
 
-<section class="section" id="styles">
-  <p class="eyebrow">Les sous-titres</p>
-  <h2>Écris ta phrase, <em>vois-la s'allumer</em>.</h2>
-  <p class="section-accroche">Six écritures. Tape ce que tu veux : le clip
-    ci-dessous est calculé par le moteur vidéo lui-même, pas imité en HTML.
-    C'est très exactement ce que produira ton montage.</p>
+{# ---------------------------------------------------------- Sous-titres --- #}
+<section class="section lp-section" id="styles" aria-labelledby="styles-titre">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Les sous-titres</p>
+    <h2 id="styles-titre">Écris ta phrase, <em>vois-la s'allumer</em>.</h2>
+    <p class="section-accroche">{{ presets|length }} écritures. Tape ce que tu veux : le clip
+      ci-dessous est calculé par le moteur vidéo lui-même, pas imité en HTML.
+      C'est très exactement ce que produira ton montage.</p>
+  </div>
 
   <div class="essayage" id="essayage">
     <label class="essayage-champ">
@@ -201,52 +334,93 @@
   </script>
 </section>
 
-<section class="chiffres">
-  <div class="chiffres-grille">
-    <div><b>9:16</b><span>Format vertical natif</span></div>
-    <div><b>1080p</b><span>Résolution de sortie</span></div>
-    <div><b>6</b><span>Styles de sous-titres</span></div>
-    <div><b>0</b><span>Logiciel à installer</span></div>
+{# ----------------------------------------------------- Fonctionnalités --- #}
+<section class="section lp-section" id="atouts" aria-labelledby="atouts-titre">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Fonctionnalités</p>
+    <h2 id="atouts-titre">Le soin est <em>dans les détails</em>.</h2>
+    <p class="section-accroche">Montage, voix, sous-titres, son, format : chaque étape
+      est automatisée, et aucune n'est verrouillée.</p>
   </div>
-</section>
-
-<section class="section" id="atouts">
-  <p class="eyebrow">Sous le capot</p>
-  <h2>Le soin est <em>dans les détails</em>.</h2>
-  <div class="atouts-grille">
+  <div class="lp-bento">
     {% for f in features %}
-    <article class="atout">
-      <span class="atout-icone">{{ icone(f.icon, taille=22) }}</span>
+    <article class="lp-carte" data-rev>
+      <span class="lp-carte-icone">{{ icone(f.icon, taille=22) }}</span>
       <h3>{{ f.title }}</h3>
       <p>{{ f.body }}</p>
     </article>
     {% endfor %}
   </div>
+  <p class="lp-suite"><a href="/fonctionnalites">Toutes les fonctionnalités {{ icone("chevron", taille=14, classe="bouton-fleche") }}</a></p>
 </section>
 
-<section class="section section-tarifs">
+{# ------------------------------------------------------------ Démonstration --- #}
+<section class="section lp-section lp-demo-section" id="demo" aria-labelledby="demo-titre">
+  <div class="lp-demo" data-rev>
+    <div class="lp-demo-texte">
+      <p class="eyebrow">La démonstration</p>
+      <h2 id="demo-titre">Regarde le rendu, <em>pas la promesse</em>.</h2>
+      <p class="section-accroche">Ce clip n'est pas une maquette : il est produit par le
+        moteur de Flambée, avec les mêmes polices, la même animation de
+        sous-titres et le même format que ta vidéo finale.</p>
+      <ul class="lp-liste lp-liste-oui">
+        <li>Sous-titres allumés mot par mot</li>
+        <li>Cadrage vertical 9:16, 1080 × 1920</li>
+        <li>Un rendu calculé, mis en cache, identique pour tous</li>
+      </ul>
+      <div class="lp-demo-actions">
+        <a href="/inscription" class="button primary grand">
+          Créer ma première vidéo
+          {{ icone("chevron", taille=16, classe="bouton-fleche") }}
+        </a>
+      </div>
+    </div>
+
+    <div class="lp-demo-scene">
+      <div class="lp-halo" aria-hidden="true"></div>
+      <div class="lp-tel lp-tel-grand">
+        {# Chargée à l'approche : la même vidéo est déjà en haut de page, et
+           un visiteur qui ne descend pas n'a pas à la tirer deux fois. #}
+        <video id="demo-video" muted loop autoplay playsinline preload="none"
+               poster="/api/demo/poster" data-src="/api/demo"
+               aria-label="Démonstration : une vidéo verticale sous-titrée, rendue par Flambée"></video>
+        <div class="lp-tel-reflet" aria-hidden="true"></div>
+      </div>
+      <button type="button" class="lp-lecteur lp-lecteur-texte" data-lecteur="demo-video"
+              aria-label="Mettre la vidéo en pause" aria-pressed="false">
+        <span class="lp-lecteur-pause">{{ icone("pause", taille=15) }} Pause</span>
+        <span class="lp-lecteur-lecture">{{ icone("lecture", taille=15) }} Lecture</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+{# --------------------------------------------------------------- Tarifs --- #}
+<section class="section section-tarifs" id="tarifs" aria-labelledby="tarifs-titre">
   <p class="eyebrow">Tarifs</p>
-  <h2>Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>
+  <h2 id="tarifs-titre">Commence gratuitement, <em>change d'avis quand tu veux</em>.</h2>
   {% include "site/_tarifs.html" %}
 </section>
 
-<section class="section">
-  <p class="eyebrow">Ce que Flambée ne fait pas</p>
-  <h2>Autant le dire <em>tout de suite</em>.</h2>
-  <p class="section-accroche">Un outil qui prétend tout faire ne fait rien de
-    bien. Voilà où s'arrête celui-ci.</p>
+<section class="section lp-section">
+  <div class="lp-tete" data-rev>
+    <p class="eyebrow">Ce que Flambée ne fait pas</p>
+    <h2>Autant le dire <em>tout de suite</em>.</h2>
+    <p class="section-accroche">Un outil qui prétend tout faire ne fait rien de
+      bien. Voilà où s'arrête celui-ci.</p>
+  </div>
   <div class="franchise">
-    <div>
+    <div data-rev>
       <h3>Il ne trouve pas les idées</h3>
       <p>Le sujet vient de toi. Flambée l'écrit, le met en voix et le monte —
         il ne devine pas ce qui intéressera ton audience.</p>
     </div>
-    <div>
+    <div data-rev>
       <h3>Il ne remplace pas un monteur</h3>
       <p>Pour un format court et rythmé, le résultat tient. Pour un film, une
         narration longue ou un montage d'auteur, prends un logiciel de montage.</p>
     </div>
-    <div>
+    <div data-rev>
       <h3>Il ne te donne aucun droit</h3>
       <p>Les vidéos que tu importes restent celles de leurs auteurs. Flambée
         ne te couvre pas si tu réutilises le travail d'un tiers sans son accord.</p>
@@ -254,13 +428,19 @@
   </div>
 </section>
 
-<section class="appel">
-  <h2>Ta prochaine vidéo est à <em>cinq minutes</em>.</h2>
-  <p>Crée ton compte, colle deux liens, regarde ce qu'il en sort.</p>
-  <a href="/inscription" class="button primary grand">
-    Créer ma vidéo
-    {{ icone("chevron", taille=16, classe="bouton-fleche") }}
-  </a>
+{# ------------------------------------------------------------ Appel final --- #}
+<section class="appel lp-final" aria-labelledby="final-titre">
+  <div class="lp-final-fond" aria-hidden="true"></div>
+  <p class="eyebrow">À toi de jouer</p>
+  <h2 id="final-titre">Prêt à créer ta <em>prochaine vidéo</em> ?</h2>
+  <p>Crée ton compte, colle un lien, regarde ce qu'il en sort.</p>
+  <div class="lp-final-actions">
+    <a href="/inscription" class="button primary grand">
+      Créer ma première vidéo
+      {{ icone("chevron", taille=16, classe="bouton-fleche") }}
+    </a>
+    <a href="/tarifs" class="button ghost grand">Voir les tarifs</a>
+  </div>
   <p class="appel-note">Gratuit jusqu'à trois vidéos par mois. Sans carte bancaire.</p>
 </section>
 
@@ -272,7 +452,7 @@
    les yeux. #}
 <div class="cta-mobile" id="cta-mobile" aria-hidden="true">
   <a href="/inscription" class="button primary">
-    Créer ma vidéo
+    Créer ma première vidéo
     {{ icone("chevron", taille=15, classe="bouton-fleche") }}
   </a>
 </div>
